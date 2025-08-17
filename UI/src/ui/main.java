@@ -4,6 +4,7 @@ import semulator.execution.ProgramExecutor;
 import semulator.execution.ProgramExecutorImpl;
 import semulator.instructions.*;
 import semulator.label.LabelImpl;
+import semulator.parsing.ProgramParsing;
 import semulator.program.SProgram;
 import semulator.program.SProgramImpl;
 import semulator.variable.Variable;
@@ -12,30 +13,55 @@ import semulator.variable.VariableType;
 
 public class main {
     public static void main(String[] args) {
-        Variable x1 = new VariableImpl(VariableType.INPUT, 1);
-        Variable z1 = new VariableImpl(VariableType.WORK, 1);
+//        Variable x1 = new VariableImpl(VariableType.INPUT, 1);
+//        Variable z1 = new VariableImpl(VariableType.WORK, 1);
+//
+//        LabelImpl l1 = new LabelImpl(1);
+//        LabelImpl l2 = new LabelImpl(1);
+//
+//        SInstruction increase = new IncreaseInstruction(x1, l1);
+//        SInstruction decrease = new DecreaseInstruction(z1, l2);
+//        SInstruction noop = new NoOpInstruction(Variable.RESULT);
+//        SInstruction jnz = new JumpNotZeroInstruction(x1, l2);
+//
+//        SProgram p = new SProgramImpl("test");
+//        p.addInstruction(increase);
+//        p.addInstruction(increase);
+//        p.addInstruction(decrease);
+//        p.addInstruction(jnz);
+//
+//        ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
+//        long result = programExecutor.run(3L, 6L, 2L);
+//        System.out.println(result);
+//        ;
+//
+//
+//        sanity();
+        ProgramParsing.PathCheckResult check = ProgramParsing.askPathAndCheckFromConsole();
+        if (!check.ok()) {
+            System.out.println("Path check failed:");
+            for (String e : check.errors()) System.out.println("  - " + e);
+            return;
+        }
 
-        LabelImpl l1 = new LabelImpl(1);
-        LabelImpl l2 = new LabelImpl(1);
+        // 2) Parse the XML into an in-memory program (no MDB commit here)
+        ProgramParsing.ParseResult parsed = ProgramParsing.parseXml(check.path());
+        if (!parsed.success()) {
+            System.out.println("Parse failed:");
+            for (String e : parsed.errors()) System.out.println("  - " + e);
+            return;
+        }
 
-        SInstruction increase = new IncreaseInstruction(x1, l1);
-        SInstruction decrease = new DecreaseInstruction(z1, l2);
-        SInstruction noop = new NoOpInstruction(Variable.RESULT);
-        SInstruction jnz = new JumpNotZeroInstruction(x1, l2);
+        SProgramImpl program = parsed.program();
+        System.out.println("Parsed program: " + program.getName());
+        System.out.println("Instructions size: " + program.getInstructions().size());
 
-        SProgram p = new SProgramImpl("test");
-        p.addInstruction(increase);
-        p.addInstruction(increase);
-        p.addInstruction(decrease);
-        p.addInstruction(jnz);
+        if (!program.validate()) {
+            System.out.println("Validation failed:");
+            return;
+        }
+        System.out.println("Program is valid and ready to load.");
 
-        ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
-        long result = programExecutor.run(3L, 6L, 2L);
-        System.out.println(result);
-        ;
-
-
-        sanity();
     }
 
     private static void sanity() {

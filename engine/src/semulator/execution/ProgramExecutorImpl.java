@@ -22,7 +22,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
         ExecutionContext context = null; // create the context with inputs.
 
-        SInstruction currentInstruction = program.getInstructions().get(0);
+        SInstruction currentInstruction = program.getInstructions().getFirst();
         Label nextLabel;
         do {
             nextLabel = currentInstruction.execute(context);
