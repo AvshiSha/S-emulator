@@ -20,66 +20,39 @@ public final class ProgramParsing {
     private ProgramParsing() {
     }
 
-    // ---------- RESULT TYPES (siblings, not nested inside each other) ----------
-    public static final class PathCheckResult {
-        private final boolean ok;
-        private final Path path;                 // non-null only when ok == true
-        private final List<String> errors;
-
-        public PathCheckResult(boolean ok, Path path, List<String> errors) {
-            this.ok = ok;
-            this.path = path;
-            this.errors = errors == null ? List.of() : List.copyOf(errors);
+    /**
+     * @param path non-null only when ok == true
+     */ // ---------- RESULT TYPES (siblings, not nested inside each other) ----------
+        public record PathCheckResult(boolean ok, Path path, List<String> errors) {
+            public PathCheckResult(boolean ok, Path path, List<String> errors) {
+                this.ok = ok;
+                this.path = path;
+                this.errors = errors == null ? List.of() : List.copyOf(errors);
+            }
         }
 
-        public boolean ok() {
-            return ok;
+    /**
+     * @param program non-null only when success == true
+     */
+    public record ParseResult(boolean success, SProgramImpl program, List<String> errors) {
+            public ParseResult(boolean success, SProgramImpl program, List<String> errors) {
+                this.success = success;
+                this.program = program;
+                this.errors = errors == null ? List.of() : List.copyOf(errors);
+            }
         }
-
-        public Path path() {
-            return path;
-        }
-
-        public List<String> errors() {
-            return errors;
-        }
-    }
-
-    public static final class ParseResult {
-        private final boolean success;
-        private final SProgramImpl program;      // non-null only when success == true
-        private final List<String> errors;
-
-        public ParseResult(boolean success, SProgramImpl program, List<String> errors) {
-            this.success = success;
-            this.program = program;
-            this.errors = errors == null ? List.of() : List.copyOf(errors);
-        }
-
-        public boolean success() {
-            return success;
-        }
-
-        public SProgramImpl program() {
-            return program;
-        }
-
-        public List<String> errors() {
-            return errors;
-        }
-    }
 
     // ---------- CONSTANTS ----------
-    // Printable ASCII only (no control chars). Blocks Hebrew/non-ASCII letters.
+    // Printable ASCII only (no control chars).Blocks Hebrew/non-ASCII letters.
     private static final Pattern ASCII_PATH = Pattern.compile("^[\\p{ASCII}&&[^\\p{Cntrl}]]+$");
 
     // (You can keep these for later parser/validation phases if you want)
-    static final Set<String> ALLOWED_TYPES = Set.of("basic", "synthetic");
-    static final Set<String> ALLOWED_NAMES = Set.of(
-            "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
-            "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
-            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE"
-    );
+//    static final Set<String> ALLOWED_TYPES = Set.of("basic", "synthetic");
+//    static final Set<String> ALLOWED_NAMES = Set.of(
+//            "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
+//            "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
+//            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE"
+//    );
 
     // ---------- PATH METHODS (now truly on ProgramParsing) ----------
     public static PathCheckResult askPathAndCheckFromConsole() {
@@ -89,11 +62,11 @@ public final class ProgramParsing {
         return checkPath(line);
     }
 
-    public static PathCheckResult askPathAndCheck(java.util.function.Supplier<String> lineReader) {
-        String line = (lineReader == null) ? "" : lineReader.get();
-        if (line == null) line = "";
-        return checkPath(line);
-    }
+//    public static PathCheckResult askPathAndCheck(java.util.function.Supplier<String> lineReader) {
+//        String line = (lineReader == null) ? "" : lineReader.get();
+//        if (line == null) line = "";
+//        return checkPath(line);
+//    }
 
     public static PathCheckResult checkPath(String rawPathLine) {
         List<String> errors = new ArrayList<>();
@@ -136,7 +109,7 @@ public final class ProgramParsing {
         final class InstructionDTO {
             String type;
             String name;
-            String variable = "";   // may be empty
+            String variable = "";   // maybe empty
             String label = null;    // optional
             final Map<String, String> args = new LinkedHashMap<>();
             int idx;
@@ -148,18 +121,6 @@ public final class ProgramParsing {
 
             ParsedInstructionAdapter(InstructionDTO dto) {
                 this.dto = dto;
-            }
-
-            public String getRawVariable() {
-                return dto.variable;
-            }
-
-            public String getRawLabel() {
-                return dto.label;
-            }
-
-            public Map<String, String> getArguments() {
-                return dto.args;
             }
 
             @Override
@@ -248,8 +209,7 @@ public final class ProgramParsing {
                     switch (qName) {
                         case "S-Variable" -> {
                             if (cur[0] != null) {
-                                String v = textBuf[0] == null ? "" : textBuf[0].toString().trim();
-                                cur[0].variable = v; // may be empty
+                                cur[0].variable = textBuf[0] == null ? "" : textBuf[0].toString().trim(); // maybe empty
                             }
                             textBuf[0] = null;
                         }
