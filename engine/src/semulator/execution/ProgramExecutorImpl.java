@@ -20,9 +20,9 @@ public class ProgramExecutorImpl implements ProgramExecutor {
     @Override
     public long run(Long... input) {
 
-        ExecutionContext context = new LocalExecutionContext(input);
+        ExecutionContext context = null; // create the context with inputs.
 
-        SInstruction currentInstruction = program.getInstructions().getFirst();
+        SInstruction currentInstruction = program.getInstructions().get(0);
         Label nextLabel;
         do {
             nextLabel = currentInstruction.execute(context);
@@ -37,34 +37,8 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         return context.getVariableValue(Variable.RESULT);
     }
 
-
     @Override
     public Map<Variable, Long> variableState() {
         return Map.of();
-    }
-
-    // Simple in-memory execution context that defaults variables to 0L.
-    private static final class LocalExecutionContext implements ExecutionContext {
-        private final Map<Variable, Long> state = new HashMap<>();
-
-        LocalExecutionContext(Long... input) {
-            // If you need to seed specific input variables, map them here.
-            // As a safe default, initialize RESULT to the first input if provided; otherwise 0.
-            if (input != null && input.length > 0) {
-                state.put(Variable.RESULT, input[0] == null ? 0L : input[0]);
-            } else {
-                state.put(Variable.RESULT, 0L);
-            }
-        }
-
-        @Override
-        public long getVariableValue(Variable v) {
-            return state.getOrDefault(v, 0L);
-        }
-
-        @Override
-        public void updateVariable(Variable v, long value) {
-            state.put(v, value);
-        }
     }
 }

@@ -37,7 +37,7 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public int calculateMaxDegree() {
-        // traverse all commands and find maximum degree
+        // traverse all commands and find the maximum degree
         return 0;
     }
 
@@ -47,3 +47,4 @@ public class SProgramImpl implements SProgram {
         return 0;
     }
 }
+
