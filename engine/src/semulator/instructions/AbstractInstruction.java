@@ -15,6 +15,9 @@ public abstract class AbstractInstruction implements SInstruction {
     }
 
     public AbstractInstruction(InstructionData instructionData, Variable variable, Label label) {
+        if (instructionData == null) throw new IllegalArgumentException("instructionData is null");
+        if (variable == null)        throw new IllegalArgumentException("variable is null");
+        if (label == null)           throw new IllegalArgumentException("label is null");
         this.instructionData = instructionData;
         this.label = label;
         this.variable = variable;

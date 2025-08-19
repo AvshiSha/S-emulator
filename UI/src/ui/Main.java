@@ -10,7 +10,7 @@ import semulator.variable.Variable;
 import semulator.variable.VariableImpl;
 import semulator.variable.VariableType;
 
-public class main {
+public class Main {
     public static void main(String[] args) {
         Variable x1 = new VariableImpl(VariableType.INPUT, 1);
         Variable z1 = new VariableImpl(VariableType.WORK, 1);
