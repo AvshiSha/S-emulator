@@ -103,7 +103,5 @@ public final class ProgramParsing {
         DocumentBuilder builder = factory.newDocumentBuilder();
         InputStream xmlFileInputStream = new FileInputStream(xmlFile.toFile());
         return builder.parse(xmlFileInputStream);
-    }
-
 
 }
