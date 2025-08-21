@@ -144,8 +144,8 @@ public class SProgramImpl implements SProgram {
         }
 
         // checking if the name of the program is "S-program" mandatory
-        if (!"S-program".equals(root.getTagName())) {
-            System.out.println("Root element must be <S-program>, found <" + root.getTagName() + ">.");
+        if (!"S-Program".equals(root.getTagName())) {
+            System.out.println("Root element must be <S-Program>, found <" + root.getTagName() + ">.");
             return false; // no point continuing without a valid root
         }
 
@@ -158,7 +158,7 @@ public class SProgramImpl implements SProgram {
         }
 
         // checking if <S-instructions> is nested under <S-program> only one time (mandatory)
-        Element sInstructions = getSingleChild(root, "S-instructions");
+        Element sInstructions = getSingleChild(root, "S-Instructions");
         if (sInstructions == null) {
             System.out.println("Missing mandatory <S-instructions> element under <S-program>.");
             return false;
