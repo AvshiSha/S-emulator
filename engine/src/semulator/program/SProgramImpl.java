@@ -15,10 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 public class SProgramImpl implements SProgram {
 
@@ -35,7 +32,7 @@ public class SProgramImpl implements SProgram {
     private static final Set<String> ALLOWED_NAMES = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
             "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
-            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE"
+            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION"
     );
 
     // Classification for the optional cross-check
@@ -158,7 +155,7 @@ public class SProgramImpl implements SProgram {
         }
 
         // checking if <S-instructions> is nested under <S-program> only one time (mandatory)
-        Element sInstructions = getSingleChild(root, "S-Instructions");
+        Element sInstructions = getSingleChild(root);
         if (sInstructions == null) {
             System.out.println("Missing mandatory <S-instructions> element under <S-program>.");
             return false;
@@ -181,12 +178,11 @@ public class SProgramImpl implements SProgram {
 
     private static String trimOrNull(String s) {
         if (s == null) return null;
-        String t = s.trim();
-        return t;
+        return s.trim();
     }
 
-    private static Element getSingleChild(Element parent, String tagName) {
-        NodeList nl = parent.getElementsByTagName(tagName);
+    private static Element getSingleChild(Element parent) {
+        NodeList nl = parent.getElementsByTagName("S-Instructions");
         // Ensure it's a direct child, not a deep descendant
         List<Element> direct = new ArrayList<>();
         for (int i = 0; i < nl.getLength(); i++) {
@@ -261,6 +257,8 @@ public class SProgramImpl implements SProgram {
 
         ok = validateVariableForInstruction(instEl, index) && ok;
         ok = validateLabelForInstruction(instEl, index) && ok;
+        ok = validateArgsForInstruction(instEl, index, instrName) && ok;
+
 
         return ok;
 
@@ -346,6 +344,248 @@ public class SProgramImpl implements SProgram {
         }
 
         return ok;
+    }
+
+    /**
+     * Validate the <S-Instruction-Arguments> block for a given <S-Instruction> by opcode.
+     */
+    private boolean validateArgsForInstruction(Element instEl, int index, String instrName) {
+        boolean ok = true;
+        String where = "S-Instruction[" + index + "]: ";
+
+        // Find direct containers
+        List<Element> containers = childElements(instEl, "S-Instruction-Arguments");
+        if (containers.size() > 1) {
+            System.out.println(where + "Multiple <S-Instruction-Arguments> blocks found; expected at most one.");
+            ok = false;
+        }
+        Element container = containers.isEmpty() ? null : containers.get(0);
+
+        // Which instructions use an arguments block?
+        boolean usesArgs =
+                instrName.equals("GOTO_LABEL") ||
+                        instrName.equals("ASSIGNMENT") ||
+                        instrName.equals("CONSTANT_ASSIGNMENT") ||
+                        instrName.equals("JUMP_ZERO") ||
+                        instrName.equals("JUMP_EQUAL_CONSTANT") ||
+                        instrName.equals("JUMP_EQUAL_VARIABLE") ||
+                        instrName.equals("QUOTE_PROGRAM") ||          // add to ALLOWED_NAMES if not yet there
+                        instrName.equals("JUMP_EQUAL_FUNCTION");      // add to ALLOWED_NAMES if not yet there
+
+        if (!usesArgs && container != null) {
+            System.out.println(where + "Unexpected <S-Instruction-Arguments> for instruction '" + instrName + "'.");
+            ok = false;
+            // keep validating to surface more issues
+        }
+        if (usesArgs && container == null) {
+            System.out.println(where + "Missing <S-Instruction-Arguments> for instruction '" + instrName + "'.");
+            return false;
+        }
+        if (container == null) return ok; // nothing more to check
+
+        // Collect arguments
+        List<Element> args = childElements(container, "S-Instruction-Argument");
+        if (args.isEmpty()) {
+            System.out.println(where + "<S-Instruction-Arguments> must contain at least one <S-Instruction-Argument>.");
+            ok = false;
+            return ok;
+        }
+
+        // Build a map name->value (after trimming)
+        Map<String, String> argMap = new LinkedHashMap<>();
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < args.size(); i++) {
+            Element a = args.get(i);
+            String whereArg = where + "Argument[" + i + "]: ";
+
+            if (!a.hasAttribute("name")) {
+                System.out.println(whereArg + "Missing mandatory attribute 'name'.");
+                ok = false;
+                continue;
+            }
+            if (!a.hasAttribute("value")) {
+                System.out.println(whereArg + "Missing mandatory attribute 'value'.");
+                ok = false;
+                continue;
+            }
+            String name = a.getAttribute("name").trim();
+            String value = a.getAttribute("value").trim();
+
+            if (name.isEmpty()) {
+                System.out.println(whereArg + "Attribute 'name' must not be empty.");
+                ok = false;
+            }
+            if (value.isEmpty()) {
+                System.out.println(whereArg + "Attribute 'value' must not be empty.");
+                ok = false;
+            }
+            if (!seen.add(name)) {
+                System.out.println(whereArg + "Duplicate argument name '" + name + "' in the same instruction.");
+                ok = false;
+            }
+            if (!name.isEmpty()) {
+                argMap.put(name, value);
+            }
+        }
+
+        // Now enforce exact argument sets per opcode, and validate values
+        switch (instrName) {
+
+            case "GOTO_LABEL": {
+                // name: gotoLabel → label
+                ok &= requireOnly(where, argMap, Set.of("gotoLabel"));
+                String v = argMap.get("gotoLabel");
+                ok &= checkLabel(where, "gotoLabel", v);
+                break;
+            }
+
+            case "ASSIGNMENT": {
+                // name: assignedVariable → variable
+                ok &= requireOnly(where, argMap, Set.of("assignedVariable"));
+                String v = argMap.get("assignedVariable");
+                ok &= checkVariable(where, "assignedVariable", v);
+                break;
+            }
+
+            case "CONSTANT_ASSIGNMENT": {
+                // name: constantValue → integer
+                ok &= requireOnly(where, argMap, Set.of("constantValue"));
+                String v = argMap.get("constantValue");
+                ok &= checkInteger(where, "constantValue", v);
+                break;
+            }
+
+            case "JUMP_ZERO": {
+                // name: JZLabel → label
+                ok &= requireOnly(where, argMap, Set.of("JZLabel"));
+                String v = argMap.get("JZLabel");
+                ok &= checkLabel(where, "JZLabel", v);
+                break;
+            }
+
+            case "JUMP_EQUAL_CONSTANT": {
+                // names: JEConstantLabel → label, constantValue → integer
+                ok &= requireOnly(where, argMap, Set.of("JEConstantLabel", "constantValue"));
+                ok &= checkLabel(where, "JEConstantLabel", argMap.get("JEConstantLabel"));
+                ok &= checkInteger(where, "constantValue", argMap.get("constantValue"));
+                break;
+            }
+
+            case "JUMP_EQUAL_VARIABLE": {
+                // names: JEVariableLabel → label, variableName → variable
+                ok &= requireOnly(where, argMap, Set.of("JEVariableLabel", "variableName"));
+                ok &= checkLabel(where, "JEVariableLabel", argMap.get("JEVariableLabel"));
+                ok &= checkVariable(where, "variableName", argMap.get("variableName"));
+                break;
+            }
+
+            case "QUOTE_PROGRAM": {
+                // names: functionName → identifier, functionArguments → non-empty string (commas allowed)
+                ok &= requireOnly(where, argMap, Set.of("functionName", "functionArguments"));
+                ok &= checkIdentifier(where, "functionName", argMap.get("functionName"));
+                ok &= checkNonEmpty(where, "functionArguments", argMap.get("functionArguments"));
+                break;
+            }
+
+            case "JUMP_EQUAL_FUNCTION": {
+                // names: JEFunctionLabel → label, functionName → identifier, functionArguments → non-empty string
+                ok &= requireOnly(where, argMap, Set.of("JEFunctionLabel", "functionName", "functionArguments"));
+                ok &= checkLabel(where, "JEFunctionLabel", argMap.get("JEFunctionLabel"));
+                ok &= checkIdentifier(where, "functionName", argMap.get("functionName"));
+                ok &= checkNonEmpty(where, "functionArguments", argMap.get("functionArguments"));
+                break;
+            }
+
+            default:
+                // For any other instruction, having args was already flagged above.
+                break;
+        }
+
+        return ok;
+    }
+
+
+    private boolean requireOnly(String where, Map<String, String> map, Set<String> expected) {
+        boolean ok = true;
+        // missing
+        for (String need : expected) {
+            if (!map.containsKey(need)) {
+                System.out.println(where + "Missing required argument '" + need + "'.");
+                ok = false;
+            }
+        }
+        // extras
+        for (String got : map.keySet()) {
+            if (!expected.contains(got)) {
+                System.out.println(where + "Unexpected argument '" + got + "'. Allowed: " + expected + ".");
+                ok = false;
+            }
+        }
+        return ok;
+    }
+
+    private boolean checkLabel(String where, String argName, String v) {
+        if (v == null || v.isEmpty()) {
+            System.out.println(where + argName + " must not be empty.");
+            return false;
+        }
+        if (v.chars().anyMatch(Character::isWhitespace)) {
+            System.out.println(where + argName + " must not contain spaces. Got: '" + v + "'");
+            return false;
+        }
+        if (!v.matches("^L[0-9]+$")) {
+            System.out.println(where + argName + " must match ^L[0-9]+$ (uppercase L + digits). Got: '" + v + "'");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean checkVariable(String where, String argName, String v) {
+        if (v == null || v.isEmpty()) {
+            System.out.println(where + argName + " must not be empty.");
+            return false;
+        }
+        if (v.chars().anyMatch(Character::isWhitespace)) {
+            System.out.println(where + argName + " must not contain spaces. Got: '" + v + "'");
+            return false;
+        }
+        if (!v.matches("^[xyz][0-9]+$")) {
+            System.out.println(where + argName + " must match ^[xyz][0-9]+$ (x|y|z + digits). Got: '" + v + "'");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean checkInteger(String where, String argName, String v) {
+        if (v == null || v.isEmpty()) {
+            System.out.println(where + argName + " must not be empty.");
+            return false;
+        }
+        if (!v.matches("^-?\\d+$")) {
+            System.out.println(where + argName + " must be an integer (e.g., -3, 0, 17). Got: '" + v + "'");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean checkIdentifier(String where, String argName, String v) {
+        if (v == null || v.isEmpty()) {
+            System.out.println(where + argName + " must not be empty.");
+            return false;
+        }
+        if (!v.matches("^[A-Za-z_][A-Za-z0-9_]*$")) {
+            System.out.println(where + argName + " must be an identifier ([A-Za-z_][A-Za-z0-9_]*). Got: '" + v + "'");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean checkNonEmpty(String where, String argName, String v) {
+        if (v == null || v.trim().isEmpty()) {
+            System.out.println(where + argName + " must not be empty.");
+            return false;
+        }
+        return true;
     }
 
 
