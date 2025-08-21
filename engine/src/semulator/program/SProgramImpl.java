@@ -295,9 +295,10 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        // Case-sensitive: only x|y|z + digits (e.g., x1, y23, z999)
-        if (!val.matches("^[xyz][0-9]+$")) {
-            System.out.println(where + "<S-Variable> must match ^[xyz][0-9]+$ (case-sensitive, no spaces). Got: '" + val + "'");
+        // 1. xN or zN (N = digits, at least one digit required)
+        // 2. or exactly "y"
+        if (!(val.equals("y") || val.matches("^[xz][0-9]+$"))) {
+            System.out.println(where + "<S-Variable> must be 'y' or match ^[xz][0-9]+$ (case-sensitive, no spaces). Got: '" + val + "'");
             ok = false;
         }
 
