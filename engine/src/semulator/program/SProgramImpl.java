@@ -259,8 +259,50 @@ public class SProgramImpl implements SProgram {
             }
         }
 
+        ok = validateVariableForInstruction(instEl, index) && ok;
+
         return ok;
 
+    }
+
+    private boolean validateVariableForInstruction(Element instEl, int index) {
+        boolean ok = true;
+        String where = "S-Instruction[" + index + "]: ";
+
+        // Exactly one <S-Variable> expected
+        List<Element> vars = childElements(instEl, "S-Variable");
+        if (vars.isEmpty()) {
+            System.out.println(where + "Missing mandatory <S-Variable> element.");
+            return false;
+        }
+        if (vars.size() > 1) {
+            System.out.println(where + "Multiple <S-Variable> elements found; expected exactly one.");
+            ok = false;
+        }
+
+        // Validate content of the first one (continue even if there are extras to report all issues)
+        Element varEl = vars.get(0);
+        String raw = varEl.getTextContent();
+        String val = (raw == null) ? "" : raw.trim(); // ignore leading/trailing spaces
+
+        if (val.isEmpty()) {
+            // Empty string is explicitly allowed
+            return ok;
+        }
+
+        // No spaces allowed anywhere inside (they would have to be internal now)
+        if (val.chars().anyMatch(Character::isWhitespace)) {
+            System.out.println(where + "<S-Variable> must not contain spaces. Got: '" + val + "'");
+            ok = false;
+        }
+
+        // Case-sensitive: only x|y|z + digits (e.g., x1, y23, z999)
+        if (!val.matches("^[xyz][0-9]+$")) {
+            System.out.println(where + "<S-Variable> must match ^[xyz][0-9]+$ (case-sensitive, no spaces). Got: '" + val + "'");
+            ok = false;
+        }
+
+        return ok;
     }
 
 }
