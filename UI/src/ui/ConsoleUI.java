@@ -55,8 +55,7 @@ public class ConsoleUI {
         }
     }
 
-    private void onShow()
-    {
+    private void onShow() {
         System.out.println(PrettyPrinter.show(gw));
     }
 

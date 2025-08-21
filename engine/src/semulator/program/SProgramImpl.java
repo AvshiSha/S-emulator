@@ -25,6 +25,7 @@ public class SProgramImpl implements SProgram {
     private final String name;
     private final List<SInstruction> instructions;
     private Path xmlPath;
+    private Document parsedXML;
 
     public SProgramImpl(String name) {
         this.name = name;
@@ -120,20 +121,21 @@ public class SProgramImpl implements SProgram {
     }
 
     @Override
-    public Object load() throws ParserConfigurationException, IOException, SAXException {
+    public Document load() throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
-        boolean bool;
+        Document doc;
         try (InputStream xmlFileInputStream = new FileInputStream(this.xmlPath.toFile())) {
-            Document doc = builder.parse(xmlFileInputStream);
+            doc = builder.parse(xmlFileInputStream);
             doc.getDocumentElement().normalize();
-            bool = validatexmlFile(doc);
+            boolean valid = validatexmlFile(doc);
+            if (!valid) {
+                this.parsedXML = null;
+                return null; // invalid XML → return null
+            }
         }
-        if (bool) {
-            return xmlPath;
-        } else {
-            return null;
-        }
+        this.parsedXML = doc;
+        return doc; // return the parsed and normalized XML document
     }
 
     private boolean validatexmlFile(Document doc) {
