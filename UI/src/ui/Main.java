@@ -12,30 +12,31 @@ import semulator.variable.VariableType;
 
 public class Main {
     public static void main(String[] args) {
-        Variable x1 = new VariableImpl(VariableType.INPUT, 1);
-        Variable z1 = new VariableImpl(VariableType.WORK, 1);
-
-        LabelImpl l1 = new LabelImpl(1);
-        LabelImpl l2 = new LabelImpl(1);
-
-        SInstruction increase = new IncreaseInstruction(x1, l1);
-        SInstruction decrease = new DecreaseInstruction(z1, l2);
-        SInstruction noop = new NoOpInstruction(Variable.RESULT);
-        SInstruction jnz = new JumpNotZeroInstruction(x1, l2);
-
-        SProgram p = new SProgramImpl("test");
-        p.addInstruction(increase);
-        p.addInstruction(increase);
-        p.addInstruction(decrease);
-        p.addInstruction(jnz);
-
-        ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
-        long result = programExecutor.run(3L, 6L, 2L);
-        System.out.println(result);
-        ;
-
-
-        sanity();
+        new ConsoleUI(new MockGateway()).start();
+//        Variable x1 = new VariableImpl(VariableType.INPUT, 1);
+//        Variable z1 = new VariableImpl(VariableType.WORK, 1);
+//
+//        LabelImpl l1 = new LabelImpl(1);
+//        LabelImpl l2 = new LabelImpl(1);
+//
+//        SInstruction increase = new IncreaseInstruction(x1, l1);
+//        SInstruction decrease = new DecreaseInstruction(z1, l2);
+//        SInstruction noop = new NoOpInstruction(Variable.RESULT);
+//        SInstruction jnz = new JumpNotZeroInstruction(x1, l2);
+//
+//        SProgram p = new SProgramImpl("test");
+//        p.addInstruction(increase);
+//        p.addInstruction(increase);
+//        p.addInstruction(decrease);
+//        p.addInstruction(jnz);
+//
+//        ProgramExecutor programExecutor = new ProgramExecutorImpl(p);
+//        long result = programExecutor.run(3L, 6L, 2L);
+//        System.out.println(result);
+//        ;
+//
+//
+//        sanity();
     }
 
     private static void sanity() {
