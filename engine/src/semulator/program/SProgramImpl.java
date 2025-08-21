@@ -365,14 +365,14 @@ public class SProgramImpl implements SProgram {
         // Which instructions use an arguments block?
         boolean usesArgs =
                 instrName.equals("GOTO_LABEL") ||
+                        instrName.equals("JUMP_NOT_ZERO") ||
                         instrName.equals("ASSIGNMENT") ||
                         instrName.equals("CONSTANT_ASSIGNMENT") ||
                         instrName.equals("JUMP_ZERO") ||
                         instrName.equals("JUMP_EQUAL_CONSTANT") ||
                         instrName.equals("JUMP_EQUAL_VARIABLE") ||
-                        instrName.equals("QUOTE_PROGRAM") ||          // add to ALLOWED_NAMES if not yet there
-                        instrName.equals("JUMP_EQUAL_FUNCTION");      // add to ALLOWED_NAMES if not yet there
-
+                        instrName.equals("QUOTE_PROGRAM") ||
+                        instrName.equals("JUMP_EQUAL_FUNCTION");
         if (!usesArgs && container != null) {
             System.out.println(where + "Unexpected <S-Instruction-Arguments> for instruction '" + instrName + "'.");
             ok = false;
@@ -439,6 +439,14 @@ public class SProgramImpl implements SProgram {
                 ok &= checkLabel(where, "gotoLabel", v);
                 break;
             }
+
+            case "JUMP_NOT_ZERO": {
+                // name: JNZLabel → label
+                ok &= requireOnly(where, argMap, java.util.Set.of("JNZLabel"));
+                ok &= checkLabel(where, "JNZLabel", argMap.get("JNZLabel"));
+                break;
+            }
+
 
             case "ASSIGNMENT": {
                 // name: assignedVariable → variable
@@ -534,8 +542,10 @@ public class SProgramImpl implements SProgram {
             System.out.println(where + argName + " must not contain spaces. Got: '" + v + "'");
             return false;
         }
-        if (!v.matches("^L[0-9]+$")) {
-            System.out.println(where + argName + " must match ^L[0-9]+$ (uppercase L + digits). Got: '" + v + "'");
+        // Accept regular labels L<digits> OR the special sentinel EXIT (uppercase)
+        if (!(v.equals("EXIT") || v.matches("^L[0-9]+$"))) {
+            System.out.println(where + argName +
+                    " must be 'EXIT' or match ^L[0-9]+$ (uppercase L followed by digits). Got: '" + v + "'");
             return false;
         }
         return true;
