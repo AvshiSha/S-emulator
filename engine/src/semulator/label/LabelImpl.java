@@ -20,7 +20,7 @@ public class LabelImpl implements Label {
 
     @Override
     public String getLabelRepresentation() {
-        return String.format("[%-5s]", label);
+        return String.format("[ %-4s]", label);
     }
 
     @Override
@@ -40,6 +40,6 @@ public class LabelImpl implements Label {
 
     @Override
     public String toString() {
-        return getLabelRepresentation();
+        return getLabel();
     }
 }

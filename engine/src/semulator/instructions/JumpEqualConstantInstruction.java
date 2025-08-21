@@ -24,6 +24,14 @@ public class JumpEqualConstantInstruction extends AbstractInstruction {
         this.target = target;
     }
 
+    public long getConstant() {
+        return constant;
+    }
+
+    public Label getTarget() {
+        return target;
+    }
+
     @Override
     public Label execute(ExecutionContext context) {
         long val = context.getVariableValue(getVariable());

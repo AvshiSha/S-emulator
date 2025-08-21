@@ -24,4 +24,8 @@ public class AssignConstantInstruction extends AbstractInstruction {
         context.updateVariable(getVariable(), constant);
         return FixedLabel.EMPTY;
     }
+
+    public long getConstant() {
+        return constant;
+    }
 }

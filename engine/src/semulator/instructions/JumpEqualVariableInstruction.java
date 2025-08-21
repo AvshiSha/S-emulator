@@ -26,6 +26,14 @@ public class JumpEqualVariableInstruction extends AbstractInstruction {
         this.target = target;
     }
 
+    public Variable getOther() {
+        return other;
+    }
+
+    public Label getTarget() {
+        return target;
+    }
+
     @Override
     public Label execute(ExecutionContext context) {
         long a = context.getVariableValue(getVariable());
