@@ -260,6 +260,7 @@ public class SProgramImpl implements SProgram {
         }
 
         ok = validateVariableForInstruction(instEl, index) && ok;
+        ok = validateLabelForInstruction(instEl, index) && ok;
 
         return ok;
 
@@ -304,5 +305,48 @@ public class SProgramImpl implements SProgram {
 
         return ok;
     }
+
+    /**
+     * Validate the optional <S-Label> child of a given <S-Instruction>.
+     */
+    private boolean validateLabelForInstruction(Element instEl, int index) {
+        boolean ok = true;
+        String where = "S-Instruction[" + index + "]: ";
+
+        // Gather direct <S-Label> children
+        List<Element> labels = childElements(instEl, "S-Label");
+        if (labels.isEmpty()) {
+            // Optional and absent → valid
+            return true;
+        }
+        if (labels.size() > 1) {
+            System.out.println(where + "Multiple <S-Label> elements found; expected at most one.");
+            ok = false;
+        }
+
+        // Validate the first one (continue to report all errors if needed)
+        Element labelEl = labels.get(0);
+        String raw = labelEl.getTextContent();
+        String val = (raw == null) ? "" : raw.trim(); // ignore leading/trailing spaces
+
+        if (val.isEmpty()) {
+            System.out.println(where + "<S-Label> must not be empty when present.");
+            ok = false;
+        } else {
+            // No whitespace anywhere inside
+            if (val.chars().anyMatch(Character::isWhitespace)) {
+                System.out.println(where + "<S-Label> must not contain spaces. Got: '" + val + "'");
+                ok = false;
+            }
+            // Must be 'L' + digits, case-sensitive
+            if (!val.matches("^L[0-9]+$")) {
+                System.out.println(where + "<S-Label> must match ^L[0-9]+$ (uppercase L followed by digits). Got: '" + val + "'");
+                ok = false;
+            }
+        }
+
+        return ok;
+    }
+
 
 }
