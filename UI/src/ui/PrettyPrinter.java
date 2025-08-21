@@ -4,36 +4,90 @@ package ui;
 import semulator.instructions.*;
 import semulator.label.FixedLabel;
 import semulator.label.Label;
+import semulator.program.SProgram;   // <-- חדש
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public final class PrettyPrinter {
     private PrettyPrinter() {}
 
-    public static String show(TempProgramFactory.TempProgram p) {
+    // === חדש: תצוגה של תוכנית אמיתית (SProgram) ===
+    public static String show(SProgram p) {
         StringBuilder sb = new StringBuilder();
 
         // כותרות
         sb.append("Program: ").append(p.getName()).append("\n");
-        sb.append("Inputs: ").append(formatInputs(p.getInputsUsed())).append("\n");
-        sb.append("Labels: ").append(formatLabels(p.getLabelsUsed())).append("\n\n");
 
-        // הוראות
+        // הפקה דינמית של Inputs/Labels מתוך ההוראות הקיימות
         List<SInstruction> ins = p.getInstructions();
+        Set<String> inputsUsed = deriveInputs(ins);
+        List<Label> labelsUsed = deriveLabels(ins);
+
+        sb.append("Inputs: ").append(formatInputs(inputsUsed)).append("\n");
+        sb.append("Labels: ").append(formatLabels(labelsUsed)).append("\n\n");
+
+        // הוראות (אותה תצוגה שכבר כתבת)
         for (int i = 0; i < ins.size(); i++) {
             SInstruction in = ins.get(i);
-            String kind = kindLetter(in);                 // "B" או "S"
-            String labelBox = labelBox(in.getLabel());    // "[L1  ]" או "[     ]"
-            String text = renderInstruction(in);          // "x1 -> x1 + 1" וכו'
+            String kind = kindLetter(in);
+            String labelBox = labelBox(in.getLabel());
+            String text = renderInstruction(in);
             int cycles = in.cycles();
 
             sb.append(String.format("#%-3d (%s) %s %s (%d)%n",
                     i + 1, kind, labelBox, text, cycles));
         }
         return sb.toString();
+    }
+
+    // ---------- עזר: חישוב Inputs מתוך ההוראות ----------
+    private static Set<String> deriveInputs(List<SInstruction> ins) {
+        Set<String> xs = new HashSet<>();
+        for (SInstruction in : ins) {
+            // משתנה מרכזי
+            if (in.getVariable() != null) {
+                String v = in.getVariable().toString();
+                if (v.startsWith("x")) xs.add(v);
+            }
+            // מקורות נוספים לפי סוגים שונים:
+            if (in instanceof AssignVariableInstruction a && a.getSource() != null) {
+                String s = a.getSource().toString();
+                if (s.startsWith("x")) xs.add(s);
+            }
+            if (in instanceof JumpEqualVariableInstruction j && j.getOther() != null) {
+                String o = j.getOther().toString();
+                if (o.startsWith("x")) xs.add(o);
+            }
+            // אפשר להרחיב אם יש עוד פקודות שקוראות מקלטים
+        }
+        return xs;
+    }
+
+    // ---------- עזר: חישוב Labels בשימוש ----------
+    private static List<Label> deriveLabels(List<SInstruction> ins) {
+        List<Label> labels = new ArrayList<>();
+        for (SInstruction in : ins) {
+            if (in.getLabel() != null) labels.add(in.getLabel()); // לייבל שמוגדר על ההוראה
+            if (in instanceof GotoLabelInstruction g && g.getTarget() != null) {
+                labels.add(g.getTarget());
+            }
+            if (in instanceof JumpNotZeroInstruction j && j.getTarget() != null) {
+                labels.add(j.getTarget());
+            }
+            if (in instanceof JumpZeroInstruction j && j.getTarget() != null) {
+                labels.add(j.getTarget());
+            }
+            if (in instanceof JumpEqualConstantInstruction j && j.getTarget() != null) {
+                labels.add(j.getTarget());
+            }
+            if (in instanceof JumpEqualVariableInstruction j && j.getTarget() != null) {
+                labels.add(j.getTarget());
+            }
+        }
+        // אם תרצה להציג EXIT תמיד, אפשר להוסיף:
+        // labels.add(FixedLabel.EXIT);
+        return labels;
     }
 
     private static String formatInputs(Set<String> inputs) {
@@ -50,19 +104,17 @@ public final class PrettyPrinter {
         return labels.stream()
                 .sorted((a, b) -> {
                     boolean ea = a.isExit(), eb = b.isExit();
-                    if (ea && !eb) return 1;   // EXIT תמיד בסוף
+                    if (ea && !eb) return 1;       // EXIT תמיד בסוף
                     if (!ea && eb) return -1;
-                    // מיון אלפביתי לפי הייצוג ("L1","L2","EXIT"...)
                     return a.getLabelRepresentation().compareTo(b.getLabelRepresentation());
                 })
                 .map(semulator.label.Label::getLabelRepresentation)
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
-
     private static String labelBox(semulator.label.Label l) {
         if (l == null) return "[     ]";
-        return l.getLabelRepresentation(); // רוחב 5
+        return l.getLabelRepresentation();
     }
 
     private static String kindLetter(SInstruction in) {
