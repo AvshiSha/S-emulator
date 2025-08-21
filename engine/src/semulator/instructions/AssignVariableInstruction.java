@@ -9,6 +9,7 @@ public class AssignVariableInstruction extends AbstractInstruction {
 
     private final Variable source;
 
+
     public AssignVariableInstruction(Variable target, Variable source) {
         super(InstructionData.ASSIGN_VARIABLE, target);
         if (source == null) throw new IllegalArgumentException("source is null");
@@ -27,4 +28,9 @@ public class AssignVariableInstruction extends AbstractInstruction {
         context.updateVariable(getVariable(), v);
         return FixedLabel.EMPTY;
     }
+
+    public semulator.variable.Variable getSource() {
+        return source;
+    }
+
 }
