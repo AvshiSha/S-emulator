@@ -21,6 +21,10 @@ public class JumpZeroInstruction extends AbstractInstruction {
         this.target = target;
     }
 
+    public semulator.label.Label getTarget() {
+        return target;
+    }
+
     @Override
     public Label execute(ExecutionContext context) {
         long val = context.getVariableValue(getVariable());

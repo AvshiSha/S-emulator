@@ -25,4 +25,9 @@ public class GotoLabelInstruction extends AbstractInstruction {
     public Label execute(ExecutionContext context) {
         return target; // קפיצה ללא תנאי
     }
+
+    public Label getTarget() {
+        return target;
+    }
+
 }

@@ -12,7 +12,7 @@ import semulator.variable.VariableType;
 
 public class Main {
     public static void main(String[] args) {
-        new ConsoleUI(new MockGateway()).start();
+        new ConsoleUI().start();
 //        Variable x1 = new VariableImpl(VariableType.INPUT, 1);
 //        Variable z1 = new VariableImpl(VariableType.WORK, 1);
 //
