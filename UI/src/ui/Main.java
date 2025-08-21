@@ -16,7 +16,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 
 public class Main {
-    static void main(String[] args) throws IOException, ParserConfigurationException, SAXException {
+    public static void main(String[] args) throws IOException, ParserConfigurationException, SAXException {
 
         new ConsoleUI(new SProgramImpl("S")).start();
 //        Variable x1 = new VariableImpl(VariableType.INPUT, 1);

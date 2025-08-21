@@ -30,7 +30,7 @@ public class ConsoleUI {
             String ch = sc.nextLine().trim();
             switch (ch) {
                 case "1" -> onLoad();
-                case "2" -> System.out.println("Nice");//gw.show());
+                case "2" -> onShow();
                 case "3" -> onExpand();
                 case "4" -> onRun();
                 case "5" -> onHistory();
@@ -53,6 +53,11 @@ public class ConsoleUI {
                 System.out.println("Mission completed.");
             }
         }
+    }
+
+    private void onShow()
+    {
+        System.out.println(PrettyPrinter.show(gw));
     }
 
     private void onExpand() {
