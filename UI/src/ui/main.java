@@ -1,5 +1,7 @@
 package ui;
 
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 import semulator.execution.ProgramExecutor;
 import semulator.execution.ProgramExecutorImpl;
 import semulator.instructions.*;
@@ -11,8 +13,11 @@ import semulator.variable.Variable;
 import semulator.variable.VariableImpl;
 import semulator.variable.VariableType;
 
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+
 public class main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ParserConfigurationException, IOException, SAXException {
 //        Variable x1 = new VariableImpl(VariableType.INPUT, 1);
 //        Variable z1 = new VariableImpl(VariableType.WORK, 1);
 //
@@ -45,21 +50,12 @@ public class main {
         }
 
         // 2) Parse the XML into an in-memory program (no MDB commit here)
-        ProgramParsing.ParseResult parsed = ProgramParsing.parseXml(check.path());
-        if (!parsed.success()) {
+        Document parsed = ProgramParsing.parseXml(check.path());
+        if (parsed == null) {
             System.out.println("Parse failed:");
-            for (String e : parsed.errors()) System.out.println("  - " + e);
             return;
         }
 
-        SProgramImpl program = parsed.program();
-        System.out.println("Parsed program: " + program.getName());
-        System.out.println("Instructions size: " + program.getInstructions().size());
-
-        if (!program.validate()) {
-            System.out.println("Validation failed:");
-            return;
-        }
         System.out.println("Program is valid and ready to load.");
 
     }
