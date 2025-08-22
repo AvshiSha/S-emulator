@@ -5,7 +5,14 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-import semulator.instructions.SInstruction;
+
+import semulator.instructions.*;
+import semulator.label.FixedLabel;
+import semulator.label.Label;
+import semulator.label.LabelImpl;
+import semulator.variable.Variable;
+import semulator.variable.VariableImpl;
+import semulator.variable.VariableType;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -15,21 +22,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
+/**
+ * בניית תכנית מ־XML אל תוך List<SInstruction>.
+ * בשלב זה מכוסות הפקודות הבסיסיות: NEUTRAL, INCREASE, DECREASE, JUMP_NOT_ZERO.
+ */
 public class SProgramImpl implements SProgram {
 
     private final String name;
     private final List<SInstruction> instructions;
     private Path xmlPath;
-    private Document parsedXML;
 
     public SProgramImpl(String name) {
         this.name = name;
-        instructions = new ArrayList<>();
+        this.instructions = new ArrayList<>();
     }
 
     // Allowed instruction names (case-sensitive)
@@ -70,7 +77,7 @@ public class SProgramImpl implements SProgram {
         String line = sc.hasNextLine() ? sc.nextLine() : "";
         Path xmlPath = Path.of(line);
 
-        // Accept spaces; just strip accidental wrapping quotes without touching internal spaces.
+        // Strip wrapping quotes only (לא נוגעים ברווחים פנימיים)
         String raw = xmlPath.toString().strip();
         if ((raw.startsWith("\"") && raw.endsWith("\"")) || (raw.startsWith("'") && raw.endsWith("'"))) {
             raw = raw.substring(1, raw.length() - 1);
@@ -82,61 +89,183 @@ public class SProgramImpl implements SProgram {
             return false;
         }
 
-        // Check that it exists, is a regular file, and is readable
         if (!Files.exists(p)) {
             System.err.println("XML file does not exist: " + p);
             return false;
-        } else {
-            if (!Files.isRegularFile(p)) {
-                System.err.println("Path is not a regular file: " + p);
-                return false;
-            }
-            if (!Files.isReadable(p)) {
-                System.err.println("XML file is not readable: " + p);
-                return false;
-            }
-
-            // Must be .xml (case-insensitive)
-            String fn = (p.getFileName() != null) ? p.getFileName().toString() : "";
-            if (!fn.toLowerCase(Locale.ROOT).endsWith(".xml")) {
-                System.err.println("File must have a .xml extension. Got: " + fn);
-                return false;
-            }
-            this.xmlPath = p;
-            return true;
         }
-    }
+        if (!Files.isRegularFile(p)) {
+            System.err.println("Path is not a regular file: " + p);
+            return false;
+        }
+        if (!Files.isReadable(p)) {
+            System.err.println("XML file is not readable: " + p);
+            return false;
+        }
 
+        String fn = (p.getFileName() != null) ? p.getFileName().toString() : "";
+        if (!fn.toLowerCase(Locale.ROOT).endsWith(".xml")) {
+            System.err.println("File must have a .xml extension. Got: " + fn);
+            return false;
+        }
+
+        this.xmlPath = p;
+        return true;
+    }
 
     @Override
     public int calculateMaxDegree() {
-        // traverse all commands and find the maximum degree
+        // TODO: לפי דרישות המטלה בהמשך
         return 0;
     }
 
     @Override
     public int calculateCycles() {
-        // traverse all commands and calculate cycles
+        // TODO: לפי דרישות המטלה בהמשך
         return 0;
     }
 
     @Override
-    public Document load() throws ParserConfigurationException, IOException, SAXException {
+    public Object load() throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc;
+        boolean ok;
         try (InputStream xmlFileInputStream = new FileInputStream(this.xmlPath.toFile())) {
             doc = builder.parse(xmlFileInputStream);
             doc.getDocumentElement().normalize();
-            boolean valid = validatexmlFile(doc);
-            if (!valid) {
-                this.parsedXML = null;
-                return null; // invalid XML → return null
+            ok = validatexmlFile(doc); // שומר את שם המתודה המקורי אצלך
+        }
+        if (!ok) {
+            return null;
+        }
+
+        // חדש: בניית ההוראות אל תוך הזיכרון
+        buildInMemory(doc);
+        return xmlPath;
+    }
+
+    /** ממיר XML מאומת לרשימת הוראות בזיכרון. */
+    private void buildInMemory(Document doc) {
+        instructions.clear();
+
+        Element root = doc.getDocumentElement();
+        Element sInstructions = getSingleChild(root, "S-Instructions");
+        if (sInstructions == null) return; // הגנה נוספת
+
+        // מאגר לייבלים כדי לייצר מופע יחיד לכל שם (L1, L2,...)
+        Map<String, Label> labelPool = new HashMap<>();
+
+        List<Element> all = childElements(sInstructions, "S-Instruction");
+        for (Element instEl : all) {
+            String name = instEl.getAttribute("name").trim();     // e.g. DECREASE / INCREASE / JUMP_NOT_ZERO / NEUTRAL
+            String varText = textOfSingle(instEl, "S-Variable");  // e.g. x1 / y / z3
+            Variable var = parseVariable(varText);
+
+            // לייבל שמוגדר על ההוראה (אופציונלי)
+            String lblText = textOfOptional(instEl, "S-Label");   // e.g. L1
+            Label selfLabel = (lblText == null || lblText.isBlank())
+                    ? FixedLabel.EMPTY
+                    : getOrCreateLabel(lblText, labelPool);
+
+            // ארגומנטים (למשל יעד קפיצה ב-JNZ)
+            Map<String, String> args = readArgs(instEl);
+
+            switch (name) {
+                case "INCREASE" -> {
+                    if (selfLabel != FixedLabel.EMPTY) {
+                        instructions.add(new IncreaseInstruction(var, selfLabel));
+                    } else {
+                        instructions.add(new IncreaseInstruction(var));
+                    }
+                }
+                case "DECREASE" -> {
+                    if (selfLabel != FixedLabel.EMPTY) {
+                        instructions.add(new DecreaseInstruction(var, selfLabel));
+                    } else {
+                        instructions.add(new DecreaseInstruction(var));
+                    }
+                }
+                case "NEUTRAL" -> {
+                    instructions.add(new NoOpInstruction(var));
+                }
+                case "JUMP_NOT_ZERO" -> {
+                    // לפי ה-XML: <S-Instruction-Argument name="JNZLabel" value="L1"/>
+                    String targetName = args.get("JNZLabel");
+                    Label target = (targetName == null || targetName.isBlank())
+                            ? FixedLabel.EMPTY
+                            : getOrCreateLabel(targetName, labelPool);
+
+                    // קיימים אצלך שני קונסטרקטורים: (var,target) וגם (var,selfLabel,target)
+                    if (selfLabel != FixedLabel.EMPTY) {
+                        instructions.add(new JumpNotZeroInstruction(var, selfLabel, target));
+                    } else {
+                        instructions.add(new JumpNotZeroInstruction(var, target));
+                    }
+                }
+                // את שאר השמות (ZERO_VARIABLE/ASSIGNMENT/...) נוסיף בשלבים הבאים של המטלה
+                default -> {
+                    // לא בונים הוראה לא מוכרת (ממילא validatexmlFile מסננת)
+                }
             }
         }
-        this.parsedXML = doc;
-        return doc; // return the parsed and normalized XML document
     }
+
+    /* =====================  עזרי XML וכללי  ===================== */
+
+    private static String textOfSingle(Element parent, String tag) {
+        List<Element> lst = childElements(parent, tag);
+        if (lst.isEmpty()) return "";
+        return trimOrNull(lst.get(0).getTextContent());
+    }
+
+    private static String textOfOptional(Element parent, String tag) {
+        List<Element> lst = childElements(parent, tag);
+        if (lst.isEmpty()) return null;
+        return trimOrNull(lst.get(0).getTextContent());
+    }
+
+    private static Map<String, String> readArgs(Element instEl) {
+        Map<String, String> map = new HashMap<>();
+        Element args = getSingleChild(instEl, "S-Instruction-Arguments");
+        if (args == null) return map;
+        List<Element> items = childElements(args, "S-Instruction-Argument");
+        for (Element e : items) {
+            String n = e.getAttribute("name");
+            String v = e.getAttribute("value");
+            if (n != null && !n.isBlank()) {
+                map.put(n, v == null ? "" : v.trim());
+            }
+        }
+        return map;
+    }
+
+    private static Variable parseVariable(String txt) {
+        String s = (txt == null) ? "" : txt.trim();
+        if (s.isEmpty() || s.equals("y")) {
+            return Variable.RESULT;
+        }
+        // xN / zN
+        char kind = s.charAt(0);
+        int idx = Integer.parseInt(s.substring(1));
+        if (kind == 'x') {
+            return new VariableImpl(VariableType.INPUT, idx);
+        } else if (kind == 'z') {
+            return new VariableImpl(VariableType.WORK, idx);
+        } else {
+            // fallback: תוצאת ברירת־מחדל
+            return Variable.RESULT;
+        }
+    }
+
+    private static Label getOrCreateLabel(String name, Map<String, Label> pool) {
+        return pool.computeIfAbsent(name, n -> {
+            // n = "L12" → id=12, address=0 (placeholder)
+            int id = Integer.parseInt(n.substring(1));
+            return new LabelImpl(id, 0);
+        });
+    }
+
+    /* =====================  הוולידציה המקורית שלך  ===================== */
 
     private boolean validatexmlFile(Document doc) {
         Element root = doc.getDocumentElement();
@@ -145,51 +274,39 @@ public class SProgramImpl implements SProgram {
             return false;
         }
 
-        // checking if the name of the program is "S-program" mandatory
         if (!"S-Program".equals(root.getTagName())) {
             System.out.println("Root element must be <S-Program>, found <" + root.getTagName() + ">.");
-            return false; // no point continuing without a valid root
+            return false;
         }
 
-        // avoids a NullPointerException when you try to call .trim() on null
-        //and always gives you a trimmed string (leading and trailing spaces removed).
         String progName = trimOrNull(root.getAttribute("name"));
         if (progName == null || progName.isEmpty()) {
             System.out.println("Attribute 'name' on <S-program> is mandatory and must not be empty.");
             return false;
         }
 
-        // checking if <S-instructions> is nested under <S-program> only one time (mandatory)
         Element sInstructions = getSingleChild(root, "S-Instructions");
         if (sInstructions == null) {
             System.out.println("Missing mandatory <S-instructions> element under <S-program>.");
             return false;
         }
 
-        // Validate each <S-Instruction> in <S-instructions>
-        // Collect all <S-Instruction> children
         List<Element> all = childElements(sInstructions, "S-Instruction");
-        // Validate each one
-        boolean inst_valid;
         for (int i = 0; i < all.size(); i++) {
-            inst_valid = validateInstructionShallow(all.get(i), i);
-            if (!inst_valid) {
+            if (!validateInstructionShallow(all.get(i), i)) {
                 return false;
             }
         }
-
         return true;
     }
 
     private static String trimOrNull(String s) {
         if (s == null) return null;
-        String t = s.trim();
-        return t;
+        return s.trim();
     }
 
     private static Element getSingleChild(Element parent, String tagName) {
         NodeList nl = parent.getElementsByTagName(tagName);
-        // Ensure it's a direct child, not a deep descendant
         List<Element> direct = new ArrayList<>();
         for (int i = 0; i < nl.getLength(); i++) {
             Node n = nl.item(i);
@@ -198,11 +315,6 @@ public class SProgramImpl implements SProgram {
             }
         }
         if (direct.isEmpty()) return null;
-        if (direct.size() > 1) {
-            // Multiple same-name direct children where only one is expected
-            // The caller will decide if that's an error (we usually expect singletons)
-            // Return the first to continue validation.
-        }
         return direct.get(0);
     }
 
@@ -222,14 +334,14 @@ public class SProgramImpl implements SProgram {
         boolean ok = true;
         String where = "S-Instruction[" + index + "]: ";
 
-        // (1) Ensure this element does not contain nested S-Instruction elements
+        // (1) אין קינון של S-Instruction בתוך S-Instruction
         List<Element> nested = childElements(instEl, "S-Instruction");
         if (!nested.isEmpty()) {
             System.out.println(where + "Must define exactly one instruction; nested <S-Instruction> found.");
             ok = false;
         }
 
-        // (2) type attribute: mandatory, case-sensitive
+        // (2) type: basic/synthetic
         String type = instEl.hasAttribute("type") ? instEl.getAttribute("type").trim() : null;
         if (type == null || type.isEmpty()) {
             System.out.println(where + "Missing mandatory attribute 'type' (must be 'basic' or 'synthetic').");
@@ -239,7 +351,7 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        // (3) name attribute: mandatory.
+        // (3) name: חובה
         String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : null;
         if (instrName == null || instrName.isEmpty()) {
             System.out.println(where + "Missing mandatory attribute 'name'.");
@@ -249,13 +361,12 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        // (4) Optional: cross-check type matches classification (helps catch mismatches)
+        // (4) בדיקת התאמה בין type לבין הסיווג
         if (ok && type != null && instrName != null && !type.isEmpty() && !instrName.isEmpty()) {
             if (type.equals("basic") && !BASIC.contains(instrName)) {
                 System.out.println(where + "Instruction '" + instrName + "' is synthetic but type='basic' given.");
                 ok = false;
-            }
-            if (type.equals("synthetic") && !SYNTHETIC.contains(instrName)) {
+            } else if (type.equals("synthetic") && !SYNTHETIC.contains(instrName)) {
                 System.out.println(where + "Instruction '" + instrName + "' is basic but type='synthetic' given.");
                 ok = false;
             }
@@ -265,14 +376,12 @@ public class SProgramImpl implements SProgram {
         ok = validateLabelForInstruction(instEl, index) && ok;
 
         return ok;
-
     }
 
     private boolean validateVariableForInstruction(Element instEl, int index) {
         boolean ok = true;
         String where = "S-Instruction[" + index + "]: ";
 
-        // Exactly one <S-Variable> expected
         List<Element> vars = childElements(instEl, "S-Variable");
         if (vars.isEmpty()) {
             System.out.println(where + "Missing mandatory <S-Variable> element.");
@@ -283,73 +392,54 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        // Validate content of the first one (continue even if there are extras to report all issues)
         Element varEl = vars.get(0);
         String raw = varEl.getTextContent();
-        String val = (raw == null) ? "" : raw.trim(); // ignore leading/trailing spaces
+        String val = (raw == null) ? "" : raw.trim();
 
         if (val.isEmpty()) {
-            // Empty string is explicitly allowed
-            return ok;
+            return ok; // ריק מותר (לפי ההערות שלך)
         }
-
-        // No spaces allowed anywhere inside (they would have to be internal now)
         if (val.chars().anyMatch(Character::isWhitespace)) {
             System.out.println(where + "<S-Variable> must not contain spaces. Got: '" + val + "'");
             ok = false;
         }
-
-        // 1. xN or zN (N = digits, at least one digit required)
-        // 2. or exactly "y"
         if (!(val.equals("y") || val.matches("^[xz][0-9]+$"))) {
             System.out.println(where + "<S-Variable> must be 'y' or match ^[xz][0-9]+$ (case-sensitive, no spaces). Got: '" + val + "'");
             ok = false;
         }
-
         return ok;
     }
 
-    /**
-     * Validate the optional <S-Label> child of a given <S-Instruction>.
-     */
     private boolean validateLabelForInstruction(Element instEl, int index) {
         boolean ok = true;
         String where = "S-Instruction[" + index + "]: ";
 
-        // Gather direct <S-Label> children
         List<Element> labels = childElements(instEl, "S-Label");
         if (labels.isEmpty()) {
-            // Optional and absent → valid
-            return true;
+            return true; // אופציונלי
         }
         if (labels.size() > 1) {
             System.out.println(where + "Multiple <S-Label> elements found; expected at most one.");
             ok = false;
         }
 
-        // Validate the first one (continue to report all errors if needed)
         Element labelEl = labels.get(0);
         String raw = labelEl.getTextContent();
-        String val = (raw == null) ? "" : raw.trim(); // ignore leading/trailing spaces
+        String val = (raw == null) ? "" : raw.trim();
 
         if (val.isEmpty()) {
             System.out.println(where + "<S-Label> must not be empty when present.");
             ok = false;
         } else {
-            // No whitespace anywhere inside
             if (val.chars().anyMatch(Character::isWhitespace)) {
                 System.out.println(where + "<S-Label> must not contain spaces. Got: '" + val + "'");
                 ok = false;
             }
-            // Must be 'L' + digits, case-sensitive
             if (!val.matches("^L[0-9]+$")) {
                 System.out.println(where + "<S-Label> must match ^L[0-9]+$ (uppercase L followed by digits). Got: '" + val + "'");
                 ok = false;
             }
         }
-
         return ok;
     }
-
-
 }

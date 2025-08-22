@@ -7,10 +7,12 @@ import javax.xml.parsers.ParserConfigurationException;
 // import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Scanner;
+import java.nio.file.Path;
 
 public class ConsoleUI {
     private final SProgram gw;
     private final Scanner sc = new Scanner(System.in);
+    private Path loadedXml;
 
     public ConsoleUI(SProgram gw) {
         this.gw = gw;
@@ -43,19 +45,48 @@ public class ConsoleUI {
         }
     }
 
-    private void onLoad() throws IOException, ParserConfigurationException, SAXException {
-        boolean valid = gw.validate();
-        if (!valid) {
-            System.out.println("Invalid program. Try to upload the path again");
-        } else {
-            var res = gw.load();
-            if (res != null) {
-                System.out.println("Mission completed.");
+    private void onLoad() {
+        try {
+            boolean valid = gw.validate();
+            if (!valid) {
+                System.out.println("Invalid program. Try to upload the path again");
+                return;
             }
+
+            Object res = gw.load();
+
+            if (res instanceof java.nio.file.Path p) {
+                loadedXml = p;
+                System.out.println("Mission completed.");
+            } else if (res != null) {
+                try {
+                    loadedXml = java.nio.file.Path.of(res.toString());
+                    System.out.println("Mission completed.");
+                } catch (Exception e) {
+                    System.out.println("Loaded, but could not parse the returned path.");
+                }
+            } else {
+                System.out.println("Load failed.");
+            }
+
+        } catch (javax.xml.parsers.ParserConfigurationException | org.xml.sax.SAXException e) {
+            System.out.println("XML error: " + e.getMessage());
+        } catch (java.io.IOException e) {
+            System.out.println("I/O error: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Unexpected error: " + e.getMessage());
         }
     }
 
     private void onShow() {
+        if (loadedXml == null) {
+            System.out.println("No program loaded yet.");
+            return;
+        }
+        if (gw.getInstructions() == null || gw.getInstructions().isEmpty()) {
+            System.out.println("Program loaded but not built yet. (No in-memory instructions)");
+            return;
+        }
         System.out.println(PrettyPrinter.show(gw));
     }
 
@@ -68,6 +99,7 @@ public class ConsoleUI {
         //int level = askInt("Run level (0..): ");
         //System.out.print("Inputs CSV (e.g., 4,7,0): ");
         //var res = gw.run(level, sc.nextLine().trim());
+        //System.out.printf("y = %d%nc ycles = %d%n", res.y(), res.cycles());
         //System.out.printf("y = %d%nc ycles = %d%n", res.y(), res.cycles());
     }
 

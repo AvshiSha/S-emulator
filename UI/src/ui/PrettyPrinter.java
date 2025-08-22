@@ -27,7 +27,6 @@ public final class PrettyPrinter {
         sb.append("Inputs: ").append(formatInputs(inputsUsed)).append("\n");
         sb.append("Labels: ").append(formatLabels(labelsUsed)).append("\n\n");
 
-        // הוראות (אותה תצוגה שכבר כתבת)
         for (int i = 0; i < ins.size(); i++) {
             SInstruction in = ins.get(i);
             String kind = kindLetter(in);
