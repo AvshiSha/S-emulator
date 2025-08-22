@@ -14,6 +14,14 @@ import semulator.variable.Variable;
 import semulator.variable.VariableImpl;
 import semulator.variable.VariableType;
 
+import semulator.instructions.ZeroVariableInstruction;
+import semulator.instructions.JumpZeroInstruction;
+import semulator.instructions.JumpEqualConstantInstruction;
+import semulator.instructions.JumpEqualVariableInstruction;
+import semulator.instructions.GotoLabelInstruction;
+import semulator.instructions.AssignConstantInstruction;
+import semulator.instructions.AssignVariableInstruction;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -172,41 +180,64 @@ public class SProgramImpl implements SProgram {
 
             switch (name) {
                 case "INCREASE" -> {
-                    if (selfLabel != FixedLabel.EMPTY) {
-                        instructions.add(new IncreaseInstruction(var, selfLabel));
-                    } else {
-                        instructions.add(new IncreaseInstruction(var));
-                    }
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new IncreaseInstruction(var, selfLabel));
+                    else instructions.add(new IncreaseInstruction(var));
                 }
                 case "DECREASE" -> {
-                    if (selfLabel != FixedLabel.EMPTY) {
-                        instructions.add(new DecreaseInstruction(var, selfLabel));
-                    } else {
-                        instructions.add(new DecreaseInstruction(var));
-                    }
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new DecreaseInstruction(var, selfLabel));
+                    else instructions.add(new DecreaseInstruction(var));
                 }
                 case "NEUTRAL" -> {
                     instructions.add(new NoOpInstruction(var));
                 }
                 case "JUMP_NOT_ZERO" -> {
-                    // לפי ה-XML: <S-Instruction-Argument name="JNZLabel" value="L1"/>
-                    String targetName = args.get("JNZLabel");
-                    Label target = (targetName == null || targetName.isBlank())
-                            ? FixedLabel.EMPTY
-                            : getOrCreateLabel(targetName, labelPool);
+                    String targetName = args.get("JNZLabel");                 // badic.xml
+                    Label target = parseLabel(targetName, labelPool);
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpNotZeroInstruction(var, selfLabel, target));
+                    else instructions.add(new JumpNotZeroInstruction(var, target));
+                }
 
-                    // קיימים אצלך שני קונסטרקטורים: (var,target) וגם (var,selfLabel,target)
-                    if (selfLabel != FixedLabel.EMPTY) {
-                        instructions.add(new JumpNotZeroInstruction(var, selfLabel, target));
-                    } else {
-                        instructions.add(new JumpNotZeroInstruction(var, target));
-                    }
+                // ===== synthetic.xml cases =====
+                case "ZERO_VARIABLE" -> {
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new ZeroVariableInstruction(var, selfLabel));
+                    else instructions.add(new ZeroVariableInstruction(var));
                 }
-                // את שאר השמות (ZERO_VARIABLE/ASSIGNMENT/...) נוסיף בשלבים הבאים של המטלה
-                default -> {
-                    // לא בונים הוראה לא מוכרת (ממילא validatexmlFile מסננת)
+                case "ASSIGNMENT" -> {                                        // <... name="assignedVariable" value="x2"/>
+                    Variable src = parseVariable(args.get("assignedVariable"));
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new AssignVariableInstruction(var, src, selfLabel));
+                    else instructions.add(new AssignVariableInstruction(var, src));
                 }
+                case "CONSTANT_ASSIGNMENT" -> {                                // <... name="constantValue" value="5"/>
+                    int c = Integer.parseInt(args.get("constantValue"));
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new AssignConstantInstruction(var, c, selfLabel));
+                    else instructions.add(new AssignConstantInstruction(var, c));
+                }
+                case "JUMP_ZERO" -> {                                          // <... name="JZLabel" value="EXIT"/>
+                    Label target = parseLabel(args.get("JZLabel"), labelPool);
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpZeroInstruction(var, selfLabel, target));
+                    else instructions.add(new JumpZeroInstruction(var, target));
+                }
+                case "JUMP_EQUAL_CONSTANT" -> {                                // JEConstantLabel + constantValue
+                    Label target = parseLabel(args.get("JEConstantLabel"), labelPool);
+                    int c = Integer.parseInt(args.get("constantValue"));
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpEqualConstantInstruction(var, selfLabel, c, target));
+                    else instructions.add(new JumpEqualConstantInstruction(var, c, target));
+                }
+                case "JUMP_EQUAL_VARIABLE" -> {                                // JEVariableLabel + variableName
+                    Label target = parseLabel(args.get("JEVariableLabel"), labelPool);
+                    Variable other = parseVariable(args.get("variableName"));
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpEqualVariableInstruction(var, selfLabel, other, target));
+                    else instructions.add(new JumpEqualVariableInstruction(var, other, target));
+                }
+                case "GOTO_LABEL" -> {                                         // gotoLabel
+                    Label target = parseLabel(args.get("gotoLabel"), labelPool);
+                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new GotoLabelInstruction(selfLabel, target));
+                    else instructions.add(new GotoLabelInstruction(target));
+                }
+
+                default -> { /* לא בונים הוראה לא מוכרת */ }
             }
+
         }
     }
 
@@ -442,4 +473,12 @@ public class SProgramImpl implements SProgram {
         }
         return ok;
     }
+
+    private static Label parseLabel(String name, Map<String, Label> pool) {
+        if (name == null || name.isBlank()) return FixedLabel.EMPTY;
+        if ("EXIT".equals(name)) return FixedLabel.EXIT;
+        // מצפה ל־L\d+
+        return pool.computeIfAbsent(name, n -> new LabelImpl(Integer.parseInt(n.substring(1)), 0));
+    }
+
 }
