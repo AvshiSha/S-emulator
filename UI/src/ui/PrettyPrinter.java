@@ -22,10 +22,14 @@ public final class PrettyPrinter {
         // הפקה דינמית של Inputs/Labels מתוך ההוראות הקיימות
         List<SInstruction> ins = p.getInstructions();
         Set<String> inputsUsed = deriveInputs(ins);
-        List<Label> labelsUsed = deriveLabels(ins);
+        List<Label> labelsForHeader = uniqueLabelsForHeader(ins);
 
         sb.append("Inputs: ").append(formatInputs(inputsUsed)).append("\n");
-        sb.append("Labels: ").append(formatLabels(labelsUsed)).append("\n\n");
+        sb.append("Labels: ")
+                .append(labelsForHeader.stream()
+                        .map(l -> l.isExit() ? "EXIT" : l.getLabel())
+                        .collect(Collectors.joining(", ")))
+                .append("\n\n");
 
         for (int i = 0; i < ins.size(); i++) {
             SInstruction in = ins.get(i);
@@ -63,32 +67,6 @@ public final class PrettyPrinter {
         return xs;
     }
 
-    // ---------- עזר: חישוב Labels בשימוש ----------
-    private static List<Label> deriveLabels(List<SInstruction> ins) {
-        List<Label> labels = new ArrayList<>();
-        for (SInstruction in : ins) {
-            if (in.getLabel() != null) labels.add(in.getLabel()); // לייבל שמוגדר על ההוראה
-            if (in instanceof GotoLabelInstruction g && g.getTarget() != null) {
-                labels.add(g.getTarget());
-            }
-            if (in instanceof JumpNotZeroInstruction j && j.getTarget() != null) {
-                labels.add(j.getTarget());
-            }
-            if (in instanceof JumpZeroInstruction j && j.getTarget() != null) {
-                labels.add(j.getTarget());
-            }
-            if (in instanceof JumpEqualConstantInstruction j && j.getTarget() != null) {
-                labels.add(j.getTarget());
-            }
-            if (in instanceof JumpEqualVariableInstruction j && j.getTarget() != null) {
-                labels.add(j.getTarget());
-            }
-        }
-        // אם תרצה להציג EXIT תמיד, אפשר להוסיף:
-        // labels.add(FixedLabel.EXIT);
-        return labels;
-    }
-
     private static String formatInputs(Set<String> inputs) {
         return inputs.stream()
                 .sorted(Comparator.comparingInt(PrettyPrinter::xIndex))
@@ -99,21 +77,22 @@ public final class PrettyPrinter {
         catch (Exception e) { return Integer.MAX_VALUE; }
     }
 
-    private static String formatLabels(List<semulator.label.Label> labels) {
-        return labels.stream()
-                .sorted((a, b) -> {
-                    boolean ea = a.isExit(), eb = b.isExit();
-                    if (ea && !eb) return 1;       // EXIT תמיד בסוף
-                    if (!ea && eb) return -1;
-                    return a.getLabelRepresentation().compareTo(b.getLabelRepresentation());
-                })
-                .map(semulator.label.Label::getLabelRepresentation)
-                .collect(java.util.stream.Collectors.joining(", "));
-    }
-
     private static String labelBox(semulator.label.Label l) {
-        if (l == null) return "[     ]";
-        return l.getLabelRepresentation();
+        String name = null;
+        if (l != null) {
+            name = l.isExit() ? "EXIT" : l.getLabel();
+        }
+        if (name == null) name = "";
+
+        final int WIDTH = 5;
+        if (name.length() > WIDTH) name = name.substring(0, WIDTH);
+
+        int pad = WIDTH - name.length();
+        // ריווח לאמצע: כשיש שארית, נוסיף את הרווח העודף לשמאל כדי לקבל "[  L1 ]"
+        int left  = pad / 2;
+        int right = pad - left;
+
+        return "[" + " ".repeat(left) + name + " ".repeat(right) + "]";
     }
 
     private static String kindLetter(SInstruction in) {
@@ -152,4 +131,47 @@ public final class PrettyPrinter {
         }
         return in.getName();
     }
+
+    // לייבלים לכותרת — ייחודיים, לא ריקים, ואם EXIT הופיע איפשהו — הוא יופיע פעם אחת ובסוף
+    private static java.util.List<semulator.label.Label> uniqueLabelsForHeader(java.util.List<semulator.instructions.SInstruction> ins) {
+        boolean sawExit = false;
+        java.util.Map<String, semulator.label.Label> uniq = new java.util.LinkedHashMap<>();
+
+        for (semulator.instructions.SInstruction in : ins) {
+            // לייבל שמוגדר על ההוראה
+            var self = in.getLabel();
+            if (self != null) {
+                if (self.isExit()) sawExit = true; else putIfHasName(uniq, self);
+            }
+            // יעדי קפיצה/בדיקות – כיסוי הסוגים הרלוונטיים
+            if (in instanceof semulator.instructions.GotoLabelInstruction g && g.getTarget() != null) {
+                if (g.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, g.getTarget());
+            }
+            if (in instanceof semulator.instructions.JumpNotZeroInstruction j && j.getTarget() != null) {
+                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+            }
+            if (in instanceof semulator.instructions.JumpZeroInstruction j && j.getTarget() != null) {
+                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+            }
+            if (in instanceof semulator.instructions.JumpEqualConstantInstruction j && j.getTarget() != null) {
+                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+            }
+            if (in instanceof semulator.instructions.JumpEqualVariableInstruction j && j.getTarget() != null) {
+                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+            }
+        }
+
+        java.util.List<semulator.label.Label> out = new java.util.ArrayList<>(uniq.values());
+        if (sawExit) out.add(semulator.label.FixedLabel.EXIT); // EXIT פעם אחת ובסוף
+        return out;
+    }
+
+    private static void putIfHasName(java.util.Map<String, semulator.label.Label> uniq,
+                                     semulator.label.Label lbl) {
+        String name = lbl.toString();
+        if (name != null && !name.isBlank()) {
+            uniq.putIfAbsent(name, lbl);
+        }
+    }
+
 }

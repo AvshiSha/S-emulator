@@ -5,8 +5,6 @@ public interface Label {
 
     int getAddress(); // instruction the label is pointing at
 
-    String getLabelRepresentation();
-
     default boolean isExit() {
         return false;
     }
