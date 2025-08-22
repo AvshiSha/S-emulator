@@ -133,6 +133,11 @@ public class SProgramImpl implements SProgram {
     }
 
     @Override
+    public String expand(int level){
+        return "";        // TODO: לפי דרישות המטלה בהמשך
+    }
+
+    @Override
     public Object load() throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -141,7 +146,7 @@ public class SProgramImpl implements SProgram {
         try (InputStream xmlFileInputStream = new FileInputStream(this.xmlPath.toFile())) {
             doc = builder.parse(xmlFileInputStream);
             doc.getDocumentElement().normalize();
-            ok = validatexmlFile(doc); // שומר את שם המתודה המקורי אצלך
+            ok = validateXmlFile(doc); // שומר את שם המתודה המקורי אצלך
         }
         if (!ok) {
             return null;
@@ -241,6 +246,7 @@ public class SProgramImpl implements SProgram {
         }
     }
 
+
     /* =====================  עזרי XML וכללי  ===================== */
 
     private static String textOfSingle(Element parent, String tag) {
@@ -298,7 +304,7 @@ public class SProgramImpl implements SProgram {
 
     /* =====================  הוולידציה המקורית שלך  ===================== */
 
-    private boolean validatexmlFile(Document doc) {
+    private boolean validateXmlFile(Document doc) {
         Element root = doc.getDocumentElement();
         if (root == null) {
             System.out.println("Empty XML document.");

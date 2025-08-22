@@ -91,8 +91,9 @@ public class ConsoleUI {
     }
 
     private void onExpand() {
-        //int level = askInt("Expansion level (0..): ");
-        //System.out.println(gw.expand(level));
+        int level = askInt("Expansion level (0..): ");
+        String out = gw.expand(level);
+        System.out.println(out);
     }
 
     private void onRun() {
