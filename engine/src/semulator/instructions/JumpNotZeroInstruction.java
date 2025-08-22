@@ -10,7 +10,7 @@ public class JumpNotZeroInstruction extends AbstractInstruction {
     private final Label jnzLabel; // יעד הקפיצה
 
     public JumpNotZeroInstruction(Variable variable, Label jnzLabel) {
-        this(variable, jnzLabel, FixedLabel.EMPTY);
+        this(variable, FixedLabel.EMPTY, jnzLabel);
     }
 
     public JumpNotZeroInstruction(Variable variable, Label label, Label jnzLabel) {

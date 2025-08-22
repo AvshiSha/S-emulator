@@ -19,11 +19,6 @@ public class LabelImpl implements Label {
     }
 
     @Override
-    public String getLabelRepresentation() {
-        return String.format("[ %-4s]", label);
-    }
-
-    @Override
     public String getLabel() {
         return label;
     }
