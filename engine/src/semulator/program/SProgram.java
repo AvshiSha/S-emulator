@@ -23,5 +23,7 @@ public interface SProgram {
 
     int calculateCycles();
 
+    String expand(int level);
+
     Object load() throws ParserConfigurationException, IOException, SAXException;
 }
