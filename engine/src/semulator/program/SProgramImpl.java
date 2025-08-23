@@ -63,6 +63,15 @@ public class SProgramImpl implements SProgram {
             "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE"
     );
 
+    private static final Set<String> LABEL_TARGET_ARGS = Set.of(
+            "JNZLabel",          // JUMP_NOT_ZERO
+            "JZLabel",           // JUMP_ZERO
+            "JEConstantLabel",   // JUMP_EQUAL_CONSTANT
+            "JEVariableLabel",   // JUMP_EQUAL_VARIABLE
+            "gotoLabel"          // GOTO_LABEL
+            // Add more here if new jump types are introduced
+    );
+
     @Override
     public String getName() {
         return name;
@@ -111,20 +120,20 @@ public class SProgramImpl implements SProgram {
                 return false;
             }
 
-        String fn = (p.getFileName() != null) ? p.getFileName().toString() : "";
-        if (!fn.toLowerCase(Locale.ROOT).endsWith(".xml")) {
-            System.err.println("File must have a .xml extension. Got: " + fn);
-            return false;
-        }
+            String fn = (p.getFileName() != null) ? p.getFileName().toString() : "";
+            if (!fn.toLowerCase(Locale.ROOT).endsWith(".xml")) {
+                System.err.println("File must have a .xml extension. Got: " + fn);
+                return false;
+            }
 
-        this.xmlPath = p;
-        return true;
+            this.xmlPath = p;
+            return true;
+        }
     }
 
 
     @Override
     public int calculateMaxDegree() {
-        // TODO: לפי דרישות המטלה בהמשך
         return 0;
     }
 
@@ -135,7 +144,7 @@ public class SProgramImpl implements SProgram {
     }
 
     @Override
-    public String expand(int level){
+    public String expand(int level) {
         return "";        // TODO: לפי דרישות המטלה בהמשך
     }
 
@@ -159,7 +168,9 @@ public class SProgramImpl implements SProgram {
         return xmlPath;
     }
 
-    /** ממיר XML מאומת לרשימת הוראות בזיכרון. */
+    /**
+     * ממיר XML מאומת לרשימת הוראות בזיכרון.
+     */
     private void buildInMemory(Document doc) {
         instructions.clear();
 
@@ -200,45 +211,53 @@ public class SProgramImpl implements SProgram {
                 case "JUMP_NOT_ZERO" -> {
                     String targetName = args.get("JNZLabel");                 // badic.xml
                     Label target = parseLabel(targetName, labelPool);
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpNotZeroInstruction(var, selfLabel, target));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new JumpNotZeroInstruction(var, selfLabel, target));
                     else instructions.add(new JumpNotZeroInstruction(var, target));
                 }
 
                 // ===== synthetic.xml cases =====
                 case "ZERO_VARIABLE" -> {
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new ZeroVariableInstruction(var, selfLabel));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new ZeroVariableInstruction(var, selfLabel));
                     else instructions.add(new ZeroVariableInstruction(var));
                 }
                 case "ASSIGNMENT" -> {                                        // <... name="assignedVariable" value="x2"/>
                     Variable src = parseVariable(args.get("assignedVariable"));
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new AssignVariableInstruction(var, src, selfLabel));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new AssignVariableInstruction(var, src, selfLabel));
                     else instructions.add(new AssignVariableInstruction(var, src));
                 }
                 case "CONSTANT_ASSIGNMENT" -> {                                // <... name="constantValue" value="5"/>
                     int c = Integer.parseInt(args.get("constantValue"));
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new AssignConstantInstruction(var, c, selfLabel));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new AssignConstantInstruction(var, c, selfLabel));
                     else instructions.add(new AssignConstantInstruction(var, c));
                 }
                 case "JUMP_ZERO" -> {                                          // <... name="JZLabel" value="EXIT"/>
                     Label target = parseLabel(args.get("JZLabel"), labelPool);
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpZeroInstruction(var, selfLabel, target));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new JumpZeroInstruction(var, selfLabel, target));
                     else instructions.add(new JumpZeroInstruction(var, target));
                 }
                 case "JUMP_EQUAL_CONSTANT" -> {                                // JEConstantLabel + constantValue
                     Label target = parseLabel(args.get("JEConstantLabel"), labelPool);
                     int c = Integer.parseInt(args.get("constantValue"));
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpEqualConstantInstruction(var, selfLabel, c, target));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new JumpEqualConstantInstruction(var, selfLabel, c, target));
                     else instructions.add(new JumpEqualConstantInstruction(var, c, target));
                 }
                 case "JUMP_EQUAL_VARIABLE" -> {                                // JEVariableLabel + variableName
                     Label target = parseLabel(args.get("JEVariableLabel"), labelPool);
                     Variable other = parseVariable(args.get("variableName"));
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new JumpEqualVariableInstruction(var, selfLabel, other, target));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new JumpEqualVariableInstruction(var, selfLabel, other, target));
                     else instructions.add(new JumpEqualVariableInstruction(var, other, target));
                 }
                 case "GOTO_LABEL" -> {                                         // gotoLabel
                     Label target = parseLabel(args.get("gotoLabel"), labelPool);
-                    if (selfLabel != FixedLabel.EMPTY) instructions.add(new GotoLabelInstruction(selfLabel, target));
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new GotoLabelInstruction(selfLabel, target));
                     else instructions.add(new GotoLabelInstruction(target));
                 }
 
@@ -247,9 +266,6 @@ public class SProgramImpl implements SProgram {
 
         }
     }
-
-
-    /* =====================  עזרי XML וכללי  ===================== */
 
     private static String textOfSingle(Element parent, String tag) {
         List<Element> lst = childElements(parent, tag);
@@ -303,7 +319,6 @@ public class SProgramImpl implements SProgram {
         });
     }
 
-    /* =====================  הוולידציה המקורית שלך  ===================== */
 
     private boolean validateXmlFile(Document doc) {
         Element root = doc.getDocumentElement();
@@ -343,7 +358,7 @@ public class SProgramImpl implements SProgram {
             }
         }
 
-        return true;
+        return validateLabelReferences(sInstructions);
     }
 
     private static String trimOrNull(String s) {
@@ -383,7 +398,7 @@ public class SProgramImpl implements SProgram {
 
     private boolean validateInstructionShallow(Element instEl, int index) {
         boolean ok = true;
-        String where = "S-Instruction[" + index + "]: ";
+        String where = "S-Instruction[" + (index + 1) + "]: ";
 
         // (1) Ensure this element does not contain nested S-Instruction elements
         List<Element> nested = childElements(instEl, "S-Instruction");
@@ -431,7 +446,7 @@ public class SProgramImpl implements SProgram {
 
     private boolean validateVariableForInstruction(Element instEl, int index) {
         boolean ok = true;
-        String where = "S-Instruction[" + index + "]: ";
+        String where = "S-Instruction[" + (index + 1) + "]: ";
 
         List<Element> vars = childElements(instEl, "S-Variable");
         if (vars.isEmpty()) {
@@ -464,7 +479,7 @@ public class SProgramImpl implements SProgram {
 
     private boolean validateLabelForInstruction(Element instEl, int index) {
         boolean ok = true;
-        String where = "S-Instruction[" + index + "]: ";
+        String where = "S-Instruction[" + (index + 1) + "]: ";
 
         List<Element> labels = childElements(instEl, "S-Label");
         if (labels.isEmpty()) {
@@ -500,7 +515,7 @@ public class SProgramImpl implements SProgram {
      */
     private boolean validateArgsForInstruction(Element instEl, int index, String instrName) {
         boolean ok = true;
-        String where = "S-Instruction[" + index + "]: ";
+        String where = "S-Instruction[" + (index + 1) + "]: ";
 
         // Find direct containers
         List<Element> containers = childElements(instEl, "S-Instruction-Arguments");
@@ -537,14 +552,86 @@ public class SProgramImpl implements SProgram {
         if (args.isEmpty()) {
             System.out.println(where + "<S-Instruction-Arguments> must contain at least one <S-Instruction-Argument>.");
             ok = false;
-            return ok;
         }
+        return ok;
+    }
 
     private static Label parseLabel(String name, Map<String, Label> pool) {
         if (name == null || name.isBlank()) return FixedLabel.EMPTY;
         if ("EXIT".equals(name)) return FixedLabel.EXIT;
         // מצפה ל־L\d+
         return pool.computeIfAbsent(name, n -> new LabelImpl(Integer.parseInt(n.substring(1)), 0));
+    }
+
+    private boolean validateLabelReferences(Element sInstructions) {
+        // Collect declared labels (from <S-Label> on lines)
+        Set<String> declared = new HashSet<>();
+        List<Element> all = childElements(sInstructions, "S-Instruction");
+        for (Element instEl : all) {
+            List<Element> lbls = childElements(instEl, "S-Label");
+            if (!lbls.isEmpty()) {
+                String raw = lbls.get(0).getTextContent();
+                String val = (raw == null) ? "" : raw.trim();
+                if (!val.isEmpty()) {
+                    declared.add(val);
+                }
+            }
+        }
+
+        boolean ok = true;
+
+        // Collect and check referenced labels from arguments
+        for (int i = 0; i < all.size(); i++) {
+            Element instEl = all.get(i);
+            String where = "S-Instruction[" + (i + 1) + "]: ";
+
+            String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : "";
+
+            // Find the (optional) <S-Instruction-Arguments> block
+            Element argsBlock = getSingleChild(instEl, "S-Instruction-Arguments");
+            if (argsBlock == null) continue; // nothing to check
+
+            List<Element> args = childElements(argsBlock, "S-Instruction-Argument");
+            for (Element arg : args) {
+                String n = arg.getAttribute("name");
+                String v = arg.getAttribute("value");
+                if (n == null) n = "";
+                if (v == null) v = "";
+                n = n.trim();
+                v = v.trim();
+
+                if (!LABEL_TARGET_ARGS.contains(n)) {
+                    continue; // not a label target argument
+                }
+                if (v.isEmpty()) {
+                    // Already covered by other checks usually; still helpful to surface
+                    System.out.println(where + "Label argument '" + n + "' for instruction '" + instrName + "' must not be empty.");
+                    ok = false;
+                    continue;
+                }
+
+                if ("EXIT".equals(v)) {
+                    // EXIT is a virtual sink, not a real line label.
+                    continue;
+                }
+
+                // Ensure it is syntactically an L# label (you already enforce this on <S-Label>).
+                if (!v.matches("^L[0-9]+$")) {
+                    System.out.println(where + "Label argument '" + n + "' must match ^L[0-9]+$ (got '" + v + "').");
+                    ok = false;
+                    continue;
+                }
+
+                // Cross-reference: does this referenced label appear anywhere as a declared line label?
+                if (!declared.contains(v)) {
+                    System.out.println(where + "References label '" + v + "' via argument '" + n +
+                            "' but no such <S-Label> exists in the program.");
+                    ok = false;
+                }
+            }
+        }
+
+        return ok;
     }
 
 }

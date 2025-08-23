@@ -10,7 +10,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public final class PrettyPrinter {
-    private PrettyPrinter() {}
+    private PrettyPrinter() {
+    }
 
     // === חדש: תצוגה של תוכנית אמיתית (SProgram) ===
     public static String show(SProgram p) {
@@ -72,9 +73,13 @@ public final class PrettyPrinter {
                 .sorted(Comparator.comparingInt(PrettyPrinter::xIndex))
                 .collect(Collectors.joining(", "));
     }
+
     private static int xIndex(String x) {
-        try { return Integer.parseInt(x.substring(1)); }
-        catch (Exception e) { return Integer.MAX_VALUE; }
+        try {
+            return Integer.parseInt(x.substring(1));
+        } catch (Exception e) {
+            return Integer.MAX_VALUE;
+        }
     }
 
     private static String labelBox(semulator.label.Label l) {
@@ -89,10 +94,12 @@ public final class PrettyPrinter {
 
         int pad = WIDTH - name.length();
         // ריווח לאמצע: כשיש שארית, נוסיף את הרווח העודף לשמאל כדי לקבל "[  L1 ]"
-        int left  = pad / 2;
+        int left = pad / 2;
         int right = pad - left;
 
-        return "[" + " ".repeat(left) + name + " ".repeat(right) + "]";
+        if (name.isEmpty()) return "    ";
+
+        return "[" + name + "]";
     }
 
     private static String kindLetter(SInstruction in) {
@@ -141,23 +148,29 @@ public final class PrettyPrinter {
             // לייבל שמוגדר על ההוראה
             var self = in.getLabel();
             if (self != null) {
-                if (self.isExit()) sawExit = true; else putIfHasName(uniq, self);
+                if (self.isExit()) sawExit = true;
+                else putIfHasName(uniq, self);
             }
             // יעדי קפיצה/בדיקות – כיסוי הסוגים הרלוונטיים
             if (in instanceof semulator.instructions.GotoLabelInstruction g && g.getTarget() != null) {
-                if (g.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, g.getTarget());
+                if (g.getTarget().isExit()) sawExit = true;
+                else putIfHasName(uniq, g.getTarget());
             }
             if (in instanceof semulator.instructions.JumpNotZeroInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit()) sawExit = true;
+                else putIfHasName(uniq, j.getTarget());
             }
             if (in instanceof semulator.instructions.JumpZeroInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit()) sawExit = true;
+                else putIfHasName(uniq, j.getTarget());
             }
             if (in instanceof semulator.instructions.JumpEqualConstantInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit()) sawExit = true;
+                else putIfHasName(uniq, j.getTarget());
             }
             if (in instanceof semulator.instructions.JumpEqualVariableInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true; else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit()) sawExit = true;
+                else putIfHasName(uniq, j.getTarget());
             }
         }
 
