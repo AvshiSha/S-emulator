@@ -32,10 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
-/**
- * בניית תכנית מ־XML אל תוך List<SInstruction>.
- * בשלב זה מכוסות הפקודות הבסיסיות: NEUTRAL, INCREASE, DECREASE, JUMP_NOT_ZERO.
- */
+
 public class SProgramImpl implements SProgram {
 
     private final String name;
@@ -134,7 +131,31 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public int calculateMaxDegree() {
-        return 0;
+        // Fixed degrees under the current expansion definitions
+        final Map<String, Integer> DEGREE_BY_OPCODE = Map.ofEntries(
+                Map.entry("NEUTRAL", 0),
+                Map.entry("INCREASE", 0),
+                Map.entry("DECREASE", 0),
+                Map.entry("JUMP_NOT_ZERO", 0),
+                Map.entry("ZERO_VARIABLE", 1),
+                Map.entry("GOTO_LABEL", 1),
+                Map.entry("CONSTANT_ASSIGNMENT", 1),
+                Map.entry("JUMP_ZERO", 1),
+                Map.entry("JUMP_EQUAL_CONSTANT", 1),
+                Map.entry("JUMP_EQUAL_VARIABLE", 1),
+
+                Map.entry("ASSIGNMENT", 2)
+                // "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION" are intentionally not included here.
+        );
+
+        int max = 0;
+        for (SInstruction ins : instructions) {
+            Integer d = DEGREE_BY_OPCODE.get(ins.getName());
+            if (d != null && d > max) {
+                max = d;
+            }
+        }
+        return max;
     }
 
     @Override
@@ -144,8 +165,106 @@ public class SProgramImpl implements SProgram {
     }
 
     @Override
-    public String expand(int level) {
-        return "";        // TODO: לפי דרישות המטלה בהמשך
+    public ExpansionResult expandToDegree(int degree) {
+        // Start from the current program as generation 0
+        List<SInstruction> cur = new ArrayList<>(this.instructions);
+
+        // We’ll accumulate lineage across steps:
+        // parentMap links a newly created instruction to the instruction it replaced/expanded from.
+        Map<SInstruction, SInstruction> parentMap = new IdentityHashMap<>();
+
+        for (int step = 0; step < degree; step++) {
+            // Expand once
+            List<SInstruction> next = new ArrayList<>(cur.size() * 2);
+
+            for (SInstruction ins : cur) {
+                if (isBasic(ins)) {
+                    // basic stays as-is for this step
+                    next.add(ins);
+                } else {
+                    // Replace ins with its expansion children.
+                    // TODO: call your real expander here:
+                    List<SInstruction> children = expandOne(ins);
+                    // Track immediate parent for lineage printing
+                    for (SInstruction ch : children) {
+                        parentMap.put(ch, ins);
+                        next.add(ch);
+                    }
+                }
+            }
+            cur = next;
+        }
+
+        // Number the final snapshot 1..N for PrettyPrinter
+        Map<SInstruction, Integer> lineNo = new IdentityHashMap<>();
+        for (int i = 0; i < cur.size(); i++) {
+            lineNo.put(cur.get(i), i + 1);
+        }
+
+        return new ExpansionResult(cur, parentMap, lineNo);
+    }
+
+    private boolean isBasic(SInstruction in) {
+        String name = in.getName();
+        // You already keep BASIC/SYNTHETIC sets in this class:
+        return BASIC.contains(name);
+    }
+
+    // Expand one instruction by your exact rules (ZERO_VARIABLE, ASSIGNMENT, etc.)
+    private List<SInstruction> expandOne(SInstruction in) {
+        // Replace the switch below with your actual expansion code
+        // that builds the DEC/INC/JNZ sequences and fresh labels/temps as needed.
+        switch (in.getName()) {
+            case "ZERO_VARIABLE":
+                return List.of(new DecreaseInstruction(in.getVariable()), new JumpNotZeroInstruction(in.getVariable(), in.getLabel()));
+            case "ASSIGNMENT":
+                AssignVariableInstruction a = (AssignVariableInstruction) in;
+                var V = a.getVariable();   // target
+                var Vp = a.getSource();     // source
+                var z1 = new VariableImpl(VariableType.WORK, 1);
+                // loop labels
+                var AL1 = new LabelImpl("A_L1"); // drain V' -> z1
+                var AL2 = new LabelImpl("A_L2"); // restore from z1 -> V', V
+                var AL3 = new LabelImpl("A_L3");
+
+                var out = new ArrayList<SInstruction>();
+
+                out.add(new ZeroVariableInstruction(V)); // V --> 0
+                out.add(new JumpNotZeroInstruction(Vp, AL1)); // if Vp != 0 goto AL1
+                out.add(new GotoLabelInstruction(AL3)); // goto AL3
+                out.add(new DecreaseInstruction(Vp, AL1)); // Vp --> Vp - 1
+                out.add(new IncreaseInstruction(z1)); // z1 --> z1 - 1
+                out.add(new JumpNotZeroInstruction(Vp, AL1));  // IF Vp != 0 goto AL1
+                out.add(new JumpNotZeroInstruction(z1, AL2)); // IF z1 != 0 goto AL2
+                out.add(new DecreaseInstruction(z1, AL2)); // z1 --> z1 - 1
+                out.add(new IncreaseInstruction(V)); // V --> V + 1
+                out.add(new IncreaseInstruction(Vp)); // Vp --> Vp + 1
+                out.add(new JumpNotZeroInstruction(z1, AL2)); // IF z1 != 0 goto AL2
+                out.add(new NoOpInstruction(V)); // V --> V ??
+                return out;
+            case "GOTO_LABEL":
+                var z2 = new VariableImpl(VariableType.WORK, 2);
+                var out2 = new ArrayList<SInstruction>();
+                out2.add(new IncreaseInstruction(z2)); // z2 --> z2 + 1
+                out2.add(new JumpNotZeroInstruction(z2, in.getLabel())); // IF z2 != 0 goto in.getLabel()
+                return out2;
+            case "CONSTANT_ASSIGNMENT":
+                AssignConstantInstruction a2 = (AssignConstantInstruction) in;
+                var out3 = new ArrayList<SInstruction>();
+
+                out3.add(new ZeroVariableInstruction(in.getVariable())); // V --> 0
+                for (int i = 0; i < a2.getConstant(); i++) {
+                    out3.add(new IncreaseInstruction(in.getVariable())); // V --> V + 1 K times
+                }
+                return out3;
+            case "JUMP_ZERO":
+            case "JUMP_EQUAL_CONSTANT":
+            case "JUMP_EQUAL_VARIABLE":
+                // TODO: return expansion sequence for each case
+                return List.of(in); // TEMP: remove when you plug real expansions
+            default:
+                return List.of(in);
+        }
     }
 
     @Override

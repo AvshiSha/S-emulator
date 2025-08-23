@@ -187,4 +187,42 @@ public final class PrettyPrinter {
         }
     }
 
+    // === NEW: pretty-print a snapshot with lineage (<<< creators) ===
+    public static String showWithCreators(semulator.program.ExpansionResult r) {
+        StringBuilder sb = new StringBuilder();
+
+        List<SInstruction> ins = r.instructions();
+        Map<SInstruction, SInstruction> parent = r.parent();
+        Map<SInstruction, Integer> lineNo = r.lineNo();
+
+        for (int i = 0; i < ins.size(); i++) {
+            SInstruction in = ins.get(i);
+
+            // Main line
+            String main = oneLine(lineNo.get(in), in);
+            sb.append(main);
+
+            // Follow the creator chain: child -> parent -> grandparent -> ...
+            SInstruction cur = in;
+            while (parent.containsKey(cur)) {
+                SInstruction p = parent.get(cur);
+                sb.append(" <<< ").append(oneLine(lineNo.get(p), p));
+                cur = p;
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    // Renders a single instruction exactly like your show(...) body does for one row
+    private static String oneLine(Integer num, SInstruction in) {
+        String n = (num == null ? "?" : String.valueOf(num));
+        String kind = kindLetter(in);
+        String labelBox = labelBox(in.getLabel());
+        String text = renderInstruction(in);
+        int cycles = in.cycles();
+        return String.format("#%s (%s) %s %s (%d)", n, kind, labelBox, text, cycles);
+    }
+
+
 }

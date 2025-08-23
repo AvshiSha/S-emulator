@@ -18,6 +18,12 @@ public class LabelImpl implements Label {
         this.address = null; // עדיין לא נקבע
     }
 
+    public LabelImpl(String label) {
+        if (label == null) throw new IllegalArgumentException("label is null");
+        this.label = label;
+        this.address = null;
+    }
+
     @Override
     public String getLabel() {
         return label;

@@ -23,7 +23,7 @@ public interface SProgram {
 
     int calculateCycles();
 
-    String expand(int level);
+    public ExpansionResult expandToDegree(int degree);
 
     Object load() throws ParserConfigurationException, IOException, SAXException;
 }

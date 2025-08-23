@@ -1,6 +1,7 @@
 package ui;
 
 import org.xml.sax.SAXException;
+import semulator.program.ExpansionResult;
 import semulator.program.SProgram;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -91,9 +92,34 @@ public class ConsoleUI {
     }
 
     private void onExpand() {
-        int level = askInt("Expansion level (0..): ");
-        String out = gw.expand(level);
-        System.out.println(out);
+        if (loadedXml == null) {
+            System.out.println("No program loaded yet.");
+            return;
+        }
+        if (gw.getInstructions() == null || gw.getInstructions().isEmpty()) {
+            System.out.println("Program loaded but not built yet. (No in-memory instructions)");
+            return;
+        }
+
+        int maxDegree = gw.calculateMaxDegree();
+        System.out.printf("Max degree: %d%n", maxDegree);
+
+        final int chosen;
+        if (maxDegree == 0) {
+            // Nothing to expand, but still show the snapshot (degree 0)
+            chosen = 0;
+            System.out.println("This program is already fully basic (degree 0). Showing as-is:");
+        } else {
+            chosen = askIntInRange("Choose expansion degree [0.." + maxDegree + "]: ", 0, maxDegree);
+        }
+
+        // Engine: expand to the requested degree (and carry lineage)
+        ExpansionResult snapshot = gw.expandToDegree(chosen);
+
+        // UI: print including creator chain with "<<<"
+        System.out.println();
+        System.out.println("Program after expanding to degree " + chosen + ":");
+        System.out.println(PrettyPrinter.showWithCreators(snapshot));
     }
 
     private void onRun() {
@@ -116,13 +142,31 @@ public class ConsoleUI {
         //}
     }
 
-    private int askInt(String prompt) {
+    private int askInt(String prompt, int maxDegree) {
         while (true) {
             System.out.print(prompt);
             try {
                 return Integer.parseInt(sc.nextLine().trim());
             } catch (NumberFormatException e) {
                 System.out.println("Please enter a number.");
+            }
+        }
+    }
+
+    // === NEW: strict numeric + range validation ===
+    private int askIntInRange(String prompt, int min, int max) {
+        while (true) {
+            System.out.print(prompt);
+            String s = sc.nextLine().trim();
+            try {
+                int v = Integer.parseInt(s);
+                if (v < min || v > max) {
+                    System.out.printf("Error: please enter a number between %d and %d.%n", min, max);
+                    continue;
+                }
+                return v;
+            } catch (NumberFormatException e) {
+                System.out.println("Error: please enter a valid integer.");
             }
         }
     }
