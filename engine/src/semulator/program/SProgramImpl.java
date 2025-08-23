@@ -51,7 +51,7 @@ public class SProgramImpl implements SProgram {
     private static final Set<String> ALLOWED_NAMES = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
             "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
-            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE"
+            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION"
     );
 
     // Classification for the optional cross-check
@@ -85,7 +85,7 @@ public class SProgramImpl implements SProgram {
         String line = sc.hasNextLine() ? sc.nextLine() : "";
         Path xmlPath = Path.of(line);
 
-        // Strip wrapping quotes only (לא נוגעים ברווחים פנימיים)
+        // Accept spaces; just strip accidental wrapping quotes without touching internal spaces.
         String raw = xmlPath.toString().strip();
         if ((raw.startsWith("\"") && raw.endsWith("\"")) || (raw.startsWith("'") && raw.endsWith("'"))) {
             raw = raw.substring(1, raw.length() - 1);
@@ -97,18 +97,19 @@ public class SProgramImpl implements SProgram {
             return false;
         }
 
+        // Check that it exists, is a regular file, and is readable
         if (!Files.exists(p)) {
             System.err.println("XML file does not exist: " + p);
             return false;
-        }
-        if (!Files.isRegularFile(p)) {
-            System.err.println("Path is not a regular file: " + p);
-            return false;
-        }
-        if (!Files.isReadable(p)) {
-            System.err.println("XML file is not readable: " + p);
-            return false;
-        }
+        } else {
+            if (!Files.isRegularFile(p)) {
+                System.err.println("Path is not a regular file: " + p);
+                return false;
+            }
+            if (!Files.isReadable(p)) {
+                System.err.println("XML file is not readable: " + p);
+                return false;
+            }
 
         String fn = (p.getFileName() != null) ? p.getFileName().toString() : "";
         if (!fn.toLowerCase(Locale.ROOT).endsWith(".xml")) {
@@ -119,6 +120,7 @@ public class SProgramImpl implements SProgram {
         this.xmlPath = p;
         return true;
     }
+
 
     @Override
     public int calculateMaxDegree() {
@@ -289,8 +291,7 @@ public class SProgramImpl implements SProgram {
         } else if (kind == 'z') {
             return new VariableImpl(VariableType.WORK, idx);
         } else {
-            // fallback: תוצאת ברירת־מחדל
-            return Variable.RESULT;
+            return null;
         }
     }
 
@@ -311,11 +312,14 @@ public class SProgramImpl implements SProgram {
             return false;
         }
 
+        // checking if the name of the program is "S-program" mandatory
         if (!"S-Program".equals(root.getTagName())) {
             System.out.println("Root element must be <S-Program>, found <" + root.getTagName() + ">.");
             return false;
         }
 
+        // avoids a NullPointerException when you try to call .trim() on null
+        //and always gives you a trimmed string (leading and trailing spaces removed).
         String progName = trimOrNull(root.getAttribute("name"));
         if (progName == null || progName.isEmpty()) {
             System.out.println("Attribute 'name' on <S-program> is mandatory and must not be empty.");
@@ -328,12 +332,17 @@ public class SProgramImpl implements SProgram {
             return false;
         }
 
+        // Validate each <S-Instruction> in <S-instructions>
+        // Collect all <S-Instruction> children
         List<Element> all = childElements(sInstructions, "S-Instruction");
+        // Validate each one
+        boolean inst_valid;
         for (int i = 0; i < all.size(); i++) {
             if (!validateInstructionShallow(all.get(i), i)) {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -352,6 +361,11 @@ public class SProgramImpl implements SProgram {
             }
         }
         if (direct.isEmpty()) return null;
+        if (direct.size() > 1) {
+            // Multiple same-name direct children where only one is expected
+            // The caller will decide if that's an error (we usually expect singletons)
+            // Return the first to continue validation.
+        }
         return direct.get(0);
     }
 
@@ -371,14 +385,14 @@ public class SProgramImpl implements SProgram {
         boolean ok = true;
         String where = "S-Instruction[" + index + "]: ";
 
-        // (1) אין קינון של S-Instruction בתוך S-Instruction
+        // (1) Ensure this element does not contain nested S-Instruction elements
         List<Element> nested = childElements(instEl, "S-Instruction");
         if (!nested.isEmpty()) {
             System.out.println(where + "Must define exactly one instruction; nested <S-Instruction> found.");
             ok = false;
         }
 
-        // (2) type: basic/synthetic
+        // (2) type attribute: mandatory, case-sensitive
         String type = instEl.hasAttribute("type") ? instEl.getAttribute("type").trim() : null;
         if (type == null || type.isEmpty()) {
             System.out.println(where + "Missing mandatory attribute 'type' (must be 'basic' or 'synthetic').");
@@ -388,7 +402,7 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        // (3) name: חובה
+        // (3) name attribute: mandatory.
         String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : null;
         if (instrName == null || instrName.isEmpty()) {
             System.out.println(where + "Missing mandatory attribute 'name'.");
@@ -398,7 +412,7 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        // (4) בדיקת התאמה בין type לבין הסיווג
+        // (4) Optional: cross-check type matches classification (helps catch mismatches)
         if (ok && type != null && instrName != null && !type.isEmpty() && !instrName.isEmpty()) {
             if (type.equals("basic") && !BASIC.contains(instrName)) {
                 System.out.println(where + "Instruction '" + instrName + "' is synthetic but type='basic' given.");
@@ -444,6 +458,7 @@ public class SProgramImpl implements SProgram {
             System.out.println(where + "<S-Variable> must be 'y' or match ^[xz][0-9]+$ (case-sensitive, no spaces). Got: '" + val + "'");
             ok = false;
         }
+
         return ok;
     }
 
@@ -479,6 +494,51 @@ public class SProgramImpl implements SProgram {
         }
         return ok;
     }
+
+    /**
+     * Validate the <S-Instruction-Arguments> block for a given <S-Instruction> by opcode.
+     */
+    private boolean validateArgsForInstruction(Element instEl, int index, String instrName) {
+        boolean ok = true;
+        String where = "S-Instruction[" + index + "]: ";
+
+        // Find direct containers
+        List<Element> containers = childElements(instEl, "S-Instruction-Arguments");
+        if (containers.size() > 1) {
+            System.out.println(where + "Multiple <S-Instruction-Arguments> blocks found; expected at most one.");
+            ok = false;
+        }
+        Element container = containers.isEmpty() ? null : containers.get(0);
+
+        // Which instructions use an arguments block?
+        boolean usesArgs =
+                instrName.equals("GOTO_LABEL") ||
+                        instrName.equals("JUMP_NOT_ZERO") ||
+                        instrName.equals("ASSIGNMENT") ||
+                        instrName.equals("CONSTANT_ASSIGNMENT") ||
+                        instrName.equals("JUMP_ZERO") ||
+                        instrName.equals("JUMP_EQUAL_CONSTANT") ||
+                        instrName.equals("JUMP_EQUAL_VARIABLE") ||
+                        instrName.equals("QUOTE_PROGRAM") ||
+                        instrName.equals("JUMP_EQUAL_FUNCTION");
+        if (!usesArgs && container != null) {
+            System.out.println(where + "Unexpected <S-Instruction-Arguments> for instruction '" + instrName + "'.");
+            ok = false;
+            // keep validating to surface more issues
+        }
+        if (usesArgs && container == null) {
+            System.out.println(where + "Missing <S-Instruction-Arguments> for instruction '" + instrName + "'.");
+            return false;
+        }
+        if (container == null) return ok; // nothing more to check
+
+        // Collect arguments
+        List<Element> args = childElements(container, "S-Instruction-Argument");
+        if (args.isEmpty()) {
+            System.out.println(where + "<S-Instruction-Arguments> must contain at least one <S-Instruction-Argument>.");
+            ok = false;
+            return ok;
+        }
 
     private static Label parseLabel(String name, Map<String, Label> pool) {
         if (name == null || name.isBlank()) return FixedLabel.EMPTY;
