@@ -123,7 +123,7 @@ public class ConsoleUI {
     }
 
     private void onRun() {
-        //int level = askInt("Run level (0..): ");
+        // int level = askInt("Run level (0..): ");
         //System.out.print("Inputs CSV (e.g., 4,7,0): ");
         //var res = gw.run(level, sc.nextLine().trim());
         //System.out.printf("y = %d%nc ycles = %d%n", res.y(), res.cycles());
