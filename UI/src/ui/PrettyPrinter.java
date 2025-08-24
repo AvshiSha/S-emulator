@@ -4,6 +4,7 @@ package ui;
 import semulator.instructions.*;
 import semulator.label.FixedLabel;
 import semulator.label.Label;
+import semulator.program.ExpansionResult;
 import semulator.program.SProgram;   // <-- חדש
 
 import java.util.*;
@@ -140,9 +141,9 @@ public final class PrettyPrinter {
     }
 
     // לייבלים לכותרת — ייחודיים, לא ריקים, ואם EXIT הופיע איפשהו — הוא יופיע פעם אחת ובסוף
-    private static java.util.List<semulator.label.Label> uniqueLabelsForHeader(java.util.List<semulator.instructions.SInstruction> ins) {
+    private static List<semulator.label.Label> uniqueLabelsForHeader(List<SInstruction> ins) {
         boolean sawExit = false;
-        java.util.Map<String, semulator.label.Label> uniq = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Label> uniq = new LinkedHashMap<>();
 
         for (semulator.instructions.SInstruction in : ins) {
             // לייבל שמוגדר על ההוראה
@@ -174,12 +175,12 @@ public final class PrettyPrinter {
             }
         }
 
-        java.util.List<semulator.label.Label> out = new java.util.ArrayList<>(uniq.values());
+        List<Label> out = new ArrayList<>(uniq.values());
         if (sawExit) out.add(semulator.label.FixedLabel.EXIT); // EXIT פעם אחת ובסוף
         return out;
     }
 
-    private static void putIfHasName(java.util.Map<String, semulator.label.Label> uniq,
+    private static void putIfHasName(Map<String, semulator.label.Label> uniq,
                                      semulator.label.Label lbl) {
         String name = lbl.toString();
         if (name != null && !name.isBlank()) {
@@ -187,26 +188,46 @@ public final class PrettyPrinter {
         }
     }
 
-    // === NEW: pretty-print a snapshot with lineage (<<< creators) ===
-    public static String showWithCreators(semulator.program.ExpansionResult r) {
+    // === NEW: pretty-print a snapshot with lineage (<<< creators), nicely aligned ===
+    public static String showWithCreators(ExpansionResult r) {
         StringBuilder sb = new StringBuilder();
 
         List<SInstruction> ins = r.instructions();
         Map<SInstruction, SInstruction> parent = r.parent();
         Map<SInstruction, Integer> lineNo = r.lineNo();
 
+        // 1) Collect all instructions we might print (mains + entire creator chains)
+        Set<SInstruction> all = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (SInstruction in : ins) {
+            SInstruction cur = in;
+            all.add(cur);
+            while (parent.containsKey(cur)) {
+                cur = parent.get(cur);
+                all.add(cur);
+            }
+        }
+
+        // 2) Measure column widths for this snapshot
+        int numWidth = digits(ins.size());             // width for "#N"
+        int labelInnerW = Math.max(4, maxLabelInnerWidth(all)); // text inside [     ]
+        int textWidth = Math.max(16, maxTextWidth(all));      // instruction string
+        int cyclesWidth = Math.max(1, maxCyclesWidth(all));
+
+        // 3) Print each row + its creator chain with the same row number and aligned columns
         for (int i = 0; i < ins.size(); i++) {
             SInstruction in = ins.get(i);
+            Integer thisNum = lineNo.get(in);
 
             // Main line
-            String main = oneLine(lineNo.get(in), in);
-            sb.append(main);
+            sb.append(oneLineAligned(thisNum, in, numWidth, labelInnerW, textWidth, cyclesWidth));
 
-            // Follow the creator chain: child -> parent -> grandparent -> ...
+            // Creator chain: child -> parent -> grandparent ...
             SInstruction cur = in;
             while (parent.containsKey(cur)) {
                 SInstruction p = parent.get(cur);
-                sb.append(" <<< ").append(oneLine(lineNo.get(p), p));
+                sb.append(" <<< ")
+                        // IMPORTANT: keep the same row number for the whole chain
+                        .append(oneLineAligned(thisNum, p, numWidth, labelInnerW, textWidth, cyclesWidth));
                 cur = p;
             }
             sb.append("\n");
@@ -214,14 +235,70 @@ public final class PrettyPrinter {
         return sb.toString();
     }
 
-    // Renders a single instruction exactly like your show(...) body does for one row
-    private static String oneLine(Integer num, SInstruction in) {
-        String n = (num == null ? "?" : String.valueOf(num));
-        String kind = kindLetter(in);
-        String labelBox = labelBox(in.getLabel());
+    // Renders a single aligned line: "#NN (K) [ LABEL ] TEXT (cycles)"
+    private static String oneLineAligned(Integer num,
+                                         SInstruction in,
+                                         int numW, int lblInnerW, int textW, int cycW) {
+        String n = (num == null ? "?".repeat(Math.max(1, numW)) : String.format("%" + numW + "d", num));
+        String kind = kindLetter(in);                       // "B" or "S"
+        String label = labelBoxFixed(in.getLabel(), lblInnerW);
         String text = renderInstruction(in);
-        int cycles = in.cycles();
-        return String.format("#%s (%s) %s %s (%d)", n, kind, labelBox, text, cycles);
+        // If you want ellipsis for a very long text, uncomment:
+        // if (text.length() > textW) text = text.substring(0, Math.max(0, textW - 1)) + "…";
+        return String.format("#%s (%s) %s %-" + textW + "s (%" + cycW + "d)",
+                n, kind, label, text, in.cycles());
+    }
+
+    // Fixed-width label box with centered inner text, e.g., "[  L2  ]" or "[ EXIT ]"
+    private static String labelBoxFixed(semulator.label.Label l, int innerWidth) {
+        String name = null;
+        if (l != null) name = l.isExit() ? "EXIT" : l.getLabel();
+        if (name == null) name = "";
+        // If empty -> same width as a boxed label ("[" + inner + "]") but all spaces
+        if (name.isEmpty()) {
+            return " ".repeat(innerWidth + 2);
+        }
+        if (name.length() > innerWidth) {
+            name = name.substring(0, innerWidth);
+        }
+        int pad = innerWidth - name.length();
+        int left = pad / 2;
+        int right = pad - left;
+        return "[" + " ".repeat(left) + name + " ".repeat(right) + "]";
+    }
+
+    // ------- width helpers (scan all instructions that may be printed) -------
+    private static int digits(int n) {
+        return String.valueOf(Math.max(1, n)).length();
+    }
+
+    private static int maxLabelInnerWidth(java.util.Set<SInstruction> all) {
+        int m = 0;
+        for (SInstruction in : all) {
+            var l = in.getLabel();
+            String name = (l == null ? "" : (l.isExit() ? "EXIT" : l.getLabel()));
+            if (name == null) name = "";
+            if (name.length() > m) m = name.length();
+        }
+        return m;
+    }
+
+    private static int maxTextWidth(java.util.Set<SInstruction> all) {
+        int m = 0;
+        for (SInstruction in : all) {
+            int len = renderInstruction(in).length();
+            if (len > m) m = len;
+        }
+        return m;
+    }
+
+    private static int maxCyclesWidth(java.util.Set<SInstruction> all) {
+        int m = 1;
+        for (SInstruction in : all) {
+            int len = String.valueOf(in.cycles()).length();
+            if (len > m) m = len;
+        }
+        return m;
     }
 
 

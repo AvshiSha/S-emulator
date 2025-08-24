@@ -39,6 +39,10 @@ public class SProgramImpl implements SProgram {
     private final List<SInstruction> instructions;
     private Path xmlPath;
 
+    // Seeded once after load/validate; used for all later expansion runs
+    private final Set<String> baseUsedLabelNames = new HashSet<>();
+    private final Set<String> baseUsedVarNames = new HashSet<>();
+
     public SProgramImpl(String name) {
         this.name = name;
         this.instructions = new ArrayList<>();
@@ -137,14 +141,14 @@ public class SProgramImpl implements SProgram {
                 Map.entry("INCREASE", 0),
                 Map.entry("DECREASE", 0),
                 Map.entry("JUMP_NOT_ZERO", 0),
-                Map.entry("ZERO_VARIABLE", 1),
-                Map.entry("GOTO_LABEL", 1),
-                Map.entry("CONSTANT_ASSIGNMENT", 1),
-                Map.entry("JUMP_ZERO", 1),
-                Map.entry("JUMP_EQUAL_CONSTANT", 1),
-                Map.entry("JUMP_EQUAL_VARIABLE", 1),
+                Map.entry("ZERO", 1),
+                Map.entry("GOTO", 1),
+                Map.entry("ASSIGNC", 1),
+                Map.entry("IFZ", 1),
+                Map.entry("IFEQC", 1),
+                Map.entry("IFEQV", 1),
 
-                Map.entry("ASSIGNMENT", 2)
+                Map.entry("ASSIGN", 2)
                 // "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION" are intentionally not included here.
         );
 
@@ -173,6 +177,8 @@ public class SProgramImpl implements SProgram {
         // parentMap links a newly created instruction to the instruction it replaced/expanded from.
         Map<SInstruction, SInstruction> parentMap = new IdentityHashMap<>();
 
+        NameSession names = new NameSession(baseUsedLabelNames, baseUsedVarNames);
+
         for (int step = 0; step < degree; step++) {
             // Expand once
             List<SInstruction> next = new ArrayList<>(cur.size() * 2);
@@ -182,9 +188,7 @@ public class SProgramImpl implements SProgram {
                     // basic stays as-is for this step
                     next.add(ins);
                 } else {
-                    // Replace ins with its expansion children.
-                    // TODO: call your real expander here:
-                    List<SInstruction> children = expandOne(ins);
+                    List<SInstruction> children = expandOne(ins, names);
                     // Track immediate parent for lineage printing
                     for (SInstruction ch : children) {
                         parentMap.put(ch, ins);
@@ -195,7 +199,7 @@ public class SProgramImpl implements SProgram {
             cur = next;
         }
 
-        // Number the final snapshot 1..N for PrettyPrinter
+        // Number the final snapshot 1.N for PrettyPrinter
         Map<SInstruction, Integer> lineNo = new IdentityHashMap<>();
         for (int i = 0; i < cur.size(); i++) {
             lineNo.put(cur.get(i), i + 1);
@@ -211,21 +215,21 @@ public class SProgramImpl implements SProgram {
     }
 
     // Expand one instruction by your exact rules (ZERO_VARIABLE, ASSIGNMENT, etc.)
-    private List<SInstruction> expandOne(SInstruction in) {
+    private List<SInstruction> expandOne(SInstruction in, NameSession names) {
         // Replace the switch below with your actual expansion code
         // that builds the DEC/INC/JNZ sequences and fresh labels/temps as needed.
         switch (in.getName()) {
-            case "ZERO_VARIABLE":
+            case "ZERO":
                 return List.of(new DecreaseInstruction(in.getVariable()), new JumpNotZeroInstruction(in.getVariable(), in.getLabel()));
-            case "ASSIGNMENT":
+            case "ASSIGN":
                 AssignVariableInstruction a = (AssignVariableInstruction) in;
                 var V = a.getVariable();   // target
                 var Vp = a.getSource();     // source
-                var z1 = new VariableImpl(VariableType.WORK, 1);
+                var z1 = names.freshZ();
                 // loop labels
-                var AL1 = new LabelImpl("A_L1"); // drain V' -> z1
-                var AL2 = new LabelImpl("A_L2"); // restore from z1 -> V', V
-                var AL3 = new LabelImpl("A_L3");
+                var AL1 = names.freshLabel(); // drain V' -> z1
+                var AL2 = names.freshLabel(); // restore from z1 -> V', V
+                var AL3 = names.freshLabel();
 
                 var out = new ArrayList<SInstruction>();
 
@@ -242,13 +246,13 @@ public class SProgramImpl implements SProgram {
                 out.add(new JumpNotZeroInstruction(z1, AL2)); // IF z1 != 0 goto AL2
                 out.add(new NoOpInstruction(V)); // V --> V ??
                 return out;
-            case "GOTO_LABEL":
-                var z2 = new VariableImpl(VariableType.WORK, 2);
+            case "GOTO":
+                var z2 = names.freshZ();
                 var out2 = new ArrayList<SInstruction>();
                 out2.add(new IncreaseInstruction(z2)); // z2 --> z2 + 1
                 out2.add(new JumpNotZeroInstruction(z2, in.getLabel())); // IF z2 != 0 goto in.getLabel()
                 return out2;
-            case "CONSTANT_ASSIGNMENT":
+            case "ASSIGNC":
                 AssignConstantInstruction a2 = (AssignConstantInstruction) in;
                 var out3 = new ArrayList<SInstruction>();
 
@@ -257,19 +261,19 @@ public class SProgramImpl implements SProgram {
                     out3.add(new IncreaseInstruction(in.getVariable())); // V --> V + 1 K times
                 }
                 return out3;
-            case "JUMP_ZERO":
+            case "IFZ":
                 JumpZeroInstruction jz = (JumpZeroInstruction) in;
                 var out4 = new ArrayList<SInstruction>();
-                Label BL1 = new LabelImpl("B_L1");
+                Label BL1 = names.freshLabel();
                 out4.add(new JumpZeroInstruction(jz.getVariable(), BL1));
                 out4.add(new GotoLabelInstruction(jz.getLabel()));
                 out4.add(new NoOpInstruction(in.getVariable(), in.getLabel()));
                 return out4;
-            case "JUMP_EQUAL_CONSTANT":
+            case "IFEQC":
                 JumpEqualConstantInstruction jec = (JumpEqualConstantInstruction) in;
                 var out5 = new ArrayList<SInstruction>();
-                Label BL2 = new LabelImpl("B_L2");
-                Variable z5 = new VariableImpl(VariableType.WORK, 5);
+                Label BL2 = names.freshLabel();
+                Variable z5 = names.freshZ();
                 out5.add(new AssignConstantInstruction(z5, jec.getVariable().getNumber())); // z5 <-- V
                 for (int i = 0; i < jec.getConstant(); i++) { // K times
                     out5.add(new JumpZeroInstruction(z5, BL2)); // IF z5 == 0 goto BL2
@@ -279,16 +283,16 @@ public class SProgramImpl implements SProgram {
                 out5.add(new GotoLabelInstruction(in.getLabel())); // goto in.getLabel()
                 out5.add(new NoOpInstruction(in.getVariable(), BL2)); // BL2: V --> V ??
                 return out5;
-            case "JUMP_EQUAL_VARIABLE":
+            case "IFEQV":
                 JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) in;
                 var Source = jev.getVariable();
                 var Target = jev.getOther();
                 var out6 = new ArrayList<SInstruction>();
-                Label BL3 = new LabelImpl("B_L3");
-                Label BL4 = new LabelImpl("B_L4");
-                Label BL5 = new LabelImpl("B_L5");
-                Variable z6 = new VariableImpl(VariableType.WORK, 6);
-                Variable z7 = new VariableImpl(VariableType.WORK, 7);
+                Label BL3 = names.freshLabel();
+                Label BL4 = names.freshLabel();
+                Label BL5 = names.freshLabel();
+                Variable z6 = names.freshZ();
+                Variable z7 = names.freshZ();
                 out6.add(new AssignVariableInstruction(z6, Source));
                 out6.add(new AssignVariableInstruction(z7, Target));
                 out6.add(new JumpZeroInstruction(z6, BL4, BL5));
@@ -313,20 +317,17 @@ public class SProgramImpl implements SProgram {
         try (InputStream xmlFileInputStream = new FileInputStream(this.xmlPath.toFile())) {
             doc = builder.parse(xmlFileInputStream);
             doc.getDocumentElement().normalize();
-            ok = validateXmlFile(doc); // שומר את שם המתודה המקורי אצלך
+            ok = validateXmlFile(doc);
         }
         if (!ok) {
             return null;
         }
-
-        // חדש: בניית ההוראות אל תוך הזיכרון
         buildInMemory(doc);
+        reseedNameRegistryFromProgram();
         return xmlPath;
     }
 
-    /**
-     * ממיר XML מאומת לרשימת הוראות בזיכרון.
-     */
+
     private void buildInMemory(Document doc) {
         instructions.clear();
 
@@ -789,5 +790,42 @@ public class SProgramImpl implements SProgram {
 
         return ok;
     }
+
+    private void reseedNameRegistryFromProgram() {
+        baseUsedLabelNames.clear();
+        baseUsedVarNames.clear();
+
+        // helpers
+        java.util.function.Consumer<semulator.label.Label> recordLabel = lbl -> {
+            if (lbl == null || lbl.isExit()) return;
+            String s = lbl.getLabel();
+            if (s != null && !s.isBlank() && s.charAt(0) == 'L') {
+                baseUsedLabelNames.add(s);
+            }
+        };
+        java.util.function.Consumer<semulator.variable.Variable> recordVar = v -> {
+            if (v == null) return;
+            String s = v.toString();
+            if (s != null && !s.isBlank() && s.charAt(0) == 'z') {
+                baseUsedVarNames.add(s);
+            }
+        };
+
+        for (SInstruction in : instructions) {
+            // labels: self + jump targets
+            recordLabel.accept(in.getLabel());
+            if (in instanceof GotoLabelInstruction g) recordLabel.accept(g.getTarget());
+            if (in instanceof JumpNotZeroInstruction j) recordLabel.accept(j.getTarget());
+            if (in instanceof JumpZeroInstruction j) recordLabel.accept(j.getTarget());
+            if (in instanceof JumpEqualConstantInstruction j) recordLabel.accept(j.getTarget());
+            if (in instanceof JumpEqualVariableInstruction j) recordLabel.accept(j.getTarget());
+
+            // variables: main + sources/others
+            recordVar.accept(in.getVariable());
+            if (in instanceof AssignVariableInstruction a) recordVar.accept(a.getSource());
+            if (in instanceof JumpEqualVariableInstruction j) recordVar.accept(j.getOther());
+        }
+    }
+
 
 }
