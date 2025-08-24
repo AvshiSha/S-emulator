@@ -258,10 +258,47 @@ public class SProgramImpl implements SProgram {
                 }
                 return out3;
             case "JUMP_ZERO":
+                JumpZeroInstruction jz = (JumpZeroInstruction) in;
+                var out4 = new ArrayList<SInstruction>();
+                Label BL1 = new LabelImpl("B_L1");
+                out4.add(new JumpZeroInstruction(jz.getVariable(), BL1));
+                out4.add(new GotoLabelInstruction(jz.getLabel()));
+                out4.add(new NoOpInstruction(in.getVariable(), in.getLabel()));
+                return out4;
             case "JUMP_EQUAL_CONSTANT":
+                JumpEqualConstantInstruction jec = (JumpEqualConstantInstruction) in;
+                var out5 = new ArrayList<SInstruction>();
+                Label BL2 = new LabelImpl("B_L2");
+                Variable z5 = new VariableImpl(VariableType.WORK, 5);
+                out5.add(new AssignConstantInstruction(z5, jec.getVariable().getNumber())); // z5 <-- V
+                for (int i = 0; i < jec.getConstant(); i++) { // K times
+                    out5.add(new JumpZeroInstruction(z5, BL2)); // IF z5 == 0 goto BL2
+                    out5.add(new DecreaseInstruction(z5)); // z5 --> z5 - 1
+                }
+                out5.add(new JumpNotZeroInstruction(z5, jec.getLabel())); // IF z5 != 0 goto jec.getLabel()
+                out5.add(new GotoLabelInstruction(in.getLabel())); // goto in.getLabel()
+                out5.add(new NoOpInstruction(in.getVariable(), BL2)); // BL2: V --> V ??
+                return out5;
             case "JUMP_EQUAL_VARIABLE":
-                // TODO: return expansion sequence for each case
-                return List.of(in); // TEMP: remove when you plug real expansions
+                JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) in;
+                var Source = jev.getVariable();
+                var Target = jev.getOther();
+                var out6 = new ArrayList<SInstruction>();
+                Label BL3 = new LabelImpl("B_L3");
+                Label BL4 = new LabelImpl("B_L4");
+                Label BL5 = new LabelImpl("B_L5");
+                Variable z6 = new VariableImpl(VariableType.WORK, 6);
+                Variable z7 = new VariableImpl(VariableType.WORK, 7);
+                out6.add(new AssignVariableInstruction(z6, Source));
+                out6.add(new AssignVariableInstruction(z7, Target));
+                out6.add(new JumpZeroInstruction(z6, BL4, BL5));
+                out6.add(new JumpZeroInstruction(z7, BL3));
+                out6.add(new DecreaseInstruction(z6));
+                out6.add(new DecreaseInstruction(z7));
+                out6.add(new GotoLabelInstruction(BL4));
+                out6.add(new JumpZeroInstruction(z7, jev.getLabel(), BL5));
+                out6.add(new NoOpInstruction(in.getVariable(), BL3));
+                return out6;
             default:
                 return List.of(in);
         }
