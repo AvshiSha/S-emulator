@@ -55,28 +55,36 @@ public class ConsoleUI {
 
     private void onLoad() {
         try {
-            boolean valid = gw.validate();
-            if (!valid) {
-                System.out.println("Invalid program. Try to upload the path again");
+            System.out.println("Please enter XML Path: ");
+            java.util.Scanner sc = new java.util.Scanner(System.in);
+            String line = sc.hasNextLine() ? sc.nextLine() : "";
+            Path xmlPath = Path.of(line);
+            String valid = gw.validate(xmlPath);
+            if (!valid.equals("Valid")) {
+                System.out.println(valid);
+                System.out.println();
                 return;
             }
 
             Object res = gw.load();
 
-            if (res instanceof java.nio.file.Path p) {
+            if (res instanceof Path p) {
                 loadedXml = p;
                 runHistory.clear(); // Clear history when loading a new program
-                System.out.println("Mission completed.");
+                System.out.println("Loaded successfully.");
+                System.out.println();
             } else if (res != null) {
                 try {
-                    loadedXml = java.nio.file.Path.of(res.toString());
+                    loadedXml = Path.of(res.toString());
                     System.out.println("Mission completed.");
                     System.out.println();
                 } catch (Exception e) {
                     System.out.println("Loaded, but could not parse the returned path.");
+                    System.out.println();
                 }
             } else {
                 System.out.println("Load failed.");
+                System.out.println();
             }
 
         } catch (javax.xml.parsers.ParserConfigurationException | org.xml.sax.SAXException e) {

@@ -8,6 +8,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 //import java.nio.file.Path;
 import java.util.List;
+import java.nio.file.Path;
 
 public interface SProgram {
 
@@ -17,7 +18,7 @@ public interface SProgram {
 
     List<SInstruction> getInstructions();
 
-    boolean validate();
+    String validate(Path xmlPath);
 
     int calculateMaxDegree();
 

@@ -96,11 +96,7 @@ public class SProgramImpl implements SProgram {
     }
 
     @Override
-    public boolean validate() {
-        System.out.println("Please enter XML Path: ");
-        java.util.Scanner sc = new java.util.Scanner(System.in);
-        String line = sc.hasNextLine() ? sc.nextLine() : "";
-        Path xmlPath = Path.of(line);
+    public String validate(Path xmlPath) {
 
         // Accept spaces; just strip accidental wrapping quotes without touching
         // internal spaces.
@@ -111,32 +107,27 @@ public class SProgramImpl implements SProgram {
         Path p = Path.of(raw).normalize();
 
         if (!p.isAbsolute()) {
-            System.err.println("Please provide a full (absolute) path to the XML file.");
-            return false;
+            return "Please provide a full (absolute) path to the XML file.";
         }
 
         // Check that it exists, is a regular file, and is readable
         if (!Files.exists(p)) {
-            System.err.println("XML file does not exist: " + p);
-            return false;
+            return "XML file does not exist: " + p;
         } else {
             if (!Files.isRegularFile(p)) {
-                System.err.println("Path is not a regular file: " + p);
-                return false;
+                return "Path is not a regular file: " + p;
             }
             if (!Files.isReadable(p)) {
-                System.err.println("XML file is not readable: " + p);
-                return false;
+                return "XML file is not readable: " + p;
             }
 
             String fn = (p.getFileName() != null) ? p.getFileName().toString() : "";
             if (!fn.toLowerCase(Locale.ROOT).endsWith(".xml")) {
-                System.err.println("File must have a .xml extension. Got: " + fn);
-                return false;
+                return "File must have a .xml extension. Got: " + fn;
             }
 
             this.xmlPath = p;
-            return true;
+            return "Valid";
         }
     }
 
