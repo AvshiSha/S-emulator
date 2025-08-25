@@ -235,6 +235,134 @@ public final class PrettyPrinter {
         return sb.toString();
     }
 
+    // === NEW: row-major pretty print for expanded snapshots ===
+// Prints one physical line per original row.
+// Within that line, prints the chain of descendants for that row from newest (left) to oldest (right),
+// each segment formatted as "#<baseRow+depth> (B|S) [LABEL] TEXT (cycles)",
+// with segments separated by " <<< ".
+    public static String showRowMajor(ExpansionResult r) {
+        StringBuilder sb = new StringBuilder();
+
+        // Pull data from the snapshot
+        List<SInstruction> prog = r.instructions();                  // final snapshot program order
+        Map<SInstruction, SInstruction> parent = r.parent();         // immediate parent links
+        Map<SInstruction, Integer> lineNo = r.lineNo();              // final numbering 1..N
+        Map<SInstruction, Integer> rowOf = r.rowOf();                // NEW: base row (0-based) for each instruction
+
+        if (rowOf == null || rowOf.isEmpty()) {
+            // Fallback: no row info -> default to showWithCreators
+            return showWithCreators(r);
+        }
+
+        // Group final instructions by their original row
+        Map<Integer, List<SInstruction>> finalsByRow = new HashMap<>();
+        for (SInstruction ins : prog) {
+            Integer row = rowOf.get(ins);
+            if (row == null) {
+                // If some instruction lacks row info, approximate with its final lineNo-1
+                row = lineNo.getOrDefault(ins, 1) - 1;
+            }
+            finalsByRow.computeIfAbsent(row, k -> new ArrayList<>()).add(ins);
+        }
+
+        // Precompute depth for any instruction we might print (finals + ancestors)
+        Map<SInstruction, Integer> depthCache = new IdentityHashMap<>();
+        java.util.function.Function<SInstruction, Integer> depthFn = ins -> {
+            Integer d = depthCache.get(ins);
+            if (d != null) return d;
+            int dd = 0;
+            SInstruction cur = ins;
+            while (true) {
+                SInstruction p = parent.get(cur);
+                if (p == null) break;
+                dd++;
+                cur = p;
+            }
+            depthCache.put(ins, dd);
+            return dd;
+        };
+
+        // Collect all instructions that *might* be printed for width calc
+        Set<SInstruction> allToMeasure = Collections.newSetFromMap(new IdentityHashMap<>());
+        allToMeasure.addAll(prog);
+        for (SInstruction in : prog) {
+            SInstruction cur = in;
+            while ((cur = parent.get(cur)) != null) {
+                allToMeasure.add(cur);
+            }
+        }
+
+        // Compute widths once
+        int numWidth = Math.max(1, String.valueOf(Math.max(1, prog.size() + 32)).length()); // safe upper bound
+        int labelInnerW = Math.max(4, maxLabelInnerWidth(allToMeasure));
+        int textWidth = Math.max(16, maxTextWidth(allToMeasure));
+        int cyclesWidth = Math.max(1, maxCyclesWidth(allToMeasure));
+
+        // Render each base row
+        List<Integer> rows = new ArrayList<>(finalsByRow.keySet());
+        Collections.sort(rows);
+
+        for (int rowId : rows) {
+            // 1) Build the UNION set for this row: finals + all their ancestors
+            Set<SInstruction> set = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (SInstruction f : finalsByRow.get(rowId)) {
+                SInstruction cur = f;
+                set.add(cur);
+                while ((cur = parent.get(cur)) != null) {
+                    set.add(cur);
+                }
+            }
+
+            // 2) Order newest→oldest (depth desc), tie-break by final program order for determinism
+            List<SInstruction> ordered = new ArrayList<>(set);
+            ordered.sort((a, b) -> {
+                int da = depthFn.apply(a);
+                int db = depthFn.apply(b);
+                if (da != db) return Integer.compare(db, da); // larger depth first
+                return Integer.compare(lineNo.getOrDefault(a, 0), lineNo.getOrDefault(b, 0));
+            });
+
+            // 3) Assign UNIQUE, sequential display row numbers left→right:
+            //    leftmost = baseRow+count, ... rightmost (original) = baseRow+1
+            int count = ordered.size();
+            for (int i = 0; i < count; i++) {
+                if (i > 0) sb.append(" <<< ");
+                int displayRow = (rowId + 1) + (count - 1 - i);
+                sb.append(oneSegmentAligned(displayRow, ordered.get(i),
+                        numWidth, labelInnerW, textWidth, cyclesWidth));
+            }
+            sb.append('\n');
+        }
+
+        return sb.toString();
+    }
+
+    // compute distance child->...->root via parent map
+    private static int depth(SInstruction ins, Map<SInstruction, SInstruction> parent) {
+        int d = 0;
+        SInstruction cur = ins;
+        while (true) {
+            SInstruction p = parent.get(cur);
+            if (p == null) break;
+            d++;
+            cur = p;
+        }
+        return d;
+    }
+
+    // Format one segment with custom row number (aligned)
+    private static String oneSegmentAligned(int displayRow,
+                                            SInstruction in,
+                                            int numW, int lblInnerW, int textW, int cycW) {
+        String n = String.format("%" + numW + "d", displayRow);
+        String kind = kindLetter(in); // "B" or "S"
+        String label = labelBoxFixed(in.getLabel(), lblInnerW);
+        String text = renderInstruction(in);
+        return String.format("#%s (%s) %s %-" + textW + "s (%" + cycW + "d)",
+                n, kind, label, text, in.cycles());
+    }
+
+
     // Renders a single aligned line: "#NN (K) [ LABEL ] TEXT (cycles)"
     private static String oneLineAligned(Integer num,
                                          SInstruction in,

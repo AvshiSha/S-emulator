@@ -119,7 +119,8 @@ public class ConsoleUI {
         // UI: print including creator chain with "<<<"
         System.out.println();
         System.out.println("Program after expanding to degree " + chosen + ":");
-        System.out.println(PrettyPrinter.showWithCreators(snapshot));
+        // System.out.println(PrettyPrinter.showWithCreators(snapshot));
+        System.out.println(PrettyPrinter.showRowMajor(snapshot));
     }
 
     private void onRun() {

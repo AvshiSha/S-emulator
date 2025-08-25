@@ -73,6 +73,18 @@ public class SProgramImpl implements SProgram {
             // Add more here if new jump types are introduced
     );
 
+    // Keep row identity during expansion passes
+    private static final class InstrNode {
+        final SInstruction ins;
+        final int rowId; // "row" = original index in the pre-expansion program
+
+        InstrNode(SInstruction ins, int rowId) {
+            this.ins = ins;
+            this.rowId = rowId;
+        }
+    }
+
+
     @Override
     public String getName() {
         return name;
@@ -171,41 +183,53 @@ public class SProgramImpl implements SProgram {
     @Override
     public ExpansionResult expandToDegree(int degree) {
         // Start from the current program as generation 0
-        List<SInstruction> cur = new ArrayList<>(this.instructions);
+        List<InstrNode> cur = new ArrayList<>(this.instructions.size());
+
+        for (int i = 0; i < this.instructions.size(); i++) {
+            cur.add(new InstrNode(this.instructions.get(i), i)); // rowId = original row
+        }
 
         // We’ll accumulate lineage across steps:
         // parentMap links a newly created instruction to the instruction it replaced/expanded from.
         Map<SInstruction, SInstruction> parentMap = new IdentityHashMap<>();
 
+        // expose row mapping for the final snapshot (useful for later policies/printing)
+        Map<SInstruction, Integer> rowOf = new IdentityHashMap<>();
+
         NameSession names = new NameSession(baseUsedLabelNames, baseUsedVarNames);
 
         for (int step = 0; step < degree; step++) {
             // Expand once
-            List<SInstruction> next = new ArrayList<>(cur.size() * 2);
+            List<InstrNode> next = new ArrayList<>(cur.size() * 2);
 
-            for (SInstruction ins : cur) {
-                if (isBasic(ins)) {
+            for (InstrNode node : cur) {
+                SInstruction in = node.ins;
+                if (isBasic(in)) {
                     // basic stays as-is for this step
-                    next.add(ins);
+                    next.add(new InstrNode(in, node.rowId));
                 } else {
-                    List<SInstruction> children = expandOne(ins, names);
+                    List<SInstruction> children = expandOne(in, names);
                     // Track immediate parent for lineage printing
                     for (SInstruction ch : children) {
-                        parentMap.put(ch, ins);
-                        next.add(ch);
+                        parentMap.put(ch, in);
+                        next.add(new InstrNode(ch, node.rowId));
                     }
                 }
             }
             cur = next;
         }
 
-        // Number the final snapshot 1.N for PrettyPrinter
+        // Build the final flattened snapshot in order
+        List<SInstruction> finalProgram = new ArrayList<>(cur.size());
         Map<SInstruction, Integer> lineNo = new IdentityHashMap<>();
         for (int i = 0; i < cur.size(); i++) {
-            lineNo.put(cur.get(i), i + 1);
+            SInstruction ins = cur.get(i).ins;
+            finalProgram.add(ins);
+            lineNo.put(ins, i + 1);               // pretty printer 1..N
+            rowOf.put(ins, cur.get(i).rowId);     // remember which original row it descends from
         }
 
-        return new ExpansionResult(cur, parentMap, lineNo);
+        return new ExpansionResult(finalProgram, parentMap, lineNo, rowOf);
     }
 
     private boolean isBasic(SInstruction in) {
@@ -220,7 +244,8 @@ public class SProgramImpl implements SProgram {
         // that builds the DEC/INC/JNZ sequences and fresh labels/temps as needed.
         switch (in.getName()) {
             case "ZERO":
-                return List.of(new DecreaseInstruction(in.getVariable()), new JumpNotZeroInstruction(in.getVariable(), in.getLabel()));
+                var L8 = names.freshLabel();
+                return List.of(new DecreaseInstruction(in.getVariable(), L8), new JumpNotZeroInstruction(in.getVariable(), L8));
             case "ASSIGN":
                 AssignVariableInstruction a = (AssignVariableInstruction) in;
                 var V = a.getVariable();   // target
@@ -244,7 +269,7 @@ public class SProgramImpl implements SProgram {
                 out.add(new IncreaseInstruction(V)); // V --> V + 1
                 out.add(new IncreaseInstruction(Vp)); // Vp --> Vp + 1
                 out.add(new JumpNotZeroInstruction(z1, AL2)); // IF z1 != 0 goto AL2
-                out.add(new NoOpInstruction(V)); // V --> V ??
+                out.add(new NoOpInstruction(V)); // V --> V
                 return out;
             case "GOTO":
                 var z2 = names.freshZ();
@@ -281,7 +306,7 @@ public class SProgramImpl implements SProgram {
                 }
                 out5.add(new JumpNotZeroInstruction(z5, jec.getLabel())); // IF z5 != 0 goto jec.getLabel()
                 out5.add(new GotoLabelInstruction(in.getLabel())); // goto in.getLabel()
-                out5.add(new NoOpInstruction(in.getVariable(), BL2)); // BL2: V --> V ??
+                out5.add(new NoOpInstruction(in.getVariable(), BL2)); // BL2: V --> V
                 return out5;
             case "IFEQV":
                 JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) in;
