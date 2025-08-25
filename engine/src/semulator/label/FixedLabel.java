@@ -3,12 +3,22 @@ package semulator.label;
 public enum FixedLabel implements Label {
 
     EXIT {
-        @Override public String getLabel() { return "EXIT"; }
-        @Override public boolean isExit() { return true; }
+        @Override
+        public String getLabel() {
+            return "EXIT";
+        }
+
+        @Override
+        public boolean isExit() {
+            return true;
+        }
     },
 
     EMPTY {
-        @Override public String getLabel() { return ""; }
+        @Override
+        public String getLabel() {
+            return "";
+        }
     };
 
     @Override

@@ -9,4 +9,6 @@ public interface ProgramExecutor {
     long run(Long... input);
 
     Map<Variable, Long> variableState();
+
+    int getTotalCycles();
 }

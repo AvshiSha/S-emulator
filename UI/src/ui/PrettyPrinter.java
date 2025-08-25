@@ -5,7 +5,7 @@ import semulator.instructions.*;
 import semulator.label.FixedLabel;
 import semulator.label.Label;
 import semulator.program.ExpansionResult;
-import semulator.program.SProgram;   // <-- חדש
+import semulator.program.SProgram; // <-- חדש
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -18,20 +18,7 @@ public final class PrettyPrinter {
     public static String show(SProgram p) {
         StringBuilder sb = new StringBuilder();
 
-        // כותרות
-        sb.append("Program: ").append(p.getName()).append("\n");
-
-        // הפקה דינמית של Inputs/Labels מתוך ההוראות הקיימות
         List<SInstruction> ins = p.getInstructions();
-        Set<String> inputsUsed = deriveInputs(ins);
-        List<Label> labelsForHeader = uniqueLabelsForHeader(ins);
-
-        sb.append("Inputs: ").append(formatInputs(inputsUsed)).append("\n");
-        sb.append("Labels: ")
-                .append(labelsForHeader.stream()
-                        .map(l -> l.isExit() ? "EXIT" : l.getLabel())
-                        .collect(Collectors.joining(", ")))
-                .append("\n\n");
 
         for (int i = 0; i < ins.size(); i++) {
             SInstruction in = ins.get(i);
@@ -53,20 +40,38 @@ public final class PrettyPrinter {
             // משתנה מרכזי
             if (in.getVariable() != null) {
                 String v = in.getVariable().toString();
-                if (v.startsWith("x")) xs.add(v);
+                if (v.startsWith("x"))
+                    xs.add(v);
             }
             // מקורות נוספים לפי סוגים שונים:
             if (in instanceof AssignVariableInstruction a && a.getSource() != null) {
                 String s = a.getSource().toString();
-                if (s.startsWith("x")) xs.add(s);
+                if (s.startsWith("x"))
+                    xs.add(s);
             }
             if (in instanceof JumpEqualVariableInstruction j && j.getOther() != null) {
                 String o = j.getOther().toString();
-                if (o.startsWith("x")) xs.add(o);
+                if (o.startsWith("x"))
+                    xs.add(o);
             }
             // אפשר להרחיב אם יש עוד פקודות שקוראות מקלטים
         }
         return xs;
+    }
+
+    public static void printTopicInputs(SProgram p) {
+        StringBuilder sb = new StringBuilder();
+        List<SInstruction> ins = p.getInstructions();
+        Set<String> inputsUsed = deriveInputs(ins);
+        List<Label> labelsForHeader = uniqueLabelsForHeader(ins);
+        System.out.println("Program: " + p.getName());
+        sb.append("Inputs: ").append(formatInputs(inputsUsed)).append("\n");
+        sb.append("Labels: ")
+                .append(labelsForHeader.stream()
+                        .map(l -> l.isExit() ? "EXIT" : l.getLabel())
+                        .collect(Collectors.joining(", ")))
+                .append("\n");
+        System.out.println(sb.toString());
     }
 
     private static String formatInputs(Set<String> inputs) {
@@ -88,19 +93,25 @@ public final class PrettyPrinter {
         if (l != null) {
             name = l.isExit() ? "EXIT" : l.getLabel();
         }
-        if (name == null) name = "";
+        if (name == null)
+            name = "";
 
-        final int WIDTH = 5;
-        if (name.length() > WIDTH) name = name.substring(0, WIDTH);
+        final int WIDTH = 6; // Fixed width for label box including brackets
+        if (name.length() > WIDTH - 2) // -2 for the brackets
+            name = name.substring(0, WIDTH - 2);
 
-        int pad = WIDTH - name.length();
-        // ריווח לאמצע: כשיש שארית, נוסיף את הרווח העודף לשמאל כדי לקבל "[  L1 ]"
-        int left = pad / 2;
-        int right = pad - left;
+        if (name.isEmpty()) {
+            return " ".repeat(WIDTH); // Fixed width empty space
+        }
 
-        if (name.isEmpty()) return "    ";
+        // Center the label within the box
+        int totalWidth = WIDTH;
+        int labelWidth = name.length() + 2; // +2 for brackets
+        int padding = totalWidth - labelWidth;
+        int leftPadding = padding / 2;
+        int rightPadding = padding - leftPadding;
 
-        return "[" + name + "]";
+        return " ".repeat(leftPadding) + "[" + name + "]" + " ".repeat(rightPadding);
     }
 
     private static String kindLetter(SInstruction in) {
@@ -140,7 +151,8 @@ public final class PrettyPrinter {
         return in.getName();
     }
 
-    // לייבלים לכותרת — ייחודיים, לא ריקים, ואם EXIT הופיע איפשהו — הוא יופיע פעם אחת ובסוף
+    // לייבלים לכותרת — ייחודיים, לא ריקים, ואם EXIT הופיע איפשהו — הוא יופיע פעם
+    // אחת ובסוף
     private static List<semulator.label.Label> uniqueLabelsForHeader(List<SInstruction> ins) {
         boolean sawExit = false;
         java.util.Map<String, Label> uniq = new LinkedHashMap<>();
@@ -149,46 +161,60 @@ public final class PrettyPrinter {
             // לייבל שמוגדר על ההוראה
             var self = in.getLabel();
             if (self != null) {
-                if (self.isExit()) sawExit = true;
-                else putIfHasName(uniq, self);
+                if (self.isExit())
+                    sawExit = true;
+                else
+                    putIfHasName(uniq, self);
             }
             // יעדי קפיצה/בדיקות – כיסוי הסוגים הרלוונטיים
             if (in instanceof semulator.instructions.GotoLabelInstruction g && g.getTarget() != null) {
-                if (g.getTarget().isExit()) sawExit = true;
-                else putIfHasName(uniq, g.getTarget());
+                if (g.getTarget().isExit())
+                    sawExit = true;
+                else
+                    putIfHasName(uniq, g.getTarget());
             }
             if (in instanceof semulator.instructions.JumpNotZeroInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true;
-                else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit())
+                    sawExit = true;
+                else
+                    putIfHasName(uniq, j.getTarget());
             }
             if (in instanceof semulator.instructions.JumpZeroInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true;
-                else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit())
+                    sawExit = true;
+                else
+                    putIfHasName(uniq, j.getTarget());
             }
             if (in instanceof semulator.instructions.JumpEqualConstantInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true;
-                else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit())
+                    sawExit = true;
+                else
+                    putIfHasName(uniq, j.getTarget());
             }
             if (in instanceof semulator.instructions.JumpEqualVariableInstruction j && j.getTarget() != null) {
-                if (j.getTarget().isExit()) sawExit = true;
-                else putIfHasName(uniq, j.getTarget());
+                if (j.getTarget().isExit())
+                    sawExit = true;
+                else
+                    putIfHasName(uniq, j.getTarget());
             }
         }
 
         List<Label> out = new ArrayList<>(uniq.values());
-        if (sawExit) out.add(semulator.label.FixedLabel.EXIT); // EXIT פעם אחת ובסוף
+        if (sawExit)
+            out.add(semulator.label.FixedLabel.EXIT); // EXIT פעם אחת ובסוף
         return out;
     }
 
     private static void putIfHasName(Map<String, semulator.label.Label> uniq,
-                                     semulator.label.Label lbl) {
+            semulator.label.Label lbl) {
         String name = lbl.toString();
         if (name != null && !name.isBlank()) {
             uniq.putIfAbsent(name, lbl);
         }
     }
 
-    // === NEW: pretty-print a snapshot with lineage (<<< creators), nicely aligned ===
+    // === NEW: pretty-print a snapshot with lineage (<<< creators), nicely aligned
+    // ===
     public static String showWithCreators(ExpansionResult r) {
         StringBuilder sb = new StringBuilder();
 
@@ -208,12 +234,13 @@ public final class PrettyPrinter {
         }
 
         // 2) Measure column widths for this snapshot
-        int numWidth = digits(ins.size());             // width for "#N"
-        int labelInnerW = Math.max(4, maxLabelInnerWidth(all)); // text inside [     ]
-        int textWidth = Math.max(16, maxTextWidth(all));      // instruction string
+        int numWidth = digits(ins.size()); // width for "#N"
+        int labelInnerW = Math.max(4, maxLabelInnerWidth(all)); // text inside [ ]
+        int textWidth = Math.max(16, maxTextWidth(all)); // instruction string
         int cyclesWidth = Math.max(1, maxCyclesWidth(all));
 
-        // 3) Print each row + its creator chain with the same row number and aligned columns
+        // 3) Print each row + its creator chain with the same row number and aligned
+        // columns
         for (int i = 0; i < ins.size(); i++) {
             SInstruction in = ins.get(i);
             Integer thisNum = lineNo.get(in);
@@ -236,18 +263,19 @@ public final class PrettyPrinter {
     }
 
     // === NEW: row-major pretty print for expanded snapshots ===
-// Prints one physical line per original row.
-// Within that line, prints the chain of descendants for that row from newest (left) to oldest (right),
-// each segment formatted as "#<baseRow+depth> (B|S) [LABEL] TEXT (cycles)",
-// with segments separated by " <<< ".
+    // Prints one physical line per original row.
+    // Within that line, prints the chain of descendants for that row from newest
+    // (left) to oldest (right),
+    // each segment formatted as "#<baseRow+depth> (B|S) [LABEL] TEXT (cycles)",
+    // with segments separated by " <<< ".
     public static String showRowMajor(ExpansionResult r) {
         StringBuilder sb = new StringBuilder();
 
         // Pull data from the snapshot
-        List<SInstruction> prog = r.instructions();                  // final snapshot program order
-        Map<SInstruction, SInstruction> parent = r.parent();         // immediate parent links
-        Map<SInstruction, Integer> lineNo = r.lineNo();              // final numbering 1..N
-        Map<SInstruction, Integer> rowOf = r.rowOf();                // NEW: base row (0-based) for each instruction
+        List<SInstruction> prog = r.instructions(); // final snapshot program order
+        Map<SInstruction, SInstruction> parent = r.parent(); // immediate parent links
+        Map<SInstruction, Integer> lineNo = r.lineNo(); // final numbering 1..N
+        Map<SInstruction, Integer> rowOf = r.rowOf(); // NEW: base row (0-based) for each instruction
 
         if (rowOf == null || rowOf.isEmpty()) {
             // Fallback: no row info -> default to showWithCreators
@@ -269,12 +297,14 @@ public final class PrettyPrinter {
         Map<SInstruction, Integer> depthCache = new IdentityHashMap<>();
         java.util.function.Function<SInstruction, Integer> depthFn = ins -> {
             Integer d = depthCache.get(ins);
-            if (d != null) return d;
+            if (d != null)
+                return d;
             int dd = 0;
             SInstruction cur = ins;
             while (true) {
                 SInstruction p = parent.get(cur);
-                if (p == null) break;
+                if (p == null)
+                    break;
                 dd++;
                 cur = p;
             }
@@ -313,20 +343,23 @@ public final class PrettyPrinter {
                 }
             }
 
-            // 2) Order newest→oldest (depth desc), tie-break by final program order for determinism
+            // 2) Order newest→oldest (depth desc), tie-break by final program order for
+            // determinism
             List<SInstruction> ordered = new ArrayList<>(set);
             ordered.sort((a, b) -> {
                 int da = depthFn.apply(a);
                 int db = depthFn.apply(b);
-                if (da != db) return Integer.compare(db, da); // larger depth first
+                if (da != db)
+                    return Integer.compare(db, da); // larger depth first
                 return Integer.compare(lineNo.getOrDefault(a, 0), lineNo.getOrDefault(b, 0));
             });
 
             // 3) Assign UNIQUE, sequential display row numbers left→right:
-            //    leftmost = baseRow+count, ... rightmost (original) = baseRow+1
+            // leftmost = baseRow+count, ... rightmost (original) = baseRow+1
             int count = ordered.size();
             for (int i = 0; i < count; i++) {
-                if (i > 0) sb.append(" <<< ");
+                if (i > 0)
+                    sb.append(" <<< ");
                 int displayRow = (rowId + 1) + (count - 1 - i);
                 sb.append(oneSegmentAligned(displayRow, ordered.get(i),
                         numWidth, labelInnerW, textWidth, cyclesWidth));
@@ -343,7 +376,8 @@ public final class PrettyPrinter {
         SInstruction cur = ins;
         while (true) {
             SInstruction p = parent.get(cur);
-            if (p == null) break;
+            if (p == null)
+                break;
             d++;
             cur = p;
         }
@@ -352,8 +386,8 @@ public final class PrettyPrinter {
 
     // Format one segment with custom row number (aligned)
     private static String oneSegmentAligned(int displayRow,
-                                            SInstruction in,
-                                            int numW, int lblInnerW, int textW, int cycW) {
+            SInstruction in,
+            int numW, int lblInnerW, int textW, int cycW) {
         String n = String.format("%" + numW + "d", displayRow);
         String kind = kindLetter(in); // "B" or "S"
         String label = labelBoxFixed(in.getLabel(), lblInnerW);
@@ -362,26 +396,28 @@ public final class PrettyPrinter {
                 n, kind, label, text, in.cycles());
     }
 
-
     // Renders a single aligned line: "#NN (K) [ LABEL ] TEXT (cycles)"
     private static String oneLineAligned(Integer num,
-                                         SInstruction in,
-                                         int numW, int lblInnerW, int textW, int cycW) {
+            SInstruction in,
+            int numW, int lblInnerW, int textW, int cycW) {
         String n = (num == null ? "?".repeat(Math.max(1, numW)) : String.format("%" + numW + "d", num));
-        String kind = kindLetter(in);                       // "B" or "S"
+        String kind = kindLetter(in); // "B" or "S"
         String label = labelBoxFixed(in.getLabel(), lblInnerW);
         String text = renderInstruction(in);
         // If you want ellipsis for a very long text, uncomment:
-        // if (text.length() > textW) text = text.substring(0, Math.max(0, textW - 1)) + "…";
+        // if (text.length() > textW) text = text.substring(0, Math.max(0, textW - 1)) +
+        // "…";
         return String.format("#%s (%s) %s %-" + textW + "s (%" + cycW + "d)",
                 n, kind, label, text, in.cycles());
     }
 
-    // Fixed-width label box with centered inner text, e.g., "[  L2  ]" or "[ EXIT ]"
+    // Fixed-width label box with centered inner text, e.g., "[ L2 ]" or "[ EXIT ]"
     private static String labelBoxFixed(semulator.label.Label l, int innerWidth) {
         String name = null;
-        if (l != null) name = l.isExit() ? "EXIT" : l.getLabel();
-        if (name == null) name = "";
+        if (l != null)
+            name = l.isExit() ? "EXIT" : l.getLabel();
+        if (name == null)
+            name = "";
         // If empty -> same width as a boxed label ("[" + inner + "]") but all spaces
         if (name.isEmpty()) {
             return " ".repeat(innerWidth + 2);
@@ -405,8 +441,10 @@ public final class PrettyPrinter {
         for (SInstruction in : all) {
             var l = in.getLabel();
             String name = (l == null ? "" : (l.isExit() ? "EXIT" : l.getLabel()));
-            if (name == null) name = "";
-            if (name.length() > m) m = name.length();
+            if (name == null)
+                name = "";
+            if (name.length() > m)
+                m = name.length();
         }
         return m;
     }
@@ -415,7 +453,8 @@ public final class PrettyPrinter {
         int m = 0;
         for (SInstruction in : all) {
             int len = renderInstruction(in).length();
-            if (len > m) m = len;
+            if (len > m)
+                m = len;
         }
         return m;
     }
@@ -424,10 +463,10 @@ public final class PrettyPrinter {
         int m = 1;
         for (SInstruction in : all) {
             int len = String.valueOf(in.cycles()).length();
-            if (len > m) m = len;
+            if (len > m)
+                m = len;
         }
         return m;
     }
-
 
 }

@@ -1,12 +1,18 @@
 package ui;
 
 import org.xml.sax.SAXException;
+import semulator.execution.ProgramExecutor;
+import semulator.execution.ProgramExecutorImpl;
 import semulator.program.ExpansionResult;
 import semulator.program.SProgram;
+import semulator.variable.Variable;
 
 import javax.xml.parsers.ParserConfigurationException;
 // import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.nio.file.Path;
 
@@ -14,6 +20,7 @@ public class ConsoleUI {
     private final SProgram gw;
     private final Scanner sc = new Scanner(System.in);
     private Path loadedXml;
+    private final RunHistory runHistory = new RunHistory();
 
     public ConsoleUI(SProgram gw) {
         this.gw = gw;
@@ -58,11 +65,13 @@ public class ConsoleUI {
 
             if (res instanceof java.nio.file.Path p) {
                 loadedXml = p;
+                runHistory.clear(); // Clear history when loading a new program
                 System.out.println("Mission completed.");
             } else if (res != null) {
                 try {
                     loadedXml = java.nio.file.Path.of(res.toString());
                     System.out.println("Mission completed.");
+                    System.out.println();
                 } catch (Exception e) {
                     System.out.println("Loaded, but could not parse the returned path.");
                 }
@@ -88,6 +97,8 @@ public class ConsoleUI {
             System.out.println("Program loaded but not built yet. (No in-memory instructions)");
             return;
         }
+        System.out.println();
+        PrettyPrinter.printTopicInputs(gw);
         System.out.println(PrettyPrinter.show(gw));
     }
 
@@ -124,23 +135,198 @@ public class ConsoleUI {
     }
 
     private void onRun() {
-        // int level = askInt("Run level (0..): ");
-        //System.out.print("Inputs CSV (e.g., 4,7,0): ");
-        //var res = gw.run(level, sc.nextLine().trim());
-        //System.out.printf("y = %d%nc ycles = %d%n", res.y(), res.cycles());
-        //System.out.printf("y = %d%nc ycles = %d%n", res.y(), res.cycles());
+        if (loadedXml == null) {
+            System.out.println("No program loaded yet.");
+            return;
+        }
+        if (gw.getInstructions() == null || gw.getInstructions().isEmpty()) {
+            System.out.println("Program loaded but not built yet. (No in-memory instructions)");
+            return;
+        }
+
+        int maxDegree = gw.calculateMaxDegree();
+        System.out.printf("Max degree: %d%n", maxDegree);
+
+        final int chosen;
+        if (maxDegree == 0) {
+            // Nothing to expand, but still show the snapshot (degree 0)
+            chosen = 0;
+            System.out.println("This program is already fully basic (degree 0). Running as-is:");
+        } else {
+            chosen = askIntInRange("Choose expansion degree [0.." + maxDegree + "]: ", 0, maxDegree);
+        }
+
+        // Get input variables from the program
+        List<String> inputVars = deriveInputVariables(gw.getInstructions());
+        System.out.println("Input variables used: " + String.join(", ", inputVars));
+
+        System.out.println("Enter input values separated by commas (e.g. 5, 0, 12):");
+        String inputLine = getValidInput();
+        System.out.println();
+        List<Long> inputs = new ArrayList<>();
+        if (!inputLine.isEmpty()) {
+            String[] parts = inputLine.split(",");
+            for (String p : parts) {
+                try {
+                    inputs.add(Long.parseLong(p.trim()));
+                } catch (NumberFormatException e) {
+                    // If user typed something not numeric, treat as 0
+                    inputs.add(0L);
+                }
+            }
+        }
+
+        // Execute the program
+        long result;
+        int cycles;
+        Map<Variable, Long> variableState;
+
+        if (chosen == 0) {
+            // Run the original program
+            ProgramExecutor executor = new ProgramExecutorImpl(gw);
+            result = executor.run(inputs.toArray(new Long[0]));
+            cycles = executor.getTotalCycles();
+            variableState = executor.variableState();
+            System.out.println(PrettyPrinter.show(gw));
+        } else {
+            // Expand and run
+            ExpansionResult snapshot = gw.expandToDegree(chosen);
+            // Create a temporary program from the expansion result
+            SProgram expandedProgram = createProgramFromExpansion(snapshot);
+            ProgramExecutor executor = new ProgramExecutorImpl(expandedProgram);
+            result = executor.run(inputs.toArray(new Long[0]));
+            cycles = executor.getTotalCycles();
+            variableState = executor.variableState();
+            System.out.println(PrettyPrinter.show(expandedProgram));
+        }
+
+        // Record the run in history
+        runHistory.addRun(chosen, inputs, result, cycles);
+
+        // Display results
+        System.out.println("\n=== Program Execution Results ===");
+        // Display all variables in the required order
+        displayVariables(variableState);
+        System.out.printf("Total cycles = %d%n", cycles);
+        System.out.println();
+    }
+
+    private List<String> deriveInputVariables(List<semulator.instructions.SInstruction> instructions) {
+        List<String> inputs = new ArrayList<>();
+        for (semulator.instructions.SInstruction in : instructions) {
+            // Main variable
+            if (in.getVariable() != null && in.getVariable().isInput()) {
+                String v = in.getVariable().toString();
+                if (!inputs.contains(v))
+                    inputs.add(v);
+            }
+            // Source variables for assignments
+            if (in instanceof semulator.instructions.AssignVariableInstruction a && a.getSource() != null
+                    && a.getSource().isInput()) {
+                String s = a.getSource().toString();
+                if (!inputs.contains(s))
+                    inputs.add(s);
+            }
+            // Other variables for comparisons
+            if (in instanceof semulator.instructions.JumpEqualVariableInstruction j && j.getOther() != null
+                    && j.getOther().isInput()) {
+                String o = j.getOther().toString();
+                if (!inputs.contains(o))
+                    inputs.add(o);
+            }
+        }
+        return inputs;
+    }
+
+    private SProgram createProgramFromExpansion(ExpansionResult expansion) {
+        SProgram program = new semulator.program.SProgramImpl("expanded");
+        for (semulator.instructions.SInstruction instruction : expansion.instructions()) {
+            program.addInstruction(instruction);
+        }
+        return program;
+    }
+
+    private void displayVariables(Map<Variable, Long> variableState) {
+        // Display y first
+        Long yValue = variableState.get(Variable.RESULT);
+        if (yValue != null) {
+            System.out.printf("y = %d%n", yValue);
+        }
+
+        // Display x variables in order
+        List<Variable> xVars = new ArrayList<>();
+        List<Variable> zVars = new ArrayList<>();
+
+        for (Map.Entry<Variable, Long> entry : variableState.entrySet()) {
+            Variable v = entry.getKey();
+            if (v.isInput()) {
+                xVars.add(v);
+            } else if (v.isWork()) {
+                zVars.add(v);
+            }
+        }
+
+        // Sort x variables by number
+        xVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
+        for (Variable xVar : xVars) {
+            System.out.printf("%s = %d%n", xVar.toString(), variableState.get(xVar));
+        }
+
+        // Sort z variables by number
+        zVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
+        for (Variable zVar : zVars) {
+            System.out.printf("%s = %d%n", zVar.toString(), variableState.get(zVar));
+        }
     }
 
     private void onHistory() {
-        //List<ProgramGateway.RunResult> hist = gw.history();
-        //if (hist.isEmpty()) {
-        //System.out.println("No runs yet.");
-        //   return;
-        //}
-        //for (var h : hist) {
-        //    System.out.printf("#%d | level=%d | inputs=%s | y=%d | cycles=%d%n",
-        //            h.runNo(), h.level(), h.inputsCsv(), h.y(), h.cycles());
-        //}
+        if (runHistory.isEmpty()) {
+            System.out.println("First, load and run the program to see the history.");
+            return;
+        }
+
+        // Calculate dynamic column widths based on actual data
+        int maxInputsWidth = calculateMaxInputsWidth();
+        int inputsWidth = Math.max(15, Math.min(maxInputsWidth, 50)); // Min 15, Max 50
+
+        System.out.println("\n=== Program Run History ===");
+
+        // Create header with exact spacing
+        String header = String.format("%-4s | %-6s | %-" + inputsWidth + "s | %-8s | %-7s",
+                "Run", "Level", "Inputs", "Y Value", "Cycles");
+        System.out.println(header);
+
+        // Create separator line that matches the header exactly
+        String separator = "-".repeat(5) + "|" + "-".repeat(8) + "|" + "-".repeat(inputsWidth + 2) + "|"
+                + "-".repeat(10)
+                + "|" + "-".repeat(9);
+        System.out.println(separator);
+
+        for (RunResult run : runHistory.getAllRuns()) {
+            String inputsDisplay = run.inputsCsv();
+            if (inputsDisplay.length() > inputsWidth) {
+                inputsDisplay = inputsDisplay.substring(0, inputsWidth - 3) + "...";
+            }
+
+            System.out.printf("#%-3d | %-6d | %-" + inputsWidth + "s | %-8d | %-7d%n",
+                    run.runNumber(),
+                    run.level(),
+                    inputsDisplay,
+                    run.yValue(),
+                    run.cycles());
+        }
+        System.out.println();
+    }
+
+    private int calculateMaxInputsWidth() {
+        int maxWidth = 0;
+        for (RunResult run : runHistory.getAllRuns()) {
+            int width = run.inputsCsv().length();
+            if (width > maxWidth) {
+                maxWidth = width;
+            }
+        }
+        return maxWidth;
     }
 
     private int askInt(String prompt, int maxDegree) {
@@ -168,6 +354,48 @@ public class ConsoleUI {
                 return v;
             } catch (NumberFormatException e) {
                 System.out.println("Error: please enter a valid integer.");
+            }
+        }
+    }
+
+    // === NEW: input validation for comma-separated numbers ===
+    private String getValidInput() {
+        while (true) {
+            String inputLine = sc.nextLine().trim();
+
+            // Check if input is empty
+            if (inputLine.isEmpty()) {
+                System.out.println("Error: Input cannot be empty. Please enter numbers separated by commas.");
+                System.out.println("Enter input values separated by commas (e.g. 5, 0, 12):");
+                continue;
+            }
+
+            // Split by comma and validate each part
+            String[] parts = inputLine.split(",");
+            boolean isValid = true;
+
+            for (String part : parts) {
+                String trimmedPart = part.trim();
+
+                // Skip empty parts (multiple commas)
+                if (trimmedPart.isEmpty()) {
+                    continue;
+                }
+
+                // Check if the part is a valid number
+                try {
+                    Long.parseLong(trimmedPart);
+                } catch (NumberFormatException e) {
+                    System.out.println("Error: '" + trimmedPart + "' is not a valid number.");
+                    isValid = false;
+                    break;
+                }
+            }
+
+            if (isValid) {
+                return inputLine;
+            } else {
+                System.out.println("Please enter valid numbers separated by commas (e.g. 5, 0, 12):");
             }
         }
     }
