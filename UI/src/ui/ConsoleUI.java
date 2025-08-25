@@ -253,7 +253,7 @@ public class ConsoleUI {
             System.out.printf("y = %d%n", yValue);
         }
 
-        // Display x variables in order
+        // Display x,z variables in order
         List<Variable> xVars = new ArrayList<>();
         List<Variable> zVars = new ArrayList<>();
 
