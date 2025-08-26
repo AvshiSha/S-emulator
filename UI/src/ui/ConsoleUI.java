@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.nio.file.Path;
+import java.io.*;
 
 public class ConsoleUI {
     private final SProgram gw;
@@ -35,8 +36,10 @@ public class ConsoleUI {
                     3) Expand
                     4) Run
                     5) History
-                    6) Exit
-                    Choose [1-6]:""");
+                    6) Save state
+                    7) Load state
+                    8) Exit
+                    Choose [1-8]:""");
             String ch = sc.nextLine().trim();
             switch (ch) {
                 case "1" -> onLoad();
@@ -44,7 +47,9 @@ public class ConsoleUI {
                 case "3" -> onExpand();
                 case "4" -> onRun();
                 case "5" -> onHistory();
-                case "6" -> {
+                case "6" -> onSaveState();
+                case "7" -> onLoadState();
+                case "8" -> {
                     System.out.println("Bye.");
                     return;
                 }
@@ -405,6 +410,88 @@ public class ConsoleUI {
             } else {
                 System.out.println("Please enter valid numbers separated by commas (e.g. 5, 0, 12):");
             }
+        }
+    }
+
+    private void onSaveState() {
+        if (loadedXml == null) {
+            System.out.println("No program loaded yet.");
+            return;
+        }
+
+        System.out.println("Enter full path (without extension) to save state:");
+        String pathStr = sc.nextLine().trim();
+        if (pathStr.isEmpty()) {
+            System.out.println("Invalid path.");
+            return;
+        }
+
+        try {
+            Path savePath = Path.of(pathStr + ".state");
+
+            // Create parent directory if it doesn't exist
+            Path parentDir = savePath.getParent();
+            if (parentDir != null && !java.nio.file.Files.exists(parentDir)) {
+                java.nio.file.Files.createDirectories(parentDir);
+            }
+
+            ExerciseState state = new ExerciseState(loadedXml, runHistory.getAllRuns());
+
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(savePath.toFile()))) {
+                oos.writeObject(state);
+                System.out.println("State saved successfully to: " + savePath);
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving state: " + e.getMessage());
+            System.out.println("Make sure the directory exists and you have write permissions.");
+        }
+    }
+
+    private void onLoadState() {
+        System.out.println("Enter full path (without extension) to load state from:");
+        String pathStr = sc.nextLine().trim();
+        if (pathStr.isEmpty()) {
+            System.out.println("Invalid path.");
+            return;
+        }
+
+        try {
+            Path loadPath = Path.of(pathStr + ".state");
+            ExerciseState state;
+
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(loadPath.toFile()))) {
+                state = (ExerciseState) ois.readObject();
+            }
+
+            // Load the XML program
+            String valid = gw.validate(state.xmlPath());
+            if (!valid.equals("Valid")) {
+                System.out.println("Error: " + valid);
+                return;
+            }
+
+            Object res = gw.load();
+            if (res instanceof Path p) {
+                loadedXml = p;
+            } else if (res != null) {
+                loadedXml = Path.of(res.toString());
+            } else {
+                System.out.println("Failed to load program from saved state.");
+                return;
+            }
+
+            // Restore run history
+            runHistory.clear();
+            for (RunResult run : state.runHistory()) {
+                runHistory.addRun(run.level(), run.inputs(), run.yValue(), run.cycles());
+            }
+
+            System.out.println("State loaded successfully from: " + loadPath);
+
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Error loading state: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Unexpected error: " + e.getMessage());
         }
     }
 }

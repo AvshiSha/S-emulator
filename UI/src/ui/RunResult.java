@@ -1,5 +1,6 @@
 package ui;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -10,7 +11,9 @@ public record RunResult(
         int level,
         List<Long> inputs,
         long yValue,
-        int cycles) {
+        int cycles) implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     /**
      * Convert inputs to CSV format for display
      */
