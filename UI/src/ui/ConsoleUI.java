@@ -141,11 +141,11 @@ public class ConsoleUI {
         // Engine: expand to the requested degree (and carry lineage)
         ExpansionResult snapshot = gw.expandToDegree(chosen);
 
-        // UI: print including creator chain with "<<<"
+        // UI: print including creator chain with ">>>"
         System.out.println();
         System.out.println("Program after expanding to degree " + chosen + ":");
         // System.out.println(PrettyPrinter.showWithCreators(snapshot));
-        System.out.println(PrettyPrinter.showRowMajor(snapshot));
+        System.out.println(PrettyPrinter.showCreationChains(snapshot));
     }
 
     private void onRun() {

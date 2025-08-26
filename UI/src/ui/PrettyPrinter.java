@@ -262,6 +262,133 @@ public final class PrettyPrinter {
         return sb.toString();
     }
 
+    // === NEW: Show creation chains grouped by degree ===
+    // Shows instructions grouped by degree with complete creation chains
+    // Left: Highest degree (user's chosen), Right: Degree 0 (original program)
+    // Format: #5 (S) [ ] y <- 0 (1) >>> #3 (S) [ ] y <- 5 (2) >>> #1 (S) [ L4 ] IF
+    // y = 5 GOTO L5 (2)
+    public static String showCreationChains(ExpansionResult r) {
+        StringBuilder sb = new StringBuilder();
+
+        List<SInstruction> prog = r.instructions(); // final snapshot program order
+        Map<SInstruction, SInstruction> parent = r.parent(); // immediate parent links
+        Map<SInstruction, Integer> lineNo = r.lineNo(); // final numbering 1..N
+        Map<SInstruction, Integer> rowOf = r.rowOf(); // base row (0-based) for each instruction
+
+        if (rowOf == null || rowOf.isEmpty()) {
+            // Fallback: no row info -> default to showWithCreators
+            return showWithCreators(r);
+        }
+
+        // Precompute depth for any instruction we might print (finals + ancestors)
+        Map<SInstruction, Integer> depthCache = new IdentityHashMap<>();
+        java.util.function.Function<SInstruction, Integer> depthFn = ins -> {
+            Integer d = depthCache.get(ins);
+            if (d != null)
+                return d;
+            int dd = 0;
+            SInstruction cur = ins;
+            while (true) {
+                SInstruction p = parent.get(cur);
+                if (p == null)
+                    break;
+                dd++;
+                cur = p;
+            }
+            depthCache.put(ins, dd);
+            return dd;
+        };
+
+        // Collect all instructions that *might* be printed for width calc
+        Set<SInstruction> allToMeasure = Collections.newSetFromMap(new IdentityHashMap<>());
+        allToMeasure.addAll(prog);
+        for (SInstruction in : prog) {
+            SInstruction cur = in;
+            while ((cur = parent.get(cur)) != null) {
+                allToMeasure.add(cur);
+            }
+        }
+
+        // Compute widths once
+        int numWidth = Math.max(1, String.valueOf(Math.max(1, prog.size() + 32)).length());
+        int labelInnerW = Math.max(4, maxLabelInnerWidth(allToMeasure));
+        int textWidth = Math.max(16, maxTextWidth(allToMeasure));
+        int cyclesWidth = Math.max(1, maxCyclesWidth(allToMeasure));
+
+        // Find the maximum depth (highest degree)
+        int maxDepth = 0;
+        for (SInstruction ins : prog) {
+            maxDepth = Math.max(maxDepth, depthFn.apply(ins));
+        }
+
+        // Group instructions by their depth (degree)
+        Map<Integer, List<SInstruction>> instructionsByDegree = new HashMap<>();
+        for (SInstruction ins : prog) {
+            int depth = depthFn.apply(ins);
+            instructionsByDegree.computeIfAbsent(depth, k -> new ArrayList<>()).add(ins);
+        }
+
+        // Print instructions grouped by degree, from highest to lowest
+        for (int degree = maxDepth; degree >= 0; degree--) {
+            List<SInstruction> degreeInstructions = instructionsByDegree.get(degree);
+            if (degreeInstructions == null || degreeInstructions.isEmpty()) {
+                continue;
+            }
+
+            // Sort instructions by their final line number for consistent ordering
+            degreeInstructions.sort((a, b) -> Integer.compare(
+                    lineNo.getOrDefault(a, 0),
+                    lineNo.getOrDefault(b, 0)));
+            for (SInstruction ins : degreeInstructions) {
+                // Build the complete creation chain for this instruction
+                List<SInstruction> chain = new ArrayList<>();
+                SInstruction current = ins;
+
+                // Add the instruction itself and all its ancestors
+                while (current != null) {
+                    chain.add(current);
+                    current = parent.get(current);
+                }
+
+                // Don't reverse the chain - keep it as is (highest degree first, lowest degree
+                // last)
+                // This will show: highest degree (left) >>> ... >>> degree 0 (right)
+
+                // Print the complete chain
+                for (int i = 0; i < chain.size(); i++) {
+                    if (i > 0) {
+                        sb.append(" >>> ");
+                    }
+
+                    SInstruction chainIns = chain.get(i);
+                    Integer displayNum = lineNo.get(chainIns);
+                    // If no line number found, use the original instruction's position
+                    if (displayNum == null) {
+                        // For degree 0 instructions, use their original position in the program
+                        if (i == chain.size() - 1) {
+                            // This is a degree 0 instruction (at the end of the chain)
+                            // Use rowOf to get the original row number (0-based) and convert to 1-based
+                            Integer originalRow = rowOf.get(chainIns);
+                            if (originalRow != null) {
+                                displayNum = originalRow + 1; // convert from 0-based to 1-based
+                            } else {
+                                // Fallback: use chain position
+                                displayNum = i + 1;
+                            }
+                        } else {
+                            // This is a higher degree instruction, use chain position
+                            displayNum = i + 1;
+                        }
+                    }
+                    sb.append(oneLineAligned(displayNum, chainIns, numWidth, labelInnerW, textWidth, cyclesWidth));
+                }
+                sb.append('\n');
+            }
+        }
+
+        return sb.toString();
+    }
+
     // === NEW: row-major pretty print for expanded snapshots ===
     // Prints one physical line per original row.
     // Within that line, prints the chain of descendants for that row from newest

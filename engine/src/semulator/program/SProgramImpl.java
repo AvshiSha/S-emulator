@@ -73,10 +73,12 @@ public class SProgramImpl implements SProgram {
     private static final class InstrNode {
         final SInstruction ins;
         final int rowId; // "row" = original index in the pre-expansion program
+        final int degreeRowId; // "row" = position within the current degree's program
 
-        InstrNode(SInstruction ins, int rowId) {
+        InstrNode(SInstruction ins, int rowId, int degreeRowId) {
             this.ins = ins;
             this.rowId = rowId;
+            this.degreeRowId = degreeRowId;
         }
     }
 
@@ -174,7 +176,8 @@ public class SProgramImpl implements SProgram {
         List<InstrNode> cur = new ArrayList<>(this.instructions.size());
 
         for (int i = 0; i < this.instructions.size(); i++) {
-            cur.add(new InstrNode(this.instructions.get(i), i)); // rowId = original row
+            cur.add(new InstrNode(this.instructions.get(i), i, i + 1)); // rowId = original row, degreeRowId = position
+                                                                        // in degree 0
         }
 
         // We’ll accumulate lineage across steps:
@@ -191,18 +194,19 @@ public class SProgramImpl implements SProgram {
         for (int step = 0; step < degree; step++) {
             // Expand once
             List<InstrNode> next = new ArrayList<>(cur.size() * 2);
+            int degreeRowCounter = 1; // Track position within this degree's program
 
             for (InstrNode node : cur) {
                 SInstruction in = node.ins;
                 if (isBasic(in)) {
                     // basic stays as-is for this step
-                    next.add(new InstrNode(in, node.rowId));
+                    next.add(new InstrNode(in, node.rowId, degreeRowCounter++));
                 } else {
                     List<SInstruction> children = expandOne(in, names);
                     // Track immediate parent for lineage printing
                     for (SInstruction ch : children) {
                         parentMap.put(ch, in);
-                        next.add(new InstrNode(ch, node.rowId));
+                        next.add(new InstrNode(ch, node.rowId, degreeRowCounter++));
                     }
                 }
             }
@@ -215,7 +219,7 @@ public class SProgramImpl implements SProgram {
         for (int i = 0; i < cur.size(); i++) {
             SInstruction ins = cur.get(i).ins;
             finalProgram.add(ins);
-            lineNo.put(ins, i + 1); // pretty printer 1..N
+            lineNo.put(ins, cur.get(i).degreeRowId); // Use degree-based row number
             rowOf.put(ins, cur.get(i).rowId); // remember which original row it descends from
         }
 
