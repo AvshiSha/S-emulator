@@ -5,6 +5,7 @@ import semulator.execution.ProgramExecutor;
 import semulator.execution.ProgramExecutorImpl;
 import semulator.program.ExpansionResult;
 import semulator.program.SProgram;
+import semulator.state.ExerciseState;
 import semulator.variable.Variable;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -419,36 +420,51 @@ public class ConsoleUI {
             return;
         }
 
-        System.out.println("Enter full path (without extension) to save state:");
+        // Generate filename from the loaded program
+        String programName = loadedXml.getFileName().toString();
+        if (programName.endsWith(".xml")) {
+            programName = programName.substring(0, programName.length() - 4);
+        }
+
+        System.out.println("Enter directory path to save state (file will be named '" + programName + ".state'):");
         String pathStr = sc.nextLine().trim();
+
+        if (pathStr.startsWith("\"") && pathStr.endsWith("\"") && pathStr.length() > 2) {
+            pathStr = pathStr.substring(1, pathStr.length() - 1);
+        }
+
         if (pathStr.isEmpty()) {
             System.out.println("Invalid path.");
             return;
         }
 
         try {
-            Path savePath = Path.of(pathStr + ".state");
+            Path directory = Path.of(pathStr);
+            Path savePath = directory.resolve(programName + ".state");
 
-            // Create parent directory if it doesn't exist
-            Path parentDir = savePath.getParent();
-            if (parentDir != null && !java.nio.file.Files.exists(parentDir)) {
-                java.nio.file.Files.createDirectories(parentDir);
+            // Create directory if it doesn't exist
+            if (!java.nio.file.Files.exists(directory)) {
+                java.nio.file.Files.createDirectories(directory);
             }
 
-            ExerciseState state = new ExerciseState(loadedXml, runHistory.getAllRuns());
+            List<Object> runHistoryObjects = new ArrayList<>(runHistory.getAllRuns());
+            ExerciseState state = new ExerciseState(loadedXml.toString(), runHistoryObjects);
 
             try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(savePath.toFile()))) {
                 oos.writeObject(state);
                 System.out.println("State saved successfully to: " + savePath);
             }
+        } catch (java.nio.file.InvalidPathException ipe) {
+            System.out.println("Invalid path: " + ipe.getInput());
+            System.out.println("Reason: " + ipe.getReason());
         } catch (IOException e) {
             System.out.println("Error saving state: " + e.getMessage());
-            System.out.println("Make sure the directory exists and you have write permissions.");
         }
+
     }
 
     private void onLoadState() {
-        System.out.println("Enter full path (without extension) to load state from:");
+        System.out.println("Enter full path to load state file from:");
         String pathStr = sc.nextLine().trim();
         if (pathStr.isEmpty()) {
             System.out.println("Invalid path.");
@@ -456,7 +472,7 @@ public class ConsoleUI {
         }
 
         try {
-            Path loadPath = Path.of(pathStr + ".state");
+            Path loadPath = Path.of(pathStr);
             ExerciseState state;
 
             try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(loadPath.toFile()))) {
@@ -464,7 +480,8 @@ public class ConsoleUI {
             }
 
             // Load the XML program
-            String valid = gw.validate(state.xmlPath());
+            Path xmlPath = Path.of(state.xmlPath());
+            String valid = gw.validate(xmlPath);
             if (!valid.equals("Valid")) {
                 System.out.println("Error: " + valid);
                 return;
@@ -482,8 +499,10 @@ public class ConsoleUI {
 
             // Restore run history
             runHistory.clear();
-            for (RunResult run : state.runHistory()) {
-                runHistory.addRun(run.level(), run.inputs(), run.yValue(), run.cycles());
+            for (Object obj : state.runHistory()) {
+                if (obj instanceof RunResult run) {
+                    runHistory.addRun(run.level(), run.inputs(), run.yValue(), run.cycles());
+                }
             }
 
             System.out.println("State loaded successfully from: " + loadPath);
