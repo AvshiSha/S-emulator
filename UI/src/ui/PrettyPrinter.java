@@ -315,70 +315,66 @@ public final class PrettyPrinter {
             maxDepth = Math.max(maxDepth, depthFn.apply(ins));
         }
 
-        // Group instructions by their depth (degree)
-        Map<Integer, List<SInstruction>> instructionsByDegree = new HashMap<>();
+        // Only print instructions from the highest degree (maxDepth)
+        List<SInstruction> highestDegreeInstructions = new ArrayList<>();
         for (SInstruction instruction : prog) {
             int depth = depthFn.apply(instruction);
-            instructionsByDegree.computeIfAbsent(depth, k -> new ArrayList<>()).add(instruction);
+            if (depth == maxDepth) {
+                highestDegreeInstructions.add(instruction);
+            }
         }
 
-        // Print instructions grouped by degree, from highest to lowest
-        for (int degree = maxDepth; degree >= 0; degree--) {
-            List<SInstruction> degreeInstructions = instructionsByDegree.get(degree);
-            if (degreeInstructions == null || degreeInstructions.isEmpty()) {
-                continue;
+        // Sort instructions by their final line number for consistent ordering
+        highestDegreeInstructions.sort((a, b) -> Integer.compare(
+                lineNo.getOrDefault(a, 0),
+                lineNo.getOrDefault(b, 0)));
+
+        // Print only the highest degree instructions with their creation chains
+        for (SInstruction ins : highestDegreeInstructions) {
+            // Build the complete creation chain for this instruction
+            List<SInstruction> chain = new ArrayList<>();
+            SInstruction current = ins;
+
+            // Add the instruction itself and all its ancestors
+            while (current != null) {
+                chain.add(current);
+                current = parent.get(current);
             }
 
-            // Sort instructions by their final line number for consistent ordering
-            degreeInstructions.sort((a, b) -> Integer.compare(
-                    lineNo.getOrDefault(a, 0),
-                    lineNo.getOrDefault(b, 0)));
-            for (SInstruction ins : degreeInstructions) {
-                // Build the complete creation chain for this instruction
-                List<SInstruction> chain = new ArrayList<>();
-                SInstruction current = ins;
-
-                // Add the instruction itself and all its ancestors
-                while (current != null) {
-                    chain.add(current);
-                    current = parent.get(current);
+            for (int i = 0; i < chain.size(); i++) {
+                if (i > 0) {
+                    sb.append(" >>> ");
                 }
 
-                for (int i = 0; i < chain.size(); i++) {
-                    if (i > 0) {
-                        sb.append(" >>> ");
-                    }
+                SInstruction chainIns = chain.get(i);
+                Integer displayNum = lineNo.get(chainIns);
 
-                    SInstruction chainIns = chain.get(i);
-                    Integer displayNum = lineNo.get(chainIns);
-
-                    // For the highest degree instruction (i=0), use lineNo
-                    // For ancestor instructions (i>0), they don't exist in lineNo
-                    if (displayNum == null) {
-                        // This is an ancestor instruction - find its position in the original program
-                        if (i == chain.size() - 1) {
-                            // This is a degree 0 instruction - find its original position
-                            List<SInstruction> originalInstructions = originalProgram.getInstructions();
-                            for (int j = 0; j < originalInstructions.size(); j++) {
-                                if (originalInstructions.get(j) == chainIns) {
-                                    displayNum = j + 1; // Convert to 1-based
-                                    break;
-                                }
+                // For the highest degree instruction (i=0), use lineNo
+                // For ancestor instructions (i>0), they don't exist in lineNo
+                if (displayNum == null) {
+                    // This is an ancestor instruction - find its position in the original program
+                    if (i == chain.size() - 1) {
+                        // This is a degree 0 instruction - find its original position
+                        List<SInstruction> originalInstructions = originalProgram.getInstructions();
+                        for (int j = 0; j < originalInstructions.size(); j++) {
+                            if (originalInstructions.get(j) == chainIns) {
+                                displayNum = j + 1; // Convert to 1-based
+                                break;
                             }
-                            if (displayNum == null) {
-                                displayNum = i + 1; // Fallback
-                            }
-                        } else {
-                            // This is an intermediate degree instruction - use chain position
-                            displayNum = i + 1;
                         }
+                        if (displayNum == null) {
+                            displayNum = i + 1; // Fallback
+                        }
+                    } else {
+                        // This is an intermediate degree instruction - use chain position
+                        displayNum = i + 1;
                     }
-
-                    sb.append(oneLineAligned(displayNum, chainIns, numWidth, labelInnerW,
-                            textWidth, cyclesWidth));
                 }
-                sb.append('\n');
+
+                sb.append(oneLineAligned(displayNum, chainIns, numWidth, labelInnerW,
+                        textWidth, cyclesWidth));
             }
+            sb.append('\n');
         }
 
         return sb.toString();
