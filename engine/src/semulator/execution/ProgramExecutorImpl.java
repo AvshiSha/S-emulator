@@ -88,7 +88,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         }
 
         // Second pass: validate that all jump targets exist in our label map
-        // (This is for debugging - we don't add them here since they should already be
+
         // in the map)
         for (SInstruction instruction : instructions) {
             Label target = null;
@@ -108,10 +108,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             if (target != null && target != FixedLabel.EMPTY && target != FixedLabel.EXIT) {
                 String targetName = target.getLabel();
                 if (targetName != null && !targetName.isEmpty() && !labelMap.containsKey(targetName)) {
-                    // This is a warning - the jump target doesn't exist in our label map
-                    // This could happen if there's a bug in the program or expansion
-                    // System.err.println("Warning: Jump target '" + targetName + "' not found in
-                    // label map");
+                    // Jump target validation - could be extended for error reporting
                 }
             }
         }
@@ -136,10 +133,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         private final Map<Variable, Long> state = new HashMap<>();
 
         LocalExecutionContext(Long... input) {
-            // Initialize all variables to 0 by default
-            // Variables will be initialized when first accessed via getVariableValue
-
-            // Initialize input variables if provided
             if (input != null) {
                 for (int i = 0; i < input.length; i++) {
                     Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);

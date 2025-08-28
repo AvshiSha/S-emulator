@@ -1,11 +1,10 @@
-// ui/PrettyPrinter.java
 package ui;
 
 import semulator.instructions.*;
 import semulator.label.FixedLabel;
 import semulator.label.Label;
 import semulator.program.ExpansionResult;
-import semulator.program.SProgram; // <-- חדש
+import semulator.program.SProgram;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,7 +13,6 @@ public final class PrettyPrinter {
     private PrettyPrinter() {
     }
 
-    // === חדש: תצוגה של תוכנית אמיתית (SProgram) ===
     public static String show(SProgram p) {
         StringBuilder sb = new StringBuilder();
 
@@ -33,17 +31,14 @@ public final class PrettyPrinter {
         return sb.toString();
     }
 
-    // ---------- עזר: חישוב Inputs מתוך ההוראות ----------
     private static Set<String> deriveInputs(List<SInstruction> ins) {
         Set<String> xs = new HashSet<>();
         for (SInstruction in : ins) {
-            // משתנה מרכזי
             if (in.getVariable() != null) {
                 String v = in.getVariable().toString();
                 if (v.startsWith("x"))
                     xs.add(v);
             }
-            // מקורות נוספים לפי סוגים שונים:
             if (in instanceof AssignVariableInstruction a && a.getSource() != null) {
                 String s = a.getSource().toString();
                 if (s.startsWith("x"))
@@ -54,7 +49,6 @@ public final class PrettyPrinter {
                 if (o.startsWith("x"))
                     xs.add(o);
             }
-            // אפשר להרחיב אם יש עוד פקודות שקוראות מקלטים
         }
         return xs;
     }
@@ -522,9 +516,7 @@ public final class PrettyPrinter {
         String kind = kindLetter(in); // "B" or "S"
         String label = labelBoxFixed(in.getLabel(), lblInnerW);
         String text = renderInstruction(in);
-        // If you want ellipsis for a very long text, uncomment:
-        // if (text.length() > textW) text = text.substring(0, Math.max(0, textW - 1)) +
-        // "…";
+
         return String.format("#%s (%s) %s %-" + textW + "s (%" + cycW + "d)",
                 n, kind, label, text, in.cycles());
     }

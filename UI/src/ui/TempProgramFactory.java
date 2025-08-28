@@ -1,4 +1,3 @@
-// ui/TempProgramFactory.java
 package ui;
 
 import semulator.instructions.*;
@@ -14,10 +13,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * מחלקה ליצירת "תוכנית דמו" בזיכרון – כאילו נטענה מ-XML.
- * משמשת אותנו ל-Show/Expand לפני שיש Load אמיתי.
- */
 public final class TempProgramFactory {
 
     // מחלקת מודל פשוטה (לא record)
@@ -28,36 +23,49 @@ public final class TempProgramFactory {
         private final List<Label> labelsUsed;
 
         public TempProgram(String name,
-                           List<SInstruction> instructions,
-                           Set<String> inputsUsed,
-                           List<Label> labelsUsed) {
-            if (name == null) name = "unnamed-program";
+                List<SInstruction> instructions,
+                Set<String> inputsUsed,
+                List<Label> labelsUsed) {
+            if (name == null)
+                name = "unnamed-program";
             this.name = name;
             // עושים העתק הגנתי כדי שלא ישנו לנו מבחוץ
             this.instructions = new ArrayList<>(instructions);
-            this.inputsUsed   = new HashSet<>(inputsUsed);
-            this.labelsUsed   = new ArrayList<>(labelsUsed);
+            this.inputsUsed = new HashSet<>(inputsUsed);
+            this.labelsUsed = new ArrayList<>(labelsUsed);
         }
 
-        public String getName() { return name; }
-        public List<SInstruction> getInstructions() { return new ArrayList<>(instructions); }
-        public Set<String> getInputsUsed() { return new HashSet<>(inputsUsed); }
-        public List<Label> getLabelsUsed() { return new ArrayList<>(labelsUsed); }
+        public String getName() {
+            return name;
+        }
+
+        public List<SInstruction> getInstructions() {
+            return new ArrayList<>(instructions);
+        }
+
+        public Set<String> getInputsUsed() {
+            return new HashSet<>(inputsUsed);
+        }
+
+        public List<Label> getLabelsUsed() {
+            return new ArrayList<>(labelsUsed);
+        }
     }
 
-    private TempProgramFactory() { }
+    private TempProgramFactory() {
+    }
 
     /**
      * בונה תוכנית דמו קטנה עם:
      * L1: z1 <- 0
-     *     y  <- z1
-     *     y  <- y + 1
-     *     IF x1 != 0 GOTO L2
-     *     GOTO L1
+     * y <- z1
+     * y <- y + 1
+     * IF x1 != 0 GOTO L2
+     * GOTO L1
      */
     public static TempProgram sample() {
         // --- משתנים ---
-        Variable y  = Variable.RESULT;
+        Variable y = Variable.RESULT;
         Variable x1 = new VariableImpl(VariableType.INPUT, 1);
         Variable z1 = new VariableImpl(VariableType.WORK, 1);
 
@@ -67,11 +75,11 @@ public final class TempProgramFactory {
 
         // --- הוראות ---
         List<SInstruction> prog = List.of(
-                new ZeroVariableInstruction(z1, L1),                 // [L1] z1 <- 0
-                new AssignVariableInstruction(y, z1),                //      y  <- z1
-                new IncreaseInstruction(y),                          //      y  <- y + 1
-                new JumpNotZeroInstruction(x1, FixedLabel.EMPTY, L2),//      IF x1 != 0 GOTO L2
-                new GotoLabelInstruction(L1)                         //      GOTO L1
+                new ZeroVariableInstruction(z1, L1), // [L1] z1 <- 0
+                new AssignVariableInstruction(y, z1), // y <- z1
+                new IncreaseInstruction(y), // y <- y + 1
+                new JumpNotZeroInstruction(x1, FixedLabel.EMPTY, L2), // IF x1 != 0 GOTO L2
+                new GotoLabelInstruction(L1) // GOTO L1
         );
 
         // --- קלטים ולייבלים בשימוש ---

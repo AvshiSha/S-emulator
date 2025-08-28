@@ -9,7 +9,6 @@ import semulator.state.ExerciseState;
 import semulator.variable.Variable;
 
 import javax.xml.parsers.ParserConfigurationException;
-// import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +36,8 @@ public class ConsoleUI {
                     3) Expand
                     4) Run
                     5) History
-                    6) Save state
-                    7) Load state
+                    6) Save program
+                    7) Load program
                     8) Exit
                     Choose [1-8]:""");
             String ch = sc.nextLine().trim();
@@ -62,8 +61,7 @@ public class ConsoleUI {
     private void onLoad() {
         try {
             System.out.println("Please enter XML Path: ");
-            java.util.Scanner sc = new java.util.Scanner(System.in);
-            String line = sc.hasNextLine() ? sc.nextLine() : "";
+            String line = sc.nextLine().trim();
             Path xmlPath = Path.of(line);
             String valid = gw.validate(xmlPath);
             if (!valid.equals("Valid")) {
@@ -76,7 +74,7 @@ public class ConsoleUI {
 
             if (res instanceof Path p) {
                 loadedXml = p;
-                runHistory.clear(); // Clear history when loading a new program
+                runHistory.clear();
                 System.out.println("Loaded successfully.");
                 System.out.println();
             } else if (res != null) {
@@ -205,7 +203,7 @@ public class ConsoleUI {
         } else {
             // Expand and run
             ExpansionResult snapshot = gw.expandToDegree(chosen);
-            // Create a temporary program from the expansion result
+
             SProgram expandedProgram = createProgramFromExpansion(snapshot);
             ProgramExecutor executor = new ProgramExecutorImpl(expandedProgram);
             result = executor.run(inputs.toArray(new Long[0]));

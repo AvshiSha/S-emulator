@@ -38,7 +38,6 @@ public class SProgramImpl implements SProgram {
     private final List<SInstruction> instructions;
     private Path xmlPath;
 
-    // Seeded once after load/validate; used for all later expansion runs
     private final Set<String> baseUsedLabelNames = new HashSet<>();
     private final Set<String> baseUsedVarNames = new HashSet<>();
 
@@ -47,13 +46,11 @@ public class SProgramImpl implements SProgram {
         this.instructions = new ArrayList<>();
     }
 
-    // Allowed instruction names (case-sensitive)
     private static final Set<String> ALLOWED_NAMES = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
             "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
             "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION");
 
-    // Classification for the optional cross-check
     private static final Set<String> BASIC = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO");
     private static final Set<String> SYNTHETIC = Set.of(
@@ -61,18 +58,15 @@ public class SProgramImpl implements SProgram {
             "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE");
 
     private static final Set<String> LABEL_TARGET_ARGS = Set.of(
-            "JNZLabel", // JUMP_NOT_ZERO
-            "JZLabel", // JUMP_ZERO
-            "JEConstantLabel", // JUMP_EQUAL_CONSTANT
-            "JEVariableLabel", // JUMP_EQUAL_VARIABLE
-            "gotoLabel" // GOTO_LABEL
-    // Add more here if new jump types are introduced
-    );
+            "JNZLabel",
+            "JZLabel",
+            "JEConstantLabel",
+            "JEVariableLabel",
+            "gotoLabel");
 
-    // Simple node to hold instruction and its row number at current degree
     private static final class InstrNode {
         final SInstruction ins;
-        final int rowNumber; // Row number in the current degree's program
+        final int rowNumber;
 
         InstrNode(SInstruction ins, int rowNumber) {
             this.ins = ins;
@@ -232,7 +226,7 @@ public class SProgramImpl implements SProgram {
     // Expand one instruction by your exact rules (ZERO_VARIABLE, ASSIGNMENT, etc.)
     private List<SInstruction> expandOne(SInstruction in, NameSession names) {
         // Replace the switch below with your actual expansion code
-        // that builds the DEC/INC/JNZ sequences and fresh labels/temps as needed.
+
         switch (in.getName()) {
             case "ZERO":
                 var L8 = names.freshLabel();
