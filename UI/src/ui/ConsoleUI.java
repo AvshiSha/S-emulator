@@ -145,7 +145,7 @@ public class ConsoleUI {
         System.out.println();
         System.out.println("Program after expanding to degree " + chosen + ":");
         // System.out.println(PrettyPrinter.showWithCreators(snapshot));
-        System.out.println(PrettyPrinter.showCreationChains(snapshot));
+        System.out.println(PrettyPrinter.showCreationChains(snapshot, gw));
     }
 
     private void onRun() {

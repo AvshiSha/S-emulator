@@ -267,18 +267,12 @@ public final class PrettyPrinter {
     // Left: Highest degree (user's chosen), Right: Degree 0 (original program)
     // Format: #5 (S) [ ] y <- 0 (1) >>> #3 (S) [ ] y <- 5 (2) >>> #1 (S) [ L4 ] IF
     // y = 5 GOTO L5 (2)
-    public static String showCreationChains(ExpansionResult r) {
+    public static String showCreationChains(ExpansionResult r, SProgram originalProgram) {
         StringBuilder sb = new StringBuilder();
 
         List<SInstruction> prog = r.instructions(); // final snapshot program order
         Map<SInstruction, SInstruction> parent = r.parent(); // immediate parent links
-        Map<SInstruction, Integer> lineNo = r.lineNo(); // final numbering 1..N
-        Map<SInstruction, Integer> rowOf = r.rowOf(); // base row (0-based) for each instruction
-
-        if (rowOf == null || rowOf.isEmpty()) {
-            // Fallback: no row info -> default to showWithCreators
-            return showWithCreators(r);
-        }
+        Map<SInstruction, Integer> lineNo = r.lineNo(); // row numbers for each instruction
 
         // Precompute depth for any instruction we might print (finals + ancestors)
         Map<SInstruction, Integer> depthCache = new IdentityHashMap<>();
@@ -323,9 +317,9 @@ public final class PrettyPrinter {
 
         // Group instructions by their depth (degree)
         Map<Integer, List<SInstruction>> instructionsByDegree = new HashMap<>();
-        for (SInstruction ins : prog) {
-            int depth = depthFn.apply(ins);
-            instructionsByDegree.computeIfAbsent(depth, k -> new ArrayList<>()).add(ins);
+        for (SInstruction instruction : prog) {
+            int depth = depthFn.apply(instruction);
+            instructionsByDegree.computeIfAbsent(depth, k -> new ArrayList<>()).add(instruction);
         }
 
         // Print instructions grouped by degree, from highest to lowest
@@ -350,12 +344,6 @@ public final class PrettyPrinter {
                     current = parent.get(current);
                 }
 
-                // Don't reverse the chain - keep it as is (highest degree first, lowest
-                // degree
-                // last)
-                // This will show: highest degree (left) >>> ... >>> degree 0 (right)
-                int j = 1;
-                // Print the complete chain
                 for (int i = 0; i < chain.size(); i++) {
                     if (i > 0) {
                         sb.append(" >>> ");
@@ -363,24 +351,29 @@ public final class PrettyPrinter {
 
                     SInstruction chainIns = chain.get(i);
                     Integer displayNum = lineNo.get(chainIns);
-                    // If no line number found, use the original instruction's position
-                    if () {
-                    //     // For degree 0 instructions, use their original position in the program
-                    //     if (i == chain.size() - 1) {
-                    //         // This is a degree 0 instruction (at the end of the chain)
-                    //         // Use rowOf to get the original row number (0-based) and convert to 1-based
-                    //         Integer originalRow = rowOf.get(chainIns);
-                    //         if (originalRow != null) {
-                    //             displayNum = originalRow + 1; // convert from 0-based to 1-based
-                    //         } else {
-                    //             // Fallback: use chain position
-                    //             displayNum = i + 1;
-                    //         }
-                    //     } else {
-                    //         // This is a higher degree instruction, use chain position
-                    //         displayNum = i + 1;
-                    //     }
-                    // }
+
+                    // For the highest degree instruction (i=0), use lineNo
+                    // For ancestor instructions (i>0), they don't exist in lineNo
+                    if (displayNum == null) {
+                        // This is an ancestor instruction - find its position in the original program
+                        if (i == chain.size() - 1) {
+                            // This is a degree 0 instruction - find its original position
+                            List<SInstruction> originalInstructions = originalProgram.getInstructions();
+                            for (int j = 0; j < originalInstructions.size(); j++) {
+                                if (originalInstructions.get(j) == chainIns) {
+                                    displayNum = j + 1; // Convert to 1-based
+                                    break;
+                                }
+                            }
+                            if (displayNum == null) {
+                                displayNum = i + 1; // Fallback
+                            }
+                        } else {
+                            // This is an intermediate degree instruction - use chain position
+                            displayNum = i + 1;
+                        }
+                    }
+
                     sb.append(oneLineAligned(displayNum, chainIns, numWidth, labelInnerW,
                             textWidth, cyclesWidth));
                 }
