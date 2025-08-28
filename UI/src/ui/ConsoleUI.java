@@ -50,7 +50,7 @@ public class ConsoleUI {
                 case "6" -> onSaveState();
                 case "7" -> onLoadState();
                 case "8" -> {
-                    System.out.println("Bye.");
+                    System.out.println("Closing program. Goodbye!");
                     return;
                 }
                 default -> System.out.println("Invalid choice.");
