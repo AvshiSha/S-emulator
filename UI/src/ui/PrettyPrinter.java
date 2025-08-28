@@ -350,10 +350,11 @@ public final class PrettyPrinter {
                     current = parent.get(current);
                 }
 
-                // Don't reverse the chain - keep it as is (highest degree first, lowest degree
+                // Don't reverse the chain - keep it as is (highest degree first, lowest
+                // degree
                 // last)
                 // This will show: highest degree (left) >>> ... >>> degree 0 (right)
-
+                int j = 1;
                 // Print the complete chain
                 for (int i = 0; i < chain.size(); i++) {
                     if (i > 0) {
@@ -363,24 +364,25 @@ public final class PrettyPrinter {
                     SInstruction chainIns = chain.get(i);
                     Integer displayNum = lineNo.get(chainIns);
                     // If no line number found, use the original instruction's position
-                    if (displayNum == null) {
-                        // For degree 0 instructions, use their original position in the program
-                        if (i == chain.size() - 1) {
-                            // This is a degree 0 instruction (at the end of the chain)
-                            // Use rowOf to get the original row number (0-based) and convert to 1-based
-                            Integer originalRow = rowOf.get(chainIns);
-                            if (originalRow != null) {
-                                displayNum = originalRow + 1; // convert from 0-based to 1-based
-                            } else {
-                                // Fallback: use chain position
-                                displayNum = i + 1;
-                            }
-                        } else {
-                            // This is a higher degree instruction, use chain position
-                            displayNum = i + 1;
-                        }
-                    }
-                    sb.append(oneLineAligned(displayNum, chainIns, numWidth, labelInnerW, textWidth, cyclesWidth));
+                    if () {
+                    //     // For degree 0 instructions, use their original position in the program
+                    //     if (i == chain.size() - 1) {
+                    //         // This is a degree 0 instruction (at the end of the chain)
+                    //         // Use rowOf to get the original row number (0-based) and convert to 1-based
+                    //         Integer originalRow = rowOf.get(chainIns);
+                    //         if (originalRow != null) {
+                    //             displayNum = originalRow + 1; // convert from 0-based to 1-based
+                    //         } else {
+                    //             // Fallback: use chain position
+                    //             displayNum = i + 1;
+                    //         }
+                    //     } else {
+                    //         // This is a higher degree instruction, use chain position
+                    //         displayNum = i + 1;
+                    //     }
+                    // }
+                    sb.append(oneLineAligned(displayNum, chainIns, numWidth, labelInnerW,
+                            textWidth, cyclesWidth));
                 }
                 sb.append('\n');
             }
