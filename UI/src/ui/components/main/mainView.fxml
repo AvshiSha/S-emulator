@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<Pane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <VBox layoutX="0.0" layoutY="0.0" prefHeight="400.0" prefWidth="600.0">
+         <children>
+            <fx:include fx:id="headerComponent" source="../Header/Header.fxml" />
+            <Label alignment="TOP_CENTER" layoutX="263.0" layoutY="14.0" style="-fx-border-width: BOLD;" text="S-Emulator" textAlignment="CENTER" textFill="#0a03d3">
+               <font>
+                  <Font size="15.0" />
+               </font>
+            </Label>
+         </children>
+      </VBox>
+   </children>
+</Pane>

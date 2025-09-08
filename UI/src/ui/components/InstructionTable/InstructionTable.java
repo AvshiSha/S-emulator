@@ -1,4 +1,4 @@
-package ui.components.header;
+package ui.components.InstructionTable;
 
 public class InstructionTable {
 }
