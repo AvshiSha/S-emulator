@@ -4,6 +4,7 @@
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.text.Font?>
 
 <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1">
@@ -16,8 +17,27 @@
                </font>
             </Label>
             <VBox fx:id="headerComponent" />
-            <VBox fx:id="instructionTableComponent" />
-            <VBox fx:id="historyChainComponent" />
+            
+            <!-- Main content area with side-by-side layout -->
+            <HBox spacing="20.0" alignment="TOP_LEFT" maxWidth="Infinity">
+               <children>
+                  <!-- Left side: Instruction Table and History Chain -->
+                  <VBox spacing="20.0" prefWidth="600.0" minWidth="400.0">
+                     <children>
+                        <VBox fx:id="instructionTableComponent" />
+                        <VBox fx:id="historyChainComponent" />
+                     </children>
+                  </VBox>
+                  
+                  <!-- Right side: Debugger/Execution and Program Run History -->
+                  <VBox spacing="20.0" prefWidth="400.0" minWidth="300.0">
+                     <children>
+                        <VBox fx:id="debuggerExecutionComponent" />
+                        <VBox fx:id="historyStatsComponent" />
+                     </children>
+                  </VBox>
+               </children>
+            </HBox>
          </children>
       </VBox>
    </content>

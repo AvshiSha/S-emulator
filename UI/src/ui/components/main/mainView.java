@@ -10,6 +10,8 @@ import javafx.stage.Stage;
 import ui.components.Header.Header;
 import ui.components.InstructionTable.InstructionTable;
 import ui.components.HistoryChain.HistoryChain;
+import ui.components.DebuggerExecution.DebuggerExecution;
+import ui.components.HistoryStats.HistoryStats;
 
 public class mainView extends Application {
     @FXML
@@ -21,9 +23,17 @@ public class mainView extends Application {
     @FXML
     private VBox historyChainComponent;
 
+    @FXML
+    private VBox debuggerExecutionComponent;
+
+    @FXML
+    private VBox historyStatsComponent;
+
     private Header headerController;
     private InstructionTable instructionTableController;
     private HistoryChain historyChainController;
+    private DebuggerExecution debuggerExecutionController;
+    private HistoryStats historyStatsController;
 
     @Override
     public void start(Stage primaryStage) throws Exception {
@@ -51,6 +61,18 @@ public class mainView extends Application {
         VBox historyRoot = historyLoader.load();
         historyChainController = historyLoader.getController();
 
+        // Load the DebuggerExecution component and get its controller
+        FXMLLoader debuggerLoader = new FXMLLoader(
+                getClass().getResource("/ui/components/DebuggerExecution/DebuggerExecution.fxml"));
+        VBox debuggerRoot = debuggerLoader.load();
+        debuggerExecutionController = debuggerLoader.getController();
+
+        // Load the HistoryStats component and get its controller
+        FXMLLoader historyStatsLoader = new FXMLLoader(
+                getClass().getResource("/ui/components/HistoryStats/HistoryStats.fxml"));
+        VBox historyStatsRoot = historyStatsLoader.load();
+        historyStatsController = historyStatsLoader.getController();
+
         // Replace the placeholder components with the actual loaded components
         headerComponent.getChildren().clear();
         headerComponent.getChildren().addAll(headerRoot.getChildren());
@@ -61,18 +83,48 @@ public class mainView extends Application {
         historyChainComponent.getChildren().clear();
         historyChainComponent.getChildren().addAll(historyRoot.getChildren());
 
+        debuggerExecutionComponent.getChildren().clear();
+        debuggerExecutionComponent.getChildren().addAll(debuggerRoot.getChildren());
+
+        historyStatsComponent.getChildren().clear();
+        historyStatsComponent.getChildren().addAll(historyStatsRoot.getChildren());
+
         // Wire up the components
         headerController.setInstructionTable(instructionTableController);
 
         // Set up the history chain callback
         instructionTableController.setHistoryChainCallback(selectedInstruction -> {
-            // Get the real history chain from the Header controller
-            java.util.List<semulator.instructions.SInstruction> chain = headerController
-                    .getHistoryChain(selectedInstruction);
-            historyChainController.displayHistoryChain(chain);
+            if (selectedInstruction != null) {
+                // Get the real history chain from the Header controller
+                java.util.List<semulator.instructions.SInstruction> chain = headerController
+                        .getHistoryChain(selectedInstruction);
+                historyChainController.displayHistoryChain(chain);
+            } else {
+                historyChainController.clearHistory();
+            }
         });
 
-        Scene scene = new Scene(root, 800, 600);
+        // Wire up the debugger execution component
+        // When a program is loaded in the header, also set it in the debugger
+        headerController.setDebuggerExecution(debuggerExecutionController);
+
+        // Wire up the history stats component
+        headerController.setHistoryStats(historyStatsController);
+
+        // Set up the input callback for history stats to debugger
+        historyStatsController.setInputCallback(inputs -> {
+            // Set the inputs in the debugger execution component
+            debuggerExecutionController.setInputs(inputs);
+        });
+
+        // Set up the history callback for debugger to history stats
+        debuggerExecutionController.setHistoryCallback(runResult -> {
+            // Add the run to the history stats
+            historyStatsController.addRun(runResult.level(), runResult.inputs(), runResult.yValue(),
+                    runResult.cycles());
+        });
+
+        Scene scene = new Scene(root, 800, 800);
         primaryStage.setScene(scene);
 
         // Set minimum window size to ensure usability on small screens

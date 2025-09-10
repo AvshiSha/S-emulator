@@ -11,13 +11,13 @@
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="History Chain" />
       <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" minWidth="600.0" prefHeight="300.0" prefWidth="800.0" vbarPolicy="AS_NEEDED">
          <content>
-            <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="600.0" prefHeight="300.0" prefWidth="800.0">
+            <TableView fx:id="historyTableView" minWidth="400.0" prefHeight="300.0" prefWidth="400.0">
                <columns>
-                  <TableColumn fx:id="historyRowNumberColumn" minWidth="60.0" prefWidth="80.0" text="Row Number" />
+                  <TableColumn fx:id="historyRowNumberColumn" minWidth="60.0" prefWidth="80.0" text="Row #" />
                   <TableColumn fx:id="historyCommandTypeColumn" minWidth="36.5" prefWidth="36.5" text="B/S" />
-                  <TableColumn fx:id="historyLabelColumn" minWidth="57.0" prefWidth="80.5" text="Label" />
-                  <TableColumn fx:id="historyInstructionTypeColumn" minWidth="129.5" prefWidth="203.0" text="Command" />
-                  <TableColumn fx:id="historyCyclesColumn" minWidth="60.0" prefWidth="67.5" text="Cycles" />
+                  <TableColumn fx:id="historyLabelColumn" minWidth="56.0" prefWidth="56.0" text="Label" />
+                  <TableColumn fx:id="historyInstructionTypeColumn" minWidth="129.5" prefWidth="141.0" text="Command" />
+                  <TableColumn fx:id="historyCyclesColumn" minWidth="59.5" prefWidth="59.5" text="Cycles" />
                </columns>
             </TableView>
          </content>
