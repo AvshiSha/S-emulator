@@ -13,7 +13,7 @@
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Program Run History" />
       
       <!-- History Table -->
-      <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+      <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="NEVER" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
          <content>
             <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0">
                <columns>

@@ -70,7 +70,7 @@
             <VBox minWidth="300.0" prefWidth="400.0" spacing="10.0">
                <children>
                   <!-- Variables Panel (Pink Section) -->
-                  <VBox maxWidth="Infinity" prefHeight="400.0" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-padding: 10px;">
+                  <VBox maxWidth="Infinity" prefHeight="400.0" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 10px;">
                      <children>
                         <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Variables">
                            <font>
@@ -91,7 +91,7 @@
                   </VBox>
                   
                   <!-- Cycles Panel (Small Pink Section) -->
-                  <VBox maxWidth="Infinity" prefHeight="60.0" style="-fx-background-color: #E91E63; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+                  <VBox maxWidth="Infinity" prefHeight="60.0" style="-fx-background-color: #E91E63; -fx-border-width: 2; -fx-border-radius: 5; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
                      <children>
                         <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Cycles">
                            <font>
