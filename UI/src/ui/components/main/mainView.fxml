@@ -9,31 +9,32 @@
 
 <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1">
    <content>
-      <VBox alignment="CENTER" spacing="20.0" minWidth="600.0" prefWidth="1000.0">
+      <VBox alignment="CENTER" spacing="15.0" minWidth="600.0" prefWidth="1000.0">
          <children>
             <Label alignment="CENTER" style="-fx-border-width: BOLD;" text="S-Emulator" textAlignment="CENTER" textFill="#0a03d3">
                <font>
                   <Font name="System Bold" size="24.0" />
                </font>
             </Label>
-            <VBox fx:id="headerComponent" />
             
             <!-- Main content area with side-by-side layout -->
-            <HBox spacing="20.0" alignment="TOP_LEFT" maxWidth="Infinity">
+            <HBox spacing="15.0" alignment="TOP_LEFT" maxWidth="Infinity">
                <children>
-                  <!-- Left side: Instruction Table and History Chain -->
-                  <VBox spacing="20.0" prefWidth="600.0" minWidth="400.0">
+                  <!-- Left side: Header, Instruction Table and History Chain -->
+                  <VBox spacing="8.0" prefWidth="600.0" minWidth="400.0">
                      <children>
+                        <!-- Header moved here to be directly above Instruction Table -->
+                        <VBox fx:id="headerComponent" />
                         <VBox fx:id="instructionTableComponent" />
                         <VBox fx:id="historyChainComponent" />
                      </children>
                   </VBox>
                   
                   <!-- Right side: Debugger/Execution and Program Run History -->
-                  <VBox spacing="20.0" prefWidth="400.0" minWidth="300.0">
+                  <VBox spacing="15.0" prefWidth="400.0" minWidth="300.0">
                      <children>
                         <VBox fx:id="debuggerExecutionComponent" />
-                        <VBox fx:id="historyStatsComponent" />
+                        <VBox fx:id="historyStatsComponent" VBox.vgrow="ALWAYS" />
                      </children>
                   </VBox>
                </children>

@@ -8,14 +8,14 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.HistoryStats.HistoryStats">
+<VBox VBox.vgrow="ALWAYS" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.HistoryStats.HistoryStats">
    <children>
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Program Run History" />
       
       <!-- History Table -->
-      <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" minWidth="400.0" prefHeight="200.0" prefWidth="500.0" vbarPolicy="AS_NEEDED">
+      <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
          <content>
-            <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="200.0" prefWidth="500.0">
+            <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0">
                <columns>
                   <TableColumn fx:id="runNumberColumn" minWidth="60.0" prefWidth="80.0" text="Run #" />
                   <TableColumn fx:id="runLevelColumn" minWidth="60.0" prefWidth="80.0" text="Level" />
@@ -35,21 +35,5 @@
          </children>
       </HBox>
       
-      <!-- Variable State Display -->
-      <VBox spacing="5.0" style="-fx-padding: 10px;">
-         <children>
-            <Label fx:id="variableStateLabel" style="-fx-font-weight: bold;" text="Variable State (End of Selected Run):" />
-            <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" minWidth="400.0" prefHeight="100.0" prefWidth="500.0" vbarPolicy="AS_NEEDED">
-               <content>
-                  <TableView fx:id="variableStateTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="100.0" prefWidth="500.0">
-                     <columns>
-                        <TableColumn fx:id="variableNameColumn" minWidth="100.0" prefWidth="150.0" text="Variable" />
-                        <TableColumn fx:id="variableValueColumn" minWidth="80.0" prefWidth="120.0" text="Value" />
-                     </columns>
-                  </TableView>
-               </content>
-            </ScrollPane>
-         </children>
-      </VBox>
    </children>
 </VBox>

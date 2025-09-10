@@ -39,17 +39,7 @@ public class HistoryStats implements Initializable {
     @FXML
     private Button clearHistoryButton;
 
-    @FXML
-    private Label variableStateLabel;
-    @FXML
-    private TableView<VariableRow> variableStateTableView;
-    @FXML
-    private TableColumn<VariableRow, String> variableNameColumn;
-    @FXML
-    private TableColumn<VariableRow, String> variableValueColumn;
-
     private ObservableList<HistoryRow> historyData = FXCollections.observableArrayList();
-    private ObservableList<VariableRow> variableData = FXCollections.observableArrayList();
 
     private RunHistory runHistory;
     private SProgram currentProgram;
@@ -64,18 +54,12 @@ public class HistoryStats implements Initializable {
         yValueColumn.setCellValueFactory(new PropertyValueFactory<>("yValue"));
         cyclesColumn.setCellValueFactory(new PropertyValueFactory<>("cycles"));
 
-        // Set up variable state table
-        variableNameColumn.setCellValueFactory(new PropertyValueFactory<>("variableName"));
-        variableValueColumn.setCellValueFactory(new PropertyValueFactory<>("variableValue"));
-
         // Make columns resizable
         runNumberColumn.setResizable(true);
         runLevelColumn.setResizable(true);
         inputsColumn.setResizable(true);
         yValueColumn.setResizable(true);
         cyclesColumn.setResizable(true);
-        variableNameColumn.setResizable(true);
-        variableValueColumn.setResizable(true);
 
         // Disable sorting
         runNumberColumn.setSortable(false);
@@ -83,21 +67,16 @@ public class HistoryStats implements Initializable {
         inputsColumn.setSortable(false);
         yValueColumn.setSortable(false);
         cyclesColumn.setSortable(false);
-        variableNameColumn.setSortable(false);
-        variableValueColumn.setSortable(false);
 
         // Set up table data
         historyTableView.setItems(historyData);
-        variableStateTableView.setItems(variableData);
 
         // Set up selection listener
         historyTableView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
                 rerunButton.setDisable(false);
-                displayVariableState(Integer.parseInt(newSelection.getRunNumber()));
             } else {
                 rerunButton.setDisable(true);
-                clearVariableState();
             }
         });
 
@@ -136,7 +115,6 @@ public class HistoryStats implements Initializable {
         if (runHistory != null) {
             runHistory.clear();
             refreshHistoryTable();
-            clearVariableState();
             rerunButton.setDisable(true);
         }
     }
@@ -158,57 +136,6 @@ public class HistoryStats implements Initializable {
                     historyData.add(row);
                 }
             }
-        });
-    }
-
-    /**
-     * Display variable state for a selected run
-     */
-    private void displayVariableState(int runNumber) {
-        Platform.runLater(() -> {
-            variableData.clear();
-            if (runHistory != null && currentProgram != null) {
-                // Find the run
-                RunResult selectedRun = null;
-                for (RunResult run : runHistory.getAllRuns()) {
-                    if (run.runNumber() == runNumber) {
-                        selectedRun = run;
-                        break;
-                    }
-                }
-
-                if (selectedRun != null) {
-                    // Simulate the run to get variable state
-                    try {
-                        semulator.execution.ProgramExecutor executor = new semulator.execution.ProgramExecutorImpl(
-                                currentProgram);
-                        semulator.program.ExpansionResult expandedProgram = currentProgram
-                                .expandToDegree(selectedRun.level());
-                        executor.run(selectedRun.inputs().toArray(new Long[0]));
-                        Map<Variable, Long> variableState = executor.variableState();
-
-                        // Display all variables
-                        for (Map.Entry<Variable, Long> entry : variableState.entrySet()) {
-                            VariableRow row = new VariableRow(entry.getKey().toString(),
-                                    String.valueOf(entry.getValue()));
-                            variableData.add(row);
-                        }
-                    } catch (Exception e) {
-                        // If we can't simulate the run, just show the y value
-                        VariableRow row = new VariableRow("y", String.valueOf(selectedRun.yValue()));
-                        variableData.add(row);
-                    }
-                }
-            }
-        });
-    }
-
-    /**
-     * Clear variable state display
-     */
-    private void clearVariableState() {
-        Platform.runLater(() -> {
-            variableData.clear();
         });
     }
 
@@ -286,25 +213,4 @@ public class HistoryStats implements Initializable {
         }
     }
 
-    /**
-     * Data model for variable state table rows
-     */
-    public static class VariableRow {
-        private final SimpleStringProperty variableName;
-        private final SimpleStringProperty variableValue;
-
-        public VariableRow(String variableName, String variableValue) {
-            this.variableName = new SimpleStringProperty(variableName);
-            this.variableValue = new SimpleStringProperty(variableValue);
-        }
-
-        // Getters for PropertyValueFactory
-        public String getVariableName() {
-            return variableName.get();
-        }
-
-        public String getVariableValue() {
-            return variableValue.get();
-        }
-    }
 }
