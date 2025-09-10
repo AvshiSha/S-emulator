@@ -47,6 +47,7 @@ public class Header {
   private Path loadedXmlPath;
   private InstructionTable instructionTable;
   private HistoryStats historyStats;
+  private ui.components.DebuggerExecution.DebuggerExecution debuggerExecution;
   private int currentDegree = 0;
   private int maxDegree = 0;
 
@@ -109,6 +110,11 @@ public class Header {
             // Set the program in the history stats component
             if (historyStats != null) {
               historyStats.setProgram(sProgram);
+            }
+
+            // Set the program in the debugger execution component
+            if (debuggerExecution != null) {
+              debuggerExecution.setProgram(sProgram);
             }
 
             showSuccessAlert("File Loaded", "XML file loaded successfully!");
@@ -506,8 +512,7 @@ public class Header {
 
   // Method to set the debugger execution component
   public void setDebuggerExecution(ui.components.DebuggerExecution.DebuggerExecution debuggerExecution) {
-    // This method can be used to wire up the debugger execution component
-    // For now, we'll just store a reference if needed in the future
+    this.debuggerExecution = debuggerExecution;
   }
 
   // Method to set the history stats component

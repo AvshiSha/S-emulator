@@ -2,6 +2,9 @@ package ui.components.DebuggerExecution;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.geometry.Pos;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -49,36 +52,21 @@ public class DebuggerExecution {
     private TableColumn<VariableRow, String> variableNameColumn;
     @FXML
     private TableColumn<VariableRow, String> variableValueColumn;
-    @FXML
-    private TableColumn<VariableRow, String> variableTypeColumn;
 
     // FXML Components - Cycles Panel
     @FXML
     private Label currentCyclesLabel;
-    @FXML
-    private Label maxCyclesLabel;
 
     // FXML Components - Execution Inputs Panel
     @FXML
-    private TextField inputVariableField;
-    @FXML
-    private TextField inputValueField;
+    private VBox inputFieldsContainer;
     @FXML
     private Button addInputButton;
-    @FXML
-    private TableView<InputRow> inputsTableView;
-    @FXML
-    private TableColumn<InputRow, String> inputVariableNameColumn;
-    @FXML
-    private TableColumn<InputRow, String> inputValueColumn;
-    @FXML
-    private TableColumn<InputRow, String> inputActionColumn;
     @FXML
     private Label executionStatusLabel;
 
     // Data Models
     private ObservableList<VariableRow> variablesData = FXCollections.observableArrayList();
-    private ObservableList<InputRow> inputsData = FXCollections.observableArrayList();
 
     // Execution State
     private SProgram currentProgram;
@@ -98,36 +86,24 @@ public class DebuggerExecution {
 
     // Input Variables Map
     private Map<String, Integer> inputVariables = new HashMap<>();
+    private int nextInputNumber = 1;
 
     @FXML
     private void initialize() {
         // Initialize Variables Table
         variableNameColumn.setCellValueFactory(cellData -> cellData.getValue().variableNameProperty());
         variableValueColumn.setCellValueFactory(cellData -> cellData.getValue().variableValueProperty());
-        variableTypeColumn.setCellValueFactory(cellData -> cellData.getValue().variableTypeProperty());
         variablesTableView.setItems(variablesData);
 
-        // Initialize Inputs Table
-        inputVariableNameColumn.setCellValueFactory(cellData -> cellData.getValue().variableNameProperty());
-        inputValueColumn.setCellValueFactory(cellData -> cellData.getValue().variableValueProperty());
-        inputActionColumn.setCellValueFactory(cellData -> cellData.getValue().actionProperty());
-        inputsTableView.setItems(inputsData);
+        // Input fields container will be populated dynamically
 
         // Set up table columns to be resizable
         variableNameColumn.setResizable(true);
         variableValueColumn.setResizable(true);
-        variableTypeColumn.setResizable(true);
-        inputVariableNameColumn.setResizable(true);
-        inputValueColumn.setResizable(true);
-        inputActionColumn.setResizable(true);
 
         // Disable sorting
         variableNameColumn.setSortable(false);
         variableValueColumn.setSortable(false);
-        variableTypeColumn.setSortable(false);
-        inputVariableNameColumn.setSortable(false);
-        inputValueColumn.setSortable(false);
-        inputActionColumn.setSortable(false);
 
         // Initialize execution service
         executionService = new ExecutionService();
@@ -218,34 +194,66 @@ public class DebuggerExecution {
         showAlert("Feature Not Available", "Step Backward functionality is not yet implemented.");
     }
 
-    // Input Management
+    /**
+     * Create an input field for a variable
+     */
+    private void createInputField(String variableName, String initialValue) {
+        HBox inputRow = new HBox(10);
+        inputRow.setAlignment(Pos.CENTER_LEFT);
+        inputRow.setStyle("-fx-padding: 5;");
+
+        // Variable name label
+        Label varLabel = new Label(variableName + ":");
+        varLabel.setMinWidth(50);
+        varLabel.setStyle("-fx-font-weight: bold;");
+
+        // Value text field
+        TextField valueField = new TextField(initialValue);
+        valueField.setPrefWidth(100);
+        valueField.setPromptText("Enter value");
+
+        // Add change listener to update the input variables map
+        valueField.textProperty().addListener((obs, oldValue, newValue) -> {
+            try {
+                if (!newValue.isEmpty()) {
+                    int value = Integer.parseInt(newValue);
+                    inputVariables.put(variableName, value);
+                } else {
+                    inputVariables.put(variableName, 0);
+                }
+            } catch (NumberFormatException e) {
+                // Invalid input, keep the old value
+                valueField.setText(oldValue);
+            }
+        });
+
+        inputRow.getChildren().addAll(varLabel, valueField);
+        inputFieldsContainer.getChildren().add(inputRow);
+    }
+
+    /**
+     * Add a new input variable manually
+     */
     @FXML
-    private void addInput(ActionEvent event) {
-        String variableName = inputVariableField.getText().trim();
-        String valueText = inputValueField.getText().trim();
-
-        if (variableName.isEmpty() || valueText.isEmpty()) {
-            showAlert("Invalid Input", "Please enter both variable name and value.");
-            return;
+    private void addInputVariable(ActionEvent event) {
+        // Find the next available input number
+        while (inputVariables.containsKey("x" + nextInputNumber)) {
+            nextInputNumber++;
         }
 
-        try {
-            int value = Integer.parseInt(valueText);
-            inputVariables.put(variableName, value);
+        String newInputVar = "x" + nextInputNumber;
 
-            // Add to inputs table
-            InputRow inputRow = new InputRow(variableName, String.valueOf(value), "Remove");
-            inputsData.add(inputRow);
+        // Add to input variables map with default value 0
+        inputVariables.put(newInputVar, 0);
 
-            // Clear input fields
-            inputVariableField.clear();
-            inputValueField.clear();
+        // Create the input field
+        createInputField(newInputVar, "0");
 
-            updateExecutionStatus("Input added: " + variableName + " = " + value);
+        // Update status
+        updateExecutionStatus("Added input variable: " + newInputVar);
 
-        } catch (NumberFormatException e) {
-            showAlert("Invalid Value", "Please enter a valid integer value.");
-        }
+        // Move to next number for future additions
+        nextInputNumber++;
     }
 
     // Public Methods for Integration
@@ -256,7 +264,8 @@ public class DebuggerExecution {
             this.executor = new ProgramExecutorImpl(program);
             this.executionContext = null; // Will be created when execution starts
 
-            // Input variables will be passed to executor when execution starts
+            // Extract required inputs and create dynamic input fields
+            extractAndDisplayRequiredInputs(program);
 
             updateExecutionStatus("Program Loaded: " + program.getName());
         }
@@ -265,8 +274,9 @@ public class DebuggerExecution {
     public void clearExecution() {
         stopExecution(null);
         variablesData.clear();
-        inputsData.clear();
+        inputFieldsContainer.getChildren().clear();
         inputVariables.clear();
+        nextInputNumber = 1;
         currentCycles.set(0);
         updateCyclesDisplay();
         updateExecutionStatus("Ready");
@@ -277,16 +287,16 @@ public class DebuggerExecution {
      */
     public void setInputs(List<Long> inputs) {
         Platform.runLater(() -> {
-            inputsData.clear();
+            // Clear existing input fields
+            inputFieldsContainer.getChildren().clear();
             inputVariables.clear();
 
             if (inputs != null && !inputs.isEmpty()) {
-                // Add inputs to the input variables map and display
+                // Create input fields for each input
                 for (int i = 0; i < inputs.size(); i++) {
-                    String varName = "input_" + (i + 1);
+                    String varName = "x" + (i + 1);
                     inputVariables.put(varName, inputs.get(i).intValue());
-                    InputRow row = new InputRow(varName, String.valueOf(inputs.get(i)), "Set");
-                    inputsData.add(row);
+                    createInputField(varName, String.valueOf(inputs.get(i)));
                 }
             }
         });
@@ -300,6 +310,126 @@ public class DebuggerExecution {
     }
 
     /**
+     * Get inputs in proper order (x1, x2, x3, etc.) with zeros for missing inputs
+     */
+    private List<Long> getOrderedInputs() {
+        List<Long> orderedInputs = new java.util.ArrayList<>();
+
+        // Find the maximum input number
+        int maxInputNumber = 0;
+        for (String varName : inputVariables.keySet()) {
+            if (varName.startsWith("x")) {
+                try {
+                    int inputNumber = Integer.parseInt(varName.substring(1));
+                    maxInputNumber = Math.max(maxInputNumber, inputNumber);
+                } catch (NumberFormatException e) {
+                    // Skip invalid input variable names
+                }
+            }
+        }
+
+        // Create ordered list with zeros for missing inputs
+        for (int i = 1; i <= maxInputNumber; i++) {
+            String varName = "x" + i;
+            int value = inputVariables.getOrDefault(varName, 0);
+            orderedInputs.add((long) value);
+        }
+
+        return orderedInputs;
+    }
+
+    /**
+     * Extract required inputs from the program and create dynamic input fields
+     */
+    private void extractAndDisplayRequiredInputs(SProgram program) {
+        Platform.runLater(() -> {
+            try {
+                // Clear existing input fields
+                inputFieldsContainer.getChildren().clear();
+                inputVariables.clear();
+
+                // Get the program instructions
+                List<semulator.instructions.SInstruction> instructions = program.getInstructions();
+                if (instructions == null || instructions.isEmpty()) {
+                    updateExecutionStatus("No instructions found in program");
+                    return;
+                }
+
+                // Extract all input variables (x1, x2, x3, etc.) from instructions
+                java.util.Set<Integer> inputNumbers = new java.util.TreeSet<>();
+
+                for (semulator.instructions.SInstruction instruction : instructions) {
+                    // Check all instruction types that might use input variables
+                    String varName = null;
+
+                    if (instruction instanceof semulator.instructions.AssignVariableInstruction assignVar) {
+                        varName = assignVar.getVariable().toString();
+
+                        // Also check the source variable in arguments
+                        String sourceVar = assignVar.getSource().toString();
+                        if (sourceVar.startsWith("x") && sourceVar.length() > 1) {
+                            try {
+                                int inputNumber = Integer.parseInt(sourceVar.substring(1));
+                                inputNumbers.add(inputNumber);
+                            } catch (NumberFormatException e) {
+                                // Invalid input variable format
+                            }
+                        }
+                    } else if (instruction instanceof semulator.instructions.DecreaseInstruction decrease) {
+                        varName = decrease.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.IncreaseInstruction increase) {
+                        varName = increase.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.ZeroVariableInstruction zero) {
+                        varName = zero.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.JumpEqualVariableInstruction jumpVar) {
+                        varName = jumpVar.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.JumpNotZeroInstruction jumpNotZero) {
+                        varName = jumpNotZero.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.JumpZeroInstruction jumpZero) {
+                        varName = jumpZero.getVariable().toString();
+                    }
+
+                    // Check if it's a valid input variable (x1, x2, x3, etc.)
+                    if (varName != null && varName.startsWith("x") && varName.length() > 1) {
+                        try {
+                            int inputNumber = Integer.parseInt(varName.substring(1));
+                            inputNumbers.add(inputNumber);
+                        } catch (NumberFormatException e) {
+                            // Invalid input variable format
+                        }
+                    }
+                }
+
+                // Create input fields for ALL input variables from x1 to the maximum found
+                if (!inputNumbers.isEmpty()) {
+                    int maxInputNumber = inputNumbers.stream().mapToInt(Integer::intValue).max().orElse(0);
+
+                    for (int i = 1; i <= maxInputNumber; i++) {
+                        String inputVar = "x" + i;
+                        // Initialize with default value 0
+                        inputVariables.put(inputVar, 0);
+                        createInputField(inputVar, "0");
+                    }
+
+                    // Set next input number to continue from where we left off
+                    nextInputNumber = maxInputNumber + 1;
+
+                    updateExecutionStatus("Found input variables x1 to x" + maxInputNumber + " (total: "
+                            + maxInputNumber + " inputs)");
+                } else {
+                    // No input variables found, start from x1
+                    nextInputNumber = 1;
+                    updateExecutionStatus("No input variables found in program");
+                }
+
+            } catch (Exception e) {
+                updateExecutionStatus("Error extracting inputs: " + e.getMessage());
+                System.err.println("Error extracting required inputs: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
      * Record the current run in history
      */
     private void recordRunInHistory() {
@@ -308,11 +438,8 @@ public class DebuggerExecution {
                 // Get the current degree (we'll use 0 for now, but this could be dynamic)
                 int currentDegree = 0;
 
-                // Get the inputs that were used
-                List<Long> inputs = new java.util.ArrayList<>();
-                for (Map.Entry<String, Integer> entry : inputVariables.entrySet()) {
-                    inputs.add(entry.getValue().longValue());
-                }
+                // Get the inputs in proper order (x1, x2, x3, etc.)
+                List<Long> inputs = getOrderedInputs();
 
                 // Get the final y value (we'll simulate this for now)
                 long yValue = 0;
@@ -365,7 +492,6 @@ public class DebuggerExecution {
     private void updateCyclesDisplay() {
         Platform.runLater(() -> {
             currentCyclesLabel.setText(String.valueOf(currentCycles.get()));
-            maxCyclesLabel.setText(maxCycles.get() == Integer.MAX_VALUE ? "∞" : String.valueOf(maxCycles.get()));
         });
     }
 
@@ -375,11 +501,77 @@ public class DebuggerExecution {
             if (executor != null) {
                 // Get all variables from executor's variable state
                 Map<semulator.variable.Variable, Long> variables = executor.variableState();
+
+                // Display variables in order: y, x1,x2,x3..., z1,z2,z3...
+                java.util.List<VariableRow> orderedRows = new java.util.ArrayList<>();
+
+                // First, add y variable
                 for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    VariableRow row = new VariableRow(entry.getKey().toString(), String.valueOf(entry.getValue()),
-                            "Integer");
-                    variablesData.add(row);
+                    String varName = entry.getKey().toString();
+                    if (varName.equals("y")) {
+                        orderedRows.add(new VariableRow(varName, String.valueOf(entry.getValue())));
+                        break;
+                    }
                 }
+
+                // Then add x variables in order (x1, x2, x3, etc.)
+                java.util.List<String> xVars = new java.util.ArrayList<>();
+                for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
+                    String varName = entry.getKey().toString();
+                    if (varName.startsWith("x") && varName.length() > 1) {
+                        try {
+                            Integer.parseInt(varName.substring(1));
+                            xVars.add(varName);
+                        } catch (NumberFormatException e) {
+                            // Skip invalid x variable names
+                        }
+                    }
+                }
+                xVars.sort((a, b) -> {
+                    int numA = Integer.parseInt(a.substring(1));
+                    int numB = Integer.parseInt(b.substring(1));
+                    return Integer.compare(numA, numB);
+                });
+
+                for (String xVar : xVars) {
+                    for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
+                        if (entry.getKey().toString().equals(xVar)) {
+                            orderedRows.add(new VariableRow(xVar, String.valueOf(entry.getValue())));
+                            break;
+                        }
+                    }
+                }
+
+                // Finally add z variables in order (z1, z2, z3, etc.)
+                java.util.List<String> zVars = new java.util.ArrayList<>();
+                for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
+                    String varName = entry.getKey().toString();
+                    if (varName.startsWith("z") && varName.length() > 1) {
+                        try {
+                            Integer.parseInt(varName.substring(1));
+                            zVars.add(varName);
+                        } catch (NumberFormatException e) {
+                            // Skip invalid z variable names
+                        }
+                    }
+                }
+                zVars.sort((a, b) -> {
+                    int numA = Integer.parseInt(a.substring(1));
+                    int numB = Integer.parseInt(b.substring(1));
+                    return Integer.compare(numA, numB);
+                });
+
+                for (String zVar : zVars) {
+                    for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
+                        if (entry.getKey().toString().equals(zVar)) {
+                            orderedRows.add(new VariableRow(zVar, String.valueOf(entry.getValue())));
+                            break;
+                        }
+                    }
+                }
+
+                // Add all ordered rows to the table
+                variablesData.addAll(orderedRows);
             }
         });
     }
@@ -409,29 +601,23 @@ public class DebuggerExecution {
                                 continue;
                             }
 
-                            // Execute one instruction
-                            if (executor != null && executionContext != null) {
-                                // This would be the actual execution logic
-                                // For now, we'll simulate execution
-                                Thread.sleep(100); // Simulate instruction execution time
+                            // Execute the program
+                            if (executor != null) {
+                                // Get ordered inputs
+                                List<Long> inputs = getOrderedInputs();
 
-                                currentCycles.incrementAndGet();
+                                // Run the program with inputs
+                                long result = executor.run(inputs.toArray(new Long[0]));
+
+                                // Update cycles (for now, we'll use a simple calculation)
+                                currentCycles.set(inputs.size() + 10); // Simple cycle calculation
                                 updateCyclesDisplay();
                                 updateVariablesDisplay();
 
-                                if (isDebugMode.get()) {
-                                    // In debug mode, pause after each step
-                                    isPaused.set(true);
-                                    updateButtonStates();
-                                    updateExecutionStatus("Debug Mode - Paused at cycle " + currentCycles.get());
-                                }
-
-                                // Check if we've reached max cycles
-                                if (currentCycles.get() >= maxCycles.get()) {
-                                    isExecuting.set(false);
-                                    updateExecutionStatus("Execution Complete - Max cycles reached");
-                                    break;
-                                }
+                                // Mark execution as complete
+                                isExecuting.set(false);
+                                updateExecutionStatus("Execution Complete - Result: " + result);
+                                break;
                             }
                         }
 
@@ -463,12 +649,10 @@ public class DebuggerExecution {
     public static class VariableRow {
         private final SimpleStringProperty variableName;
         private final SimpleStringProperty variableValue;
-        private final SimpleStringProperty variableType;
 
-        public VariableRow(String name, String value, String type) {
+        public VariableRow(String name, String value) {
             this.variableName = new SimpleStringProperty(name);
             this.variableValue = new SimpleStringProperty(value);
-            this.variableType = new SimpleStringProperty(type);
         }
 
         public SimpleStringProperty variableNameProperty() {
@@ -478,33 +662,6 @@ public class DebuggerExecution {
         public SimpleStringProperty variableValueProperty() {
             return variableValue;
         }
-
-        public SimpleStringProperty variableTypeProperty() {
-            return variableType;
-        }
     }
 
-    public static class InputRow {
-        private final SimpleStringProperty variableName;
-        private final SimpleStringProperty variableValue;
-        private final SimpleStringProperty action;
-
-        public InputRow(String name, String value, String action) {
-            this.variableName = new SimpleStringProperty(name);
-            this.variableValue = new SimpleStringProperty(value);
-            this.action = new SimpleStringProperty(action);
-        }
-
-        public SimpleStringProperty variableNameProperty() {
-            return variableName;
-        }
-
-        public SimpleStringProperty variableValueProperty() {
-            return variableValue;
-        }
-
-        public SimpleStringProperty actionProperty() {
-            return action;
-        }
-    }
 }

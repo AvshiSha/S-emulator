@@ -5,7 +5,6 @@
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
@@ -71,20 +70,19 @@
             <VBox minWidth="300.0" prefWidth="400.0" spacing="10.0">
                <children>
                   <!-- Variables Panel (Pink Section) -->
-                  <VBox maxWidth="Infinity" prefHeight="300.0" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-padding: 10px;">
+                  <VBox maxWidth="Infinity" prefHeight="400.0" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-padding: 10px;">
                      <children>
                         <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Variables">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="250.0" vbarPolicy="AS_NEEDED">
+                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="350.0" prefWidth="380.0" vbarPolicy="AS_NEEDED">
                            <content>
-                              <TableView fx:id="variablesTableView" maxWidth="Infinity" prefHeight="250.0">
+                              <TableView fx:id="variablesTableView" maxWidth="Infinity" prefHeight="350.0">
                                  <columns>
                                     <TableColumn fx:id="variableNameColumn" minWidth="100.0" prefWidth="150.0" text="Variable Name" />
                                     <TableColumn fx:id="variableValueColumn" minWidth="80.0" prefWidth="100.0" text="Value" />
-                                    <TableColumn fx:id="variableTypeColumn" minWidth="80.0" prefWidth="100.0" text="Type" />
                                  </columns>
                               </TableView>
                            </content>
@@ -93,7 +91,7 @@
                   </VBox>
                   
                   <!-- Cycles Panel (Small Pink Section) -->
-                  <VBox maxWidth="Infinity" prefHeight="100.0" style="-fx-background-color: #E91E63; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+                  <VBox maxWidth="Infinity" prefHeight="60.0" style="-fx-background-color: #E91E63; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
                      <children>
                         <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Cycles">
                            <font>
@@ -114,20 +112,6 @@
                               </Label>
                            </children>
                         </HBox>
-                        <HBox alignment="CENTER" spacing="10.0">
-                           <children>
-                              <Label style="-fx-font-size: 12px; -fx-text-fill: white;" text="Max Cycles:">
-                                 <font>
-                                    <Font name="System Bold" size="11.0" />
-                                 </font>
-                              </Label>
-                              <Label fx:id="maxCyclesLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #FFFFF; -fx-padding: 5px; -fx-border-radius: 3; -fx-background-radius: 3;" text="∞">
-                                 <font>
-                                    <Font name="System Bold" size="14.0" />
-                                 </font>
-                              </Label>
-                           </children>
-                        </HBox>
                      </children>
                   </VBox>
                </children>
@@ -142,43 +126,34 @@
                      </font>
                   </Label>
                   
-                  <!-- Input Management Section -->
+                  <!-- Input Variables Section -->
                   <VBox spacing="5.0">
                      <children>
-                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="Input Variables:">
+                           <font>
+                              <Font name="System Bold" size="11.0" />
+                           </font>
+                        </Label>
+                        
+                        <!-- Dynamic Input Fields Container -->
+                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="200.0" vbarPolicy="AS_NEEDED">
+                           <content>
+                              <VBox fx:id="inputFieldsContainer" spacing="5.0" style="-fx-padding: 5;">
+                                 <!-- Dynamic input fields will be added here -->
+                              </VBox>
+                           </content>
+                        </ScrollPane>
+                        
+                        <!-- Add Input Button -->
+                        <HBox alignment="CENTER" spacing="10.0">
                            <children>
-                              <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="Variable:">
-                                 <font>
-                                    <Font name="System Bold" size="11.0" />
-                                 </font>
-                              </Label>
-                              <TextField fx:id="inputVariableField" prefWidth="100.0" promptText="Variable name" />
-                              <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="Value:">
-                                 <font>
-                                    <Font name="System Bold" size="11.0" />
-                                 </font>
-                              </Label>
-                              <TextField fx:id="inputValueField" prefWidth="100.0" promptText="Initial value" />
-                              <Button fx:id="addInputButton" mnemonicParsing="false" onAction="#addInput" prefHeight="30.0" prefWidth="60.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 3;" text="Add">
+                              <Button fx:id="addInputButton" mnemonicParsing="false" onAction="#addInputVariable" prefHeight="30.0" prefWidth="120.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 3;" text="Add Input">
                                  <font>
                                     <Font name="System Bold" size="10.0" />
                                  </font>
                               </Button>
                            </children>
                         </HBox>
-                        
-                        <!-- Current Inputs Display -->
-                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="200.0" vbarPolicy="AS_NEEDED">
-                           <content>
-                              <TableView fx:id="inputsTableView" maxWidth="Infinity" prefHeight="200.0">
-                                 <columns>
-                                    <TableColumn fx:id="inputVariableNameColumn" minWidth="100.0" prefWidth="120.0" text="Variable" />
-                                    <TableColumn fx:id="inputValueColumn" minWidth="80.0" prefWidth="100.0" text="Value" />
-                                    <TableColumn fx:id="inputActionColumn" minWidth="60.0" prefWidth="80.0" text="Action" />
-                                 </columns>
-                              </TableView>
-                           </content>
-                        </ScrollPane>
                         
                         <!-- Execution Status -->
                         <HBox alignment="CENTER" spacing="10.0">
