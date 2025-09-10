@@ -44,6 +44,22 @@ public class HistoryChain {
 
         // Set the data source for the table
         historyTableView.setItems(historyData);
+
+        // Make the instruction type column resizable to handle different screen sizes
+        historyInstructionTypeColumn.setResizable(true);
+        historyInstructionTypeColumn.setSortable(false);
+
+        // Make other columns resizable but with constraints
+        historyRowNumberColumn.setResizable(true);
+        historyCommandTypeColumn.setResizable(true);
+        historyLabelColumn.setResizable(true);
+        historyCyclesColumn.setResizable(true);
+
+        // Set sortable to false for all columns to maintain order
+        historyRowNumberColumn.setSortable(false);
+        historyCommandTypeColumn.setSortable(false);
+        historyLabelColumn.setSortable(false);
+        historyCyclesColumn.setSortable(false);
     }
 
     public void displayHistoryChain(List<SInstruction> chain) {

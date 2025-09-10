@@ -6,6 +6,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Label;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.event.ActionEvent;
@@ -29,12 +30,37 @@ public class Header {
   @FXML
   private ProgressBar progressBar;
 
+  @FXML
+  private Label progressLabel;
+
+  @FXML
+  private Button btnDecreaseDegree;
+
+  @FXML
+  private Label lblDegreeStatus;
+
+  @FXML
+  private Button btnIncreaseDegree;
+
   private SProgram sProgram;
   private Path loadedXmlPath;
   private InstructionTable instructionTable;
+  private int currentDegree = 0;
+  private int maxDegree = 0;
+
+  // Store expansion results for history chain tracking
+  private semulator.program.ExpansionResult currentExpansionResult;
+  private java.util.Map<Integer, semulator.program.ExpansionResult> expansionResultsByDegree = new java.util.HashMap<>();
 
   public Header() {
     this.sProgram = new SProgramImpl("S");
+  }
+
+  @FXML
+  private void initialize() {
+    // Initialize degree controls to disabled state
+    updateDegreeDisplay();
+    updateButtonStates();
   }
 
   @FXML
@@ -52,6 +78,7 @@ public class Header {
       // Disable button and show progress bar
       loadFileButton.setDisable(true);
       progressBar.setVisible(true);
+      progressLabel.setVisible(true);
       progressBar.setProgress(0.0);
 
       // Create and start the file loading task
@@ -69,6 +96,9 @@ public class Header {
             loadedXmlPath = result.getLoadedPath();
             filePathField.setText(loadedXmlPath.toString());
 
+            // Initialize degree controls
+            initializeDegreeControls();
+
             // Display the loaded program in the instruction table
             if (instructionTable != null) {
               instructionTable.displayProgram(sProgram);
@@ -84,6 +114,7 @@ public class Header {
           // Re-enable button and hide progress bar
           loadFileButton.setDisable(false);
           progressBar.setVisible(false);
+          progressLabel.setVisible(false);
           progressBar.progressProperty().unbind();
         }
       });
@@ -93,6 +124,7 @@ public class Header {
         showErrorAlert("Error", "Failed to load file: " + loadingTask.getException().getMessage());
         loadFileButton.setDisable(false);
         progressBar.setVisible(false);
+        progressLabel.setVisible(false);
         progressBar.progressProperty().unbind();
       });
 
@@ -268,5 +300,200 @@ public class Header {
     public String getErrorMessage() {
       return errorMessage;
     }
+  }
+
+  // Degree control methods
+  private void initializeDegreeControls() {
+    try {
+      currentDegree = 0;
+      maxDegree = sProgram.calculateMaxDegree();
+
+      // Store the base program (degree 0) expansion result
+      currentExpansionResult = sProgram.expandToDegree(0);
+      expansionResultsByDegree.put(0, currentExpansionResult);
+
+      updateDegreeDisplay();
+      updateButtonStates();
+    } catch (Exception e) {
+      showErrorAlert("Degree Calculation Error", "Failed to calculate maximum degree: " + e.getMessage());
+      currentDegree = 0;
+      maxDegree = 0;
+      updateDegreeDisplay();
+      updateButtonStates();
+    }
+  }
+
+  @FXML
+  public void decreaseDegreePressed(ActionEvent event) {
+    if (currentDegree > 0) {
+      currentDegree--;
+      expandToDegree(currentDegree);
+    }
+  }
+
+  @FXML
+  public void increaseDegreePressed(ActionEvent event) {
+    if (currentDegree < maxDegree) {
+      currentDegree++;
+      expandToDegree(currentDegree);
+    }
+  }
+
+  private void expandToDegree(int degree) {
+    try {
+      // Create a task for expansion to avoid blocking the UI
+      Task<Void> expansionTask = new Task<Void>() {
+        @Override
+        protected Void call() throws Exception {
+          // Perform expansion in background
+          semulator.program.ExpansionResult result = sProgram.expandToDegree(degree);
+
+          // Update UI on JavaFX thread
+          Platform.runLater(() -> {
+            try {
+              // Store the expansion result for history chain tracking
+              currentExpansionResult = result;
+              expansionResultsByDegree.put(degree, result);
+
+              // Create a temporary SProgram to hold the expanded instructions
+              SProgramImpl expandedProgram = new SProgramImpl("Expanded");
+              for (semulator.instructions.SInstruction instruction : result.instructions()) {
+                expandedProgram.addInstruction(instruction);
+              }
+
+              // Display the expanded program
+              if (instructionTable != null) {
+                instructionTable.displayProgram(expandedProgram);
+              }
+
+              // Update degree display and button states
+              updateDegreeDisplay();
+              updateButtonStates();
+
+            } catch (Exception e) {
+              showErrorAlert("Expansion Error", "Failed to display expanded program: " + e.getMessage());
+              // Revert to previous degree
+              if (degree > currentDegree) {
+                currentDegree--;
+              } else if (degree < currentDegree) {
+                currentDegree++;
+              }
+              updateDegreeDisplay();
+              updateButtonStates();
+            }
+          });
+
+          return null;
+        }
+      };
+
+      // Start the expansion task
+      Thread expansionThread = new Thread(expansionTask);
+      expansionThread.setDaemon(true);
+      expansionThread.start();
+
+    } catch (Exception e) {
+      showErrorAlert("Expansion Error", "Failed to expand to degree " + degree + ": " + e.getMessage());
+      // Revert to previous degree
+      if (degree > currentDegree) {
+        currentDegree--;
+      } else if (degree < currentDegree) {
+        currentDegree++;
+      }
+      updateDegreeDisplay();
+      updateButtonStates();
+    }
+  }
+
+  private void updateDegreeDisplay() {
+    if (sProgram == null || maxDegree == 0) {
+      lblDegreeStatus.setText("— / —");
+    } else {
+      lblDegreeStatus.setText(currentDegree + " / " + maxDegree);
+    }
+  }
+
+  private void updateButtonStates() {
+    if (sProgram == null) {
+      btnDecreaseDegree.setDisable(true);
+      btnIncreaseDegree.setDisable(true);
+    } else {
+      btnDecreaseDegree.setDisable(currentDegree == 0);
+      btnIncreaseDegree.setDisable(currentDegree == maxDegree);
+    }
+  }
+
+  // Method to get the history chain for a selected instruction
+  public java.util.List<semulator.instructions.SInstruction> getHistoryChain(
+      semulator.instructions.SInstruction selectedInstruction) {
+    java.util.List<semulator.instructions.SInstruction> chain = new java.util.ArrayList<>();
+
+    if (selectedInstruction == null || currentExpansionResult == null) {
+      return chain;
+    }
+
+    // Start with the selected instruction
+    chain.add(selectedInstruction);
+
+    // Trace back through the parent chain
+    semulator.instructions.SInstruction current = selectedInstruction;
+    int currentDegreeForTracing = currentDegree;
+
+    // Use a local variable for the expansion result to avoid modifying class state
+    semulator.program.ExpansionResult tracingExpansionResult = currentExpansionResult;
+
+    while (currentDegreeForTracing > 0) {
+
+      // Get the parent of the current instruction from the current expansion result
+      // First try exact object identity match
+      semulator.instructions.SInstruction parent = tracingExpansionResult.parent().get(current);
+
+      // If no exact match, try matching by name and variable
+      if (parent == null) {
+
+        // Look for a parent that has the same name and variable but different object
+        // identity
+        // The parent map structure is: child -> parent, so we need to look for the
+        // current instruction as a KEY
+        for (java.util.Map.Entry<semulator.instructions.SInstruction, semulator.instructions.SInstruction> entry : tracingExpansionResult
+            .parent().entrySet()) {
+          if (entry.getKey().getName().equals(current.getName()) &&
+              entry.getKey().getVariable().equals(current.getVariable())) {
+            parent = entry.getValue();
+            break;
+          }
+        }
+      }
+
+      if (parent == null) {
+        // No parent found, we've reached the end of the chain
+        break;
+      }
+
+      // Add parent to chain
+      chain.add(parent);
+
+      // Move to the previous degree
+      currentDegreeForTracing--;
+
+      // Get the expansion result for the previous degree
+      semulator.program.ExpansionResult prevDegreeResult = expansionResultsByDegree.get(currentDegreeForTracing);
+      if (prevDegreeResult == null) {
+        // If we don't have the previous degree result, we need to get it
+        try {
+          prevDegreeResult = sProgram.expandToDegree(currentDegreeForTracing);
+          expansionResultsByDegree.put(currentDegreeForTracing, prevDegreeResult);
+        } catch (Exception e) {
+          // If we can't get the previous degree, stop tracing
+          break;
+        }
+      }
+
+      // Update local expansion result for next iteration (don't modify class field)
+      tracingExpansionResult = prevDegreeResult;
+      current = parent;
+    }
+
+    return chain;
   }
 }

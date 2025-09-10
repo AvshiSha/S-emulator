@@ -190,8 +190,12 @@ public class SProgramImpl implements SProgram {
             for (InstrNode node : cur) {
                 SInstruction in = node.ins;
                 if (isBasic(in)) {
-                    // Basic instructions stay as-is
+                    // Basic instructions stay as-is, but we need to track them in parent map
+                    // for history chain tracing - they "come from" themselves in the previous
+                    // degree
                     next.add(new InstrNode(in, rowCounter++));
+                    // For history chain purposes, basic instructions are their own parent
+                    // when copied across degrees
                 } else {
                     // Expand synthetic instructions
                     List<SInstruction> children = expandOne(in, names);

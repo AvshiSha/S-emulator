@@ -11,6 +11,7 @@ import semulator.label.FixedLabel;
 import semulator.program.SProgram;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public class InstructionTable {
     @FXML
@@ -44,6 +45,22 @@ public class InstructionTable {
 
         // Set the data source for the table
         instructionTableView.setItems(instructionData);
+
+        // Make the instruction type column resizable to handle different screen sizes
+        instructionTypeColumn.setResizable(true);
+        instructionTypeColumn.setSortable(false);
+
+        // Make other columns resizable but with constraints
+        rowNumberColumn.setResizable(true);
+        commandTypeColumn.setResizable(true);
+        labelColumn.setResizable(true);
+        cyclesColumn.setResizable(true);
+
+        // Set sortable to false for all columns to maintain order
+        rowNumberColumn.setSortable(false);
+        commandTypeColumn.setSortable(false);
+        labelColumn.setSortable(false);
+        cyclesColumn.setSortable(false);
     }
 
     public void displayProgram(SProgram program) {
@@ -74,7 +91,7 @@ public class InstructionTable {
         instructionData.clear();
     }
 
-    public void setHistoryChainCallback(java.util.function.Consumer<List<SInstruction>> callback) {
+    public void setHistoryChainCallback(Consumer<SInstruction> callback) {
         // Add selection listener to the table
         instructionTableView.getSelectionModel().selectedItemProperty()
                 .addListener((obs, oldSelection, newSelection) -> {
@@ -83,11 +100,12 @@ public class InstructionTable {
                         int selectedIndex = instructionTableView.getSelectionModel().getSelectedIndex();
                         if (selectedIndex >= 0 && selectedIndex < currentInstructions.size()) {
                             SInstruction selectedInstruction = currentInstructions.get(selectedIndex);
-                            // Get the creation chain for this instruction
-                            List<SInstruction> chain = getCreationChain(selectedInstruction);
-                            // Call the callback with the chain
-                            callback.accept(chain);
+                            // Call the callback with the selected instruction
+                            callback.accept(selectedInstruction);
                         }
+                    } else {
+                        // No selection - clear the history chain
+                        callback.accept(null);
                     }
                 });
     }
@@ -95,41 +113,11 @@ public class InstructionTable {
     private List<SInstruction> currentInstructions = new java.util.ArrayList<>();
 
     private List<SInstruction> getCreationChain(SInstruction instruction) {
-        // For demonstration purposes, create a mock creation chain
-        // In a real implementation, this would use the ExpansionResult parent map
-        // to trace back through the creation chain from the engine
-
+        // This method will be called by the callback, but the actual chain
+        // will be provided by the Header controller which has access to expansion
+        // results
         List<SInstruction> chain = new java.util.ArrayList<>();
-
-        // Add the selected instruction (most recent)
         chain.add(instruction);
-
-        // For synthetic instructions, add a mock parent instruction
-        if (getCommandType(instruction).equals("S")) {
-            // Create a mock parent instruction (this would come from the ExpansionResult
-            // parent map)
-            // For demonstration, we'll create a simple parent instruction
-            try {
-                // This is just for demonstration - in reality, the parent would come from the
-                // expansion result
-                if (instruction instanceof ZeroVariableInstruction) {
-                    // Mock parent: a synthetic instruction that created this zero instruction
-                    chain.add(new semulator.instructions.AssignConstantInstruction(
-                            instruction.getVariable(), 0L, instruction.getLabel()));
-                } else if (instruction instanceof AssignVariableInstruction) {
-                    // Mock parent: a basic instruction that created this assignment
-                    chain.add(new semulator.instructions.IncreaseInstruction(
-                            instruction.getVariable(), instruction.getLabel()));
-                } else {
-                    // For other synthetic instructions, add a mock basic instruction
-                    chain.add(new semulator.instructions.DecreaseInstruction(
-                            instruction.getVariable(), instruction.getLabel()));
-                }
-            } catch (Exception e) {
-                // If we can't create mock instructions, just return the original
-            }
-        }
-
         return chain;
     }
 

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.layout.VBox?>
@@ -8,14 +9,18 @@
 <VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.InstructionTable.InstructionTable">
    <children>
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Instruction Table" />
-      <TableView fx:id="instructionTableView" prefHeight="400.0" prefWidth="800.0">
-         <columns>
-            <TableColumn fx:id="rowNumberColumn" prefWidth="80.0" text="Row Number" />
-            <TableColumn fx:id="commandTypeColumn" prefWidth="45.5" text="B/S" />
-            <TableColumn fx:id="labelColumn" prefWidth="95.0" text="Label" />
-            <TableColumn fx:id="instructionTypeColumn" maxWidth="1.7976931348623157E308" prefWidth="207.0" text="Command" />
-            <TableColumn fx:id="cyclesColumn" prefWidth="79.5" text="Cycles" />
-         </columns>
-      </TableView>
+      <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" prefHeight="400.0" prefWidth="800.0" minWidth="600.0" maxWidth="Infinity">
+         <content>
+            <TableView fx:id="instructionTableView" prefHeight="400.0" prefWidth="800.0" minWidth="600.0" maxWidth="Infinity">
+               <columns>
+                  <TableColumn fx:id="rowNumberColumn" prefWidth="80.0" minWidth="60.0" text="Row" />
+                  <TableColumn fx:id="commandTypeColumn" prefWidth="60.0" minWidth="40.0" text="B/S" />
+                  <TableColumn fx:id="labelColumn" prefWidth="100.0" minWidth="80.0" text="Label" />
+                  <TableColumn fx:id="instructionTypeColumn" prefWidth="300.0" minWidth="200.0" text="Command" />
+                  <TableColumn fx:id="cyclesColumn" prefWidth="80.0" minWidth="60.0" text="Cycles" />
+               </columns>
+            </TableView>
+         </content>
+      </ScrollPane>
    </children>
 </VBox>

@@ -4,6 +4,7 @@ import javafx.application.*;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.FXML;
 import javafx.scene.*;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import ui.components.Header.Header;
@@ -31,7 +32,7 @@ public class mainView extends Application {
         // Load the main FXML
         FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/ui/components/main/mainView.fxml"));
         mainLoader.setController(this);
-        Pane root = mainLoader.load();
+        ScrollPane root = mainLoader.load();
 
         // Load the Header component and get its controller
         FXMLLoader headerLoader = new FXMLLoader(getClass().getResource("/ui/components/Header/Header.fxml"));
@@ -64,12 +65,23 @@ public class mainView extends Application {
         headerController.setInstructionTable(instructionTableController);
 
         // Set up the history chain callback
-        instructionTableController.setHistoryChainCallback(chain -> {
+        instructionTableController.setHistoryChainCallback(selectedInstruction -> {
+            // Get the real history chain from the Header controller
+            java.util.List<semulator.instructions.SInstruction> chain = headerController
+                    .getHistoryChain(selectedInstruction);
             historyChainController.displayHistoryChain(chain);
         });
 
-        Scene scene = new Scene(root, 1000, 1000);
+        Scene scene = new Scene(root, 800, 600);
         primaryStage.setScene(scene);
+
+        // Set minimum window size to ensure usability on small screens
+        primaryStage.setMinWidth(600);
+        primaryStage.setMinHeight(400);
+
+        // Ensure window is resizable
+        primaryStage.setResizable(true);
+
         primaryStage.show();
     }
 
