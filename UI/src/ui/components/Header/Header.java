@@ -84,6 +84,10 @@ public class Header {
       progressLabel.setVisible(true);
       progressBar.setProgress(0.0);
 
+      // Debug output
+      System.out.println("Progress bar visible: " + progressBar.isVisible());
+      System.out.println("Progress label visible: " + progressLabel.isVisible());
+
       // Create and start the file loading task
       FileLoadingTask loadingTask = new FileLoadingTask(selectedFile);
 
