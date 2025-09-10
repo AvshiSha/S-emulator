@@ -12,9 +12,12 @@ import javafx.event.ActionEvent;
 import javafx.application.Platform;
 import semulator.program.SProgram;
 import semulator.program.SProgramImpl;
+import ui.components.InstructionTable.InstructionTable;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 
 public class Header {
   @FXML
@@ -28,6 +31,7 @@ public class Header {
 
   private SProgram sProgram;
   private Path loadedXmlPath;
+  private InstructionTable instructionTable;
 
   public Header() {
     this.sProgram = new SProgramImpl("S");
@@ -64,6 +68,12 @@ public class Header {
             // Replace the current file (only one active at a time)
             loadedXmlPath = result.getLoadedPath();
             filePathField.setText(loadedXmlPath.toString());
+
+            // Display the loaded program in the instruction table
+            if (instructionTable != null) {
+              instructionTable.displayProgram(sProgram);
+            }
+
             showSuccessAlert("File Loaded", "XML file loaded successfully!");
           } else {
             showErrorAlert("Load Failed", result.getErrorMessage());
@@ -122,6 +132,57 @@ public class Header {
     return loadedXmlPath != null && sProgram.getInstructions() != null && !sProgram.getInstructions().isEmpty();
   }
 
+  // Method to set the instruction table reference
+  public void setInstructionTable(InstructionTable instructionTable) {
+    this.instructionTable = instructionTable;
+  }
+
+  // Method to capture detailed XML validation errors
+  private String captureDetailedValidationErrors(Path xmlPath) {
+    try {
+      // Create a custom SProgram instance for validation
+      SProgramImpl validationProgram = new SProgramImpl("Validation");
+
+      // First validate the path (this sets the xmlPath internally)
+      String basicValidation = validationProgram.validate(xmlPath);
+      if (!basicValidation.equals("Valid")) {
+        return basicValidation; // Return basic validation error
+      }
+
+      // Capture System.out.println output
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      PrintStream originalOut = System.out;
+      PrintStream capturedOut = new PrintStream(baos);
+
+      try {
+        // Redirect System.out to capture validation messages
+        System.setOut(capturedOut);
+
+        // Perform the detailed validation by calling load() which internally calls
+        // validateXmlFile
+        Object result = validationProgram.load();
+
+        // Get the captured output
+        String capturedMessages = baos.toString();
+
+        // If load failed (returned null), return the captured error messages
+        if (result == null && !capturedMessages.trim().isEmpty()) {
+          return capturedMessages.trim();
+        }
+
+        return null; // No errors captured
+
+      } finally {
+        // Restore original System.out
+        System.setOut(originalOut);
+        capturedOut.close();
+      }
+
+    } catch (Exception e) {
+      return "Error during validation: " + e.getMessage();
+    }
+  }
+
   // Inner class for file loading task
   private class FileLoadingTask extends Task<FileLoadResult> {
     private final File selectedFile;
@@ -169,7 +230,13 @@ public class Header {
         } else if (loadResult != null) {
           return new FileLoadResult(true, Path.of(loadResult.toString()), null);
         } else {
-          return new FileLoadResult(false, null, "Failed to load the XML file.");
+          // Capture detailed validation errors for display in GUI
+          String detailedErrors = captureDetailedValidationErrors(xmlPath);
+          if (detailedErrors != null && !detailedErrors.trim().isEmpty()) {
+            return new FileLoadResult(false, null, detailedErrors);
+          } else {
+            return new FileLoadResult(false, null, "Failed to load the XML file. The XML structure may be invalid.");
+          }
         }
 
       } catch (Exception e) {

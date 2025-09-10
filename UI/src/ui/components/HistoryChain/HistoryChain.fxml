@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Label?>
+
+<VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.HistoryChain.HistoryChain">
+   <children>
+      <Label text="History Chain" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" />
+      <TableView fx:id="historyTableView" prefHeight="300.0" prefWidth="800.0">
+         <columns>
+            <TableColumn fx:id="historyRowNumberColumn" prefWidth="80.0" text="Row" />
+            <TableColumn fx:id="historyCommandTypeColumn" prefWidth="80.0" text="Command" />
+            <TableColumn fx:id="historyLabelColumn" prefWidth="120.0" text="Label" />
+            <TableColumn fx:id="historyInstructionTypeColumn" prefWidth="300.0" text="Type of Command" />
+            <TableColumn fx:id="historyCyclesColumn" prefWidth="80.0" text="Cycles" />
+         </columns>
+      </TableView>
+   </children>
+</VBox>
