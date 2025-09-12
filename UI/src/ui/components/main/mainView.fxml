@@ -11,7 +11,7 @@
    <content>
       <VBox alignment="CENTER" spacing="15.0" minWidth="600.0" prefWidth="1000.0">
          <children>
-            <Label alignment="CENTER" style="-fx-border-width: BOLD;" text="S-Emulator" textAlignment="CENTER" textFill="#0a03d3">
+            <Label alignment="CENTER" style="-fx-border-width: 2px;" text="S-Emulator" textAlignment="CENTER" textFill="#0a03d3">
                <font>
                   <Font name="System Bold" size="24.0" />
                </font>

@@ -105,7 +105,7 @@
                                     <Font name="System Bold" size="11.0" />
                                  </font>
                               </Label>
-                              <Label fx:id="currentCyclesLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #FFFFF; -fx-padding: 5px; -fx-border-radius: 3; -fx-background-radius: 3;" text="0" textFill="#fffefe">
+                              <Label fx:id="currentCyclesLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #E91E63; -fx-padding: 5px; -fx-border-radius: 3; -fx-background-radius: 3;" text="0" textFill="WHITE">
                                  <font>
                                     <Font name="System Bold" size="14.0" />
                                  </font>
