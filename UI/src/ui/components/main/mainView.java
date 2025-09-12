@@ -124,6 +124,12 @@ public class mainView extends Application {
                     runResult.cycles());
         });
 
+        // Wire up debugger execution with instruction table for highlighting
+        debuggerExecutionController.setInstructionTableCallback(instructionIndex -> {
+            // Highlight the current executing instruction in the instruction table
+            instructionTableController.highlightCurrentInstruction(instructionIndex);
+        });
+
         Scene scene = new Scene(root, 800, 800);
         primaryStage.setScene(scene);
 

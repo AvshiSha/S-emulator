@@ -38,6 +38,7 @@ public class InstructionTable {
 
     // For highlighting functionality
     private String currentHighlightTerm = null;
+    private int currentExecutingInstructionIndex = -1; // -1 means no instruction is executing
 
     @FXML
     private void initialize() {
@@ -75,6 +76,7 @@ public class InstructionTable {
         instructionData.clear();
         currentInstructions.clear();
         currentHighlightTerm = null; // Clear any existing highlighting
+        currentExecutingInstructionIndex = -1; // Clear current instruction highlighting
 
         if (program == null || program.getInstructions() == null) {
             return;
@@ -249,6 +251,18 @@ public class InstructionTable {
         instructionTableView.refresh();
     }
 
+    // Method to highlight the currently executing instruction
+    public void highlightCurrentInstruction(int instructionIndex) {
+        currentExecutingInstructionIndex = instructionIndex;
+        instructionTableView.refresh();
+    }
+
+    // Method to clear current instruction highlighting
+    public void clearCurrentInstructionHighlighting() {
+        currentExecutingInstructionIndex = -1;
+        instructionTableView.refresh();
+    }
+
     // Set up row highlighting using row factory
     private void setupRowHighlighting() {
         instructionTableView.setRowFactory(tv -> {
@@ -260,12 +274,24 @@ public class InstructionTable {
                     if (empty || item == null) {
                         setStyle("");
                     } else {
-                        // Check if this row should be highlighted
-                        if (currentHighlightTerm != null && rowContainsTerm(item, currentHighlightTerm)) {
-                            setStyle("-fx-background-color: #FFE135; -fx-font-weight: bold;"); // Yellow highlight
-                        } else {
-                            setStyle(""); // No highlighting
+                        int rowIndex = getIndex();
+                        String style = "";
+
+                        // Check if this is the currently executing instruction
+                        if (rowIndex == currentExecutingInstructionIndex) {
+                            style = "-fx-background-color: #4CAF50; -fx-font-weight: bold; -fx-text-fill: white;"; // Green
+                                                                                                                   // highlight
+                                                                                                                   // for
+                                                                                                                   // current
+                                                                                                                   // instruction
                         }
+                        // Check if this row should be highlighted for search
+                        else if (currentHighlightTerm != null && rowContainsTerm(item, currentHighlightTerm)) {
+                            style = "-fx-background-color: #FFE135; -fx-font-weight: bold;"; // Yellow highlight for
+                                                                                             // search
+                        }
+
+                        setStyle(style);
                     }
                 }
             };

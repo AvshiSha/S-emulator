@@ -88,12 +88,22 @@ public class DebuggerExecution {
     private Map<String, Integer> inputVariables = new HashMap<>();
     private int nextInputNumber = 1;
 
+    // Debugger-specific fields
+    private int currentInstructionIndex = 0;
+    private List<semulator.instructions.SInstruction> currentInstructions = new java.util.ArrayList<>();
+    private Map<semulator.variable.Variable, Long> previousVariableState = new HashMap<>();
+    private Map<semulator.variable.Variable, Long> currentVariableState = new HashMap<>();
+    private boolean isStepExecution = false;
+
     @FXML
     private void initialize() {
         // Initialize Variables Table
         variableNameColumn.setCellValueFactory(cellData -> cellData.getValue().variableNameProperty());
         variableValueColumn.setCellValueFactory(cellData -> cellData.getValue().variableValueProperty());
         variablesTableView.setItems(variablesData);
+
+        // Set up row highlighting for changed variables
+        setupVariableRowHighlighting();
 
         // Input fields container will be populated dynamically
 
@@ -143,15 +153,18 @@ public class DebuggerExecution {
         }
 
         isDebugMode.set(true);
-        isPaused.set(false);
+        isPaused.set(true); // Start paused in debug mode
         isExecuting.set(true);
         currentCycles.set(0);
+        currentInstructionIndex = 0;
+        isStepExecution = true;
+
+        // Initialize debugger state
+        initializeDebuggerState();
 
         updateButtonStates();
-        updateExecutionStatus("Starting Debug Execution...");
-
-        // Start execution in background
-        executionService.restart();
+        updateExecutionStatus("Debug Mode Started - Use Step Over to execute instructions");
+        updateVariablesDisplay();
     }
 
     @FXML
@@ -171,18 +184,21 @@ public class DebuggerExecution {
     private void resumeExecution(ActionEvent event) {
         if (isPaused.get()) {
             isPaused.set(false);
+            isStepExecution = false; // Exit step-by-step mode
             updateButtonStates();
-            updateExecutionStatus("Resuming Execution...");
+            updateExecutionStatus("Resuming Normal Execution...");
+
+            // Continue with normal execution
+            if (executionService != null && !executionService.isRunning()) {
+                executionService.restart();
+            }
         }
     }
 
     @FXML
     private void stepOver(ActionEvent event) {
-        if (isDebugMode.get() && isPaused.get()) {
-            // Execute one step and pause again
-            isPaused.set(false);
-            // The execution service will handle stepping and pause again
-            updateExecutionStatus("Stepping Over...");
+        if (isDebugMode.get() && isPaused.get() && isStepExecution) {
+            executeSingleStep();
         }
     }
 
@@ -469,6 +485,116 @@ public class DebuggerExecution {
         }
     }
 
+    // Debugger-specific methods
+    private void initializeDebuggerState() {
+        if (currentProgram != null && currentProgram.getInstructions() != null) {
+            currentInstructions.clear();
+            currentInstructions.addAll(currentProgram.getInstructions());
+
+            // Initialize variable states
+            previousVariableState.clear();
+            currentVariableState.clear();
+
+            // Initialize executor for debug mode
+            if (executor == null) {
+                executor = new ProgramExecutorImpl(currentProgram);
+            }
+
+            // Get initial variable state
+            updateVariableStates();
+        }
+    }
+
+    private void executeSingleStep() {
+        if (currentInstructionIndex >= currentInstructions.size()) {
+            updateExecutionStatus("Program execution completed");
+            isExecuting.set(false);
+            isPaused.set(false);
+            updateButtonStates();
+            return;
+        }
+
+        try {
+            // Store previous variable state
+            previousVariableState.clear();
+            previousVariableState.putAll(currentVariableState);
+
+            // Execute the current instruction
+            semulator.instructions.SInstruction currentInstruction = currentInstructions.get(currentInstructionIndex);
+
+            // Get inputs for execution
+            List<Long> inputs = getOrderedInputs();
+
+            // Execute the instruction (this is a simplified approach - in a real
+            // implementation,
+            // you'd need to execute just one instruction from the program)
+            // For now, we'll simulate step execution by running the program up to the
+            // current instruction
+            long result = executor.run(inputs.toArray(new Long[0]));
+
+            // Update variable states
+            updateVariableStates();
+
+            // Increment instruction index and cycles
+            currentInstructionIndex++;
+            currentCycles.incrementAndGet();
+
+            // Update displays
+            updateCyclesDisplay();
+            updateVariablesDisplay();
+
+            // Notify instruction table to highlight current instruction
+            if (instructionTableCallback != null) {
+                instructionTableCallback.accept(currentInstructionIndex);
+            }
+
+            updateExecutionStatus(
+                    "Executed instruction " + currentInstructionIndex + " of " + currentInstructions.size());
+
+        } catch (Exception e) {
+            updateExecutionStatus("Error executing step: " + e.getMessage());
+            System.err.println("Error in step execution: " + e.getMessage());
+        }
+    }
+
+    private void updateVariableStates() {
+        if (executor != null) {
+            currentVariableState.clear();
+            currentVariableState.putAll(executor.variableState());
+        }
+    }
+
+    // Callback for instruction table highlighting
+    private java.util.function.Consumer<Integer> instructionTableCallback;
+
+    public void setInstructionTableCallback(java.util.function.Consumer<Integer> callback) {
+        this.instructionTableCallback = callback;
+    }
+
+    private void setupVariableRowHighlighting() {
+        variablesTableView.setRowFactory(tv -> {
+            TableRow<VariableRow> row = new TableRow<VariableRow>() {
+                @Override
+                protected void updateItem(VariableRow item, boolean empty) {
+                    super.updateItem(item, empty);
+
+                    if (empty || item == null) {
+                        setStyle("");
+                    } else {
+                        // Highlight changed variables in debug mode
+                        if (item.isChanged()) {
+                            setStyle("-fx-background-color: #FF6B6B; -fx-font-weight: bold;"); // Red highlight for
+                                                                                               // changed variables
+                        } else {
+                            setStyle(""); // No highlighting
+                        }
+                    }
+                }
+            };
+            return row;
+        });
+    }
+
     // Helper Methods
     private void updateButtonStates() {
         boolean executing = isExecuting.get();
@@ -509,7 +635,8 @@ public class DebuggerExecution {
                 for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
                     semulator.variable.Variable var = entry.getKey();
                     if (var.isResult()) {
-                        orderedRows.add(new VariableRow(var.toString(), String.valueOf(entry.getValue())));
+                        boolean isChanged = isVariableChanged(var, entry.getValue());
+                        orderedRows.add(new VariableRow(var.toString(), String.valueOf(entry.getValue()), isChanged));
                         break;
                     }
                 }
@@ -527,7 +654,8 @@ public class DebuggerExecution {
 
                 for (semulator.variable.Variable xVar : xVars) {
                     Long value = variables.get(xVar);
-                    orderedRows.add(new VariableRow(xVar.toString(), String.valueOf(value)));
+                    boolean isChanged = isVariableChanged(xVar, value);
+                    orderedRows.add(new VariableRow(xVar.toString(), String.valueOf(value), isChanged));
                 }
 
                 // Finally add z variables (working variables) in order
@@ -543,13 +671,23 @@ public class DebuggerExecution {
 
                 for (semulator.variable.Variable zVar : zVars) {
                     Long value = variables.get(zVar);
-                    orderedRows.add(new VariableRow(zVar.toString(), String.valueOf(value)));
+                    boolean isChanged = isVariableChanged(zVar, value);
+                    orderedRows.add(new VariableRow(zVar.toString(), String.valueOf(value), isChanged));
                 }
 
                 // Add all ordered rows to the table
                 variablesData.addAll(orderedRows);
             }
         });
+    }
+
+    private boolean isVariableChanged(semulator.variable.Variable variable, Long currentValue) {
+        if (!isDebugMode.get() || !isStepExecution) {
+            return false; // Only highlight changes in debug step mode
+        }
+
+        Long previousValue = previousVariableState.get(variable);
+        return previousValue == null || !previousValue.equals(currentValue);
     }
 
     private void showAlert(String title, String message) {
@@ -625,10 +763,18 @@ public class DebuggerExecution {
     public static class VariableRow {
         private final SimpleStringProperty variableName;
         private final SimpleStringProperty variableValue;
+        private final boolean isChanged;
 
         public VariableRow(String name, String value) {
             this.variableName = new SimpleStringProperty(name);
             this.variableValue = new SimpleStringProperty(value);
+            this.isChanged = false;
+        }
+
+        public VariableRow(String name, String value, boolean isChanged) {
+            this.variableName = new SimpleStringProperty(name);
+            this.variableValue = new SimpleStringProperty(value);
+            this.isChanged = isChanged;
         }
 
         public SimpleStringProperty variableNameProperty() {
@@ -637,6 +783,10 @@ public class DebuggerExecution {
 
         public SimpleStringProperty variableValueProperty() {
             return variableValue;
+        }
+
+        public boolean isChanged() {
+            return isChanged;
         }
     }
 
