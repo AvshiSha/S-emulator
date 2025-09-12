@@ -475,6 +475,12 @@ public class Header {
     }
   }
 
+  // Method to disable/enable expansion controls during debug execution
+  public void setExpansionControlsEnabled(boolean enabled) {
+    btnDecreaseDegree.setDisable(!enabled || currentDegree == 0);
+    btnIncreaseDegree.setDisable(!enabled || currentDegree == maxDegree);
+  }
+
   // Method to get the history chain for a selected instruction
   public java.util.List<semulator.instructions.SInstruction> getHistoryChain(
       semulator.instructions.SInstruction selectedInstruction) {

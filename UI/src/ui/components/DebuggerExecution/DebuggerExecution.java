@@ -75,6 +75,9 @@ public class DebuggerExecution {
 
     // History callback
     private java.util.function.Consumer<RunResult> historyCallback;
+
+    // Reference to Header component for controlling expansion buttons
+    private ui.components.Header.Header headerController;
     private AtomicBoolean isExecuting = new AtomicBoolean(false);
     private AtomicBoolean isDebugMode = new AtomicBoolean(false);
     private AtomicBoolean isPaused = new AtomicBoolean(false);
@@ -94,6 +97,40 @@ public class DebuggerExecution {
     private Map<semulator.variable.Variable, Long> previousVariableState = new HashMap<>();
     private Map<semulator.variable.Variable, Long> currentVariableState = new HashMap<>();
     private boolean isStepExecution = false;
+
+    // Step-by-step execution context
+    private ExecutionContext stepExecutionContext = null;
+    private Map<String, Integer> labelToIndexMap = new HashMap<>();
+
+    // Simple execution context implementation for step-by-step execution
+    private static class StepExecutionContext implements ExecutionContext {
+        private final Map<semulator.variable.Variable, Long> variables = new HashMap<>();
+        private final Long[] inputs;
+
+        public StepExecutionContext(Long[] inputs) {
+            this.inputs = inputs;
+            // Initialize input variables
+            for (int i = 0; i < inputs.length; i++) {
+                semulator.variable.Variable inputVar = new semulator.variable.VariableImpl(
+                        semulator.variable.VariableType.INPUT, i + 1);
+                variables.put(inputVar, inputs[i]);
+            }
+        }
+
+        @Override
+        public long getVariableValue(semulator.variable.Variable v) {
+            return variables.getOrDefault(v, 0L);
+        }
+
+        @Override
+        public void updateVariable(semulator.variable.Variable v, long value) {
+            variables.put(v, value);
+        }
+
+        public Map<semulator.variable.Variable, Long> variableState() {
+            return new HashMap<>(variables);
+        }
+    }
 
     @FXML
     private void initialize() {
@@ -165,12 +202,24 @@ public class DebuggerExecution {
         updateButtonStates();
         updateExecutionStatus("Debug Mode Started - Use Step Over to execute instructions");
         updateVariablesDisplay();
+
+        // Highlight the first instruction immediately when debug mode starts
+        if (instructionTableCallback != null && !currentInstructions.isEmpty()) {
+            instructionTableCallback.accept(0); // Highlight instruction at index 0
+        }
+
+        // Disable expansion controls during debug execution
+        if (headerController != null) {
+            headerController.setExpansionControlsEnabled(false);
+        }
     }
 
     @FXML
     private void stopExecution(ActionEvent event) {
         isExecuting.set(false);
         isPaused.set(false);
+        isDebugMode.set(false);
+        isStepExecution = false;
 
         if (executionService != null && executionService.isRunning()) {
             executionService.cancel();
@@ -178,6 +227,11 @@ public class DebuggerExecution {
 
         updateButtonStates();
         updateExecutionStatus("Execution Stopped");
+
+        // Re-enable expansion controls when debug execution stops
+        if (headerController != null) {
+            headerController.setExpansionControlsEnabled(true);
+        }
     }
 
     @FXML
@@ -187,6 +241,11 @@ public class DebuggerExecution {
             isStepExecution = false; // Exit step-by-step mode
             updateButtonStates();
             updateExecutionStatus("Resuming Normal Execution...");
+
+            // Re-enable expansion controls when resuming normal execution
+            if (headerController != null) {
+                headerController.setExpansionControlsEnabled(true);
+            }
 
             // Continue with normal execution
             if (executionService != null && !executionService.isRunning()) {
@@ -495,13 +554,42 @@ public class DebuggerExecution {
             previousVariableState.clear();
             currentVariableState.clear();
 
-            // Initialize executor for debug mode
-            if (executor == null) {
-                executor = new ProgramExecutorImpl(currentProgram);
-            }
+            // Initialize step-by-step execution context
+            List<Long> inputs = getOrderedInputs();
+            stepExecutionContext = new StepExecutionContext(inputs.toArray(new Long[0]));
+
+            // Build label-to-index map for step-by-step execution
+            buildLabelMap();
 
             // Get initial variable state
             updateVariableStates();
+        }
+    }
+
+    private void buildLabelMap() {
+        labelToIndexMap.clear();
+        if (currentProgram != null && currentProgram.getInstructions() != null) {
+            List<semulator.instructions.SInstruction> instructions = currentProgram.getInstructions();
+
+            // First pass: find all label definitions (instructions that define labels)
+            for (int i = 0; i < instructions.size(); i++) {
+                semulator.instructions.SInstruction instruction = instructions.get(i);
+
+                // Check if this instruction defines a label
+                if (instruction instanceof semulator.instructions.SInstruction) {
+                    // For now, we'll use a simpler approach - just map common labels
+                    // This is a simplified implementation
+                    if (instruction.toString().contains("L1")) {
+                        labelToIndexMap.put("L1", i);
+                    } else if (instruction.toString().contains("L2")) {
+                        labelToIndexMap.put("L2", i);
+                    } else if (instruction.toString().contains("L3")) {
+                        labelToIndexMap.put("L3", i);
+                    } else if (instruction.toString().contains("EXIT")) {
+                        labelToIndexMap.put("EXIT", i);
+                    }
+                }
+            }
         }
     }
 
@@ -510,7 +598,14 @@ public class DebuggerExecution {
             updateExecutionStatus("Program execution completed");
             isExecuting.set(false);
             isPaused.set(false);
+            isDebugMode.set(false);
+            isStepExecution = false;
             updateButtonStates();
+
+            // Re-enable expansion controls when debug execution completes
+            if (headerController != null) {
+                headerController.setExpansionControlsEnabled(true);
+            }
             return;
         }
 
@@ -522,22 +617,18 @@ public class DebuggerExecution {
             // Execute the current instruction
             semulator.instructions.SInstruction currentInstruction = currentInstructions.get(currentInstructionIndex);
 
-            // Get inputs for execution
-            List<Long> inputs = getOrderedInputs();
+            // Execute just this one instruction using the step execution context
+            semulator.label.Label nextLabel = currentInstruction.execute(stepExecutionContext);
 
-            // Execute the instruction (this is a simplified approach - in a real
-            // implementation,
-            // you'd need to execute just one instruction from the program)
-            // For now, we'll simulate step execution by running the program up to the
-            // current instruction
-            long result = executor.run(inputs.toArray(new Long[0]));
+            // Add cycles for this instruction
+            currentCycles.set(currentCycles.get() + currentInstruction.cycles());
 
-            // Update variable states
-            updateVariableStates();
+            // Update variable states from the execution context
+            updateVariableStatesFromContext();
 
-            // Increment instruction index and cycles
+            // For now, just move to the next instruction
+            // TODO: Implement proper label jumping based on the returned label
             currentInstructionIndex++;
-            currentCycles.incrementAndGet();
 
             // Update displays
             updateCyclesDisplay();
@@ -549,7 +640,14 @@ public class DebuggerExecution {
             }
 
             updateExecutionStatus(
-                    "Executed instruction " + currentInstructionIndex + " of " + currentInstructions.size());
+                    "Executed instruction " + (currentInstructionIndex - 1) + " of " + currentInstructions.size());
+
+            // Add a small delay to ensure UI updates are visible
+            try {
+                Thread.sleep(100); // 100ms delay to make step execution visible
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
 
         } catch (Exception e) {
             updateExecutionStatus("Error executing step: " + e.getMessage());
@@ -564,11 +662,22 @@ public class DebuggerExecution {
         }
     }
 
+    private void updateVariableStatesFromContext() {
+        if (stepExecutionContext != null && stepExecutionContext instanceof StepExecutionContext) {
+            currentVariableState.clear();
+            currentVariableState.putAll(((StepExecutionContext) stepExecutionContext).variableState());
+        }
+    }
+
     // Callback for instruction table highlighting
     private java.util.function.Consumer<Integer> instructionTableCallback;
 
     public void setInstructionTableCallback(java.util.function.Consumer<Integer> callback) {
         this.instructionTableCallback = callback;
+    }
+
+    public void setHeaderController(ui.components.Header.Header headerController) {
+        this.headerController = headerController;
     }
 
     private void setupVariableRowHighlighting() {
@@ -624,9 +733,17 @@ public class DebuggerExecution {
     private void updateVariablesDisplay() {
         Platform.runLater(() -> {
             variablesData.clear();
-            if (executor != null) {
-                // Get all variables from executor's variable state
-                Map<semulator.variable.Variable, Long> variables = executor.variableState();
+            Map<semulator.variable.Variable, Long> variables = null;
+
+            // Use step execution context for debug mode, regular executor for normal mode
+            if (isDebugMode.get() && isStepExecution && stepExecutionContext != null
+                    && stepExecutionContext instanceof StepExecutionContext) {
+                variables = ((StepExecutionContext) stepExecutionContext).variableState();
+            } else if (executor != null) {
+                variables = executor.variableState();
+            }
+
+            if (variables != null) {
 
                 // Display variables in order: y, x1,x2,x3..., z1,z2,z3...
                 java.util.List<VariableRow> orderedRows = new java.util.ArrayList<>();
@@ -723,8 +840,15 @@ public class DebuggerExecution {
                                 // Run the program with inputs
                                 long result = executor.run(inputs.toArray(new Long[0]));
 
-                                // Update cycles (for now, we'll use a simple calculation)
-                                currentCycles.set(inputs.size() + 10); // Simple cycle calculation
+                                // Calculate cycles by summing up all instruction cycles
+                                int totalCycles = 0;
+                                if (currentProgram != null && currentProgram.getInstructions() != null) {
+                                    for (semulator.instructions.SInstruction instruction : currentProgram
+                                            .getInstructions()) {
+                                        totalCycles += instruction.cycles();
+                                    }
+                                }
+                                currentCycles.set(totalCycles);
                                 updateCyclesDisplay();
                                 updateVariablesDisplay();
 

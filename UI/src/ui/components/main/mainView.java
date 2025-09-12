@@ -130,6 +130,9 @@ public class mainView extends Application {
             instructionTableController.highlightCurrentInstruction(instructionIndex);
         });
 
+        // Wire up debugger execution with header for controlling expansion buttons
+        debuggerExecutionController.setHeaderController(headerController);
+
         Scene scene = new Scene(root, 800, 800);
         primaryStage.setScene(scene);
 
