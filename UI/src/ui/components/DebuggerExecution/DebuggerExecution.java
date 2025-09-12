@@ -505,69 +505,45 @@ public class DebuggerExecution {
                 // Display variables in order: y, x1,x2,x3..., z1,z2,z3...
                 java.util.List<VariableRow> orderedRows = new java.util.ArrayList<>();
 
-                // First, add y variable
+                // First, add y variable (result variable)
                 for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    String varName = entry.getKey().toString();
-                    if (varName.equals("y")) {
-                        orderedRows.add(new VariableRow(varName, String.valueOf(entry.getValue())));
+                    semulator.variable.Variable var = entry.getKey();
+                    if (var.isResult()) {
+                        orderedRows.add(new VariableRow(var.toString(), String.valueOf(entry.getValue())));
                         break;
                     }
                 }
 
-                // Then add x variables in order (x1, x2, x3, etc.)
-                java.util.List<String> xVars = new java.util.ArrayList<>();
+                // Then add x variables (input variables) in order
+                java.util.List<semulator.variable.Variable> xVars = new java.util.ArrayList<>();
                 for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    String varName = entry.getKey().toString();
-                    if (varName.startsWith("x") && varName.length() > 1) {
-                        try {
-                            Integer.parseInt(varName.substring(1));
-                            xVars.add(varName);
-                        } catch (NumberFormatException e) {
-                            // Skip invalid x variable names
-                        }
+                    semulator.variable.Variable var = entry.getKey();
+                    if (var.isInput()) {
+                        xVars.add(var);
                     }
                 }
-                xVars.sort((a, b) -> {
-                    int numA = Integer.parseInt(a.substring(1));
-                    int numB = Integer.parseInt(b.substring(1));
-                    return Integer.compare(numA, numB);
-                });
+                // Sort x variables by number
+                xVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
 
-                for (String xVar : xVars) {
-                    for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                        if (entry.getKey().toString().equals(xVar)) {
-                            orderedRows.add(new VariableRow(xVar, String.valueOf(entry.getValue())));
-                            break;
-                        }
-                    }
+                for (semulator.variable.Variable xVar : xVars) {
+                    Long value = variables.get(xVar);
+                    orderedRows.add(new VariableRow(xVar.toString(), String.valueOf(value)));
                 }
 
-                // Finally add z variables in order (z1, z2, z3, etc.)
-                java.util.List<String> zVars = new java.util.ArrayList<>();
+                // Finally add z variables (working variables) in order
+                java.util.List<semulator.variable.Variable> zVars = new java.util.ArrayList<>();
                 for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    String varName = entry.getKey().toString();
-                    if (varName.startsWith("z") && varName.length() > 1) {
-                        try {
-                            Integer.parseInt(varName.substring(1));
-                            zVars.add(varName);
-                        } catch (NumberFormatException e) {
-                            // Skip invalid z variable names
-                        }
+                    semulator.variable.Variable var = entry.getKey();
+                    if (var.isWork()) {
+                        zVars.add(var);
                     }
                 }
-                zVars.sort((a, b) -> {
-                    int numA = Integer.parseInt(a.substring(1));
-                    int numB = Integer.parseInt(b.substring(1));
-                    return Integer.compare(numA, numB);
-                });
+                // Sort z variables by number
+                zVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
 
-                for (String zVar : zVars) {
-                    for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                        if (entry.getKey().toString().equals(zVar)) {
-                            orderedRows.add(new VariableRow(zVar, String.valueOf(entry.getValue())));
-                            break;
-                        }
-                    }
+                for (semulator.variable.Variable zVar : zVars) {
+                    Long value = variables.get(zVar);
+                    orderedRows.add(new VariableRow(zVar.toString(), String.valueOf(value)));
                 }
 
                 // Add all ordered rows to the table

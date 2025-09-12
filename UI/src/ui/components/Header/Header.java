@@ -3,6 +3,7 @@ package ui.components.Header;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Alert;
@@ -11,6 +12,8 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.event.ActionEvent;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import semulator.program.SProgram;
 import semulator.program.SProgramImpl;
 import ui.components.InstructionTable.InstructionTable;
@@ -43,6 +46,9 @@ public class Header {
   @FXML
   private Button btnIncreaseDegree;
 
+  @FXML
+  private ComboBox<String> labelVariableComboBox;
+
   private SProgram sProgram;
   private Path loadedXmlPath;
   private InstructionTable instructionTable;
@@ -50,6 +56,9 @@ public class Header {
   private ui.components.DebuggerExecution.DebuggerExecution debuggerExecution;
   private int currentDegree = 0;
   private int maxDegree = 0;
+
+  // For tracking labels and variables
+  private ObservableList<String> labelVariableList = FXCollections.observableArrayList();
 
   // Store expansion results for history chain tracking
   private semulator.program.ExpansionResult currentExpansionResult;
@@ -64,6 +73,10 @@ public class Header {
     // Initialize degree controls to disabled state
     updateDegreeDisplay();
     updateButtonStates();
+
+    // Initialize the label/variable combo box
+    labelVariableComboBox.setItems(labelVariableList);
+    labelVariableComboBox.setDisable(true); // Disabled until a program is loaded
   }
 
   @FXML
@@ -83,11 +96,6 @@ public class Header {
       progressBar.setVisible(true);
       progressLabel.setVisible(true);
       progressBar.setProgress(0.0);
-
-      // Debug output
-      System.out.println("Progress bar visible: " + progressBar.isVisible());
-      System.out.println("Progress label visible: " + progressLabel.isVisible());
-
       // Create and start the file loading task
       FileLoadingTask loadingTask = new FileLoadingTask(selectedFile);
 
@@ -120,6 +128,9 @@ public class Header {
             if (debuggerExecution != null) {
               debuggerExecution.setProgram(sProgram);
             }
+
+            // Populate the label/variable combo box
+            populateLabelVariableComboBox();
 
             showSuccessAlert("File Loaded", "XML file loaded successfully!");
           } else {
@@ -329,6 +340,11 @@ public class Header {
       currentExpansionResult = sProgram.expandToDegree(0);
       expansionResultsByDegree.put(0, currentExpansionResult);
 
+      // Ensure the debugger execution component gets the original program (degree 0)
+      if (debuggerExecution != null) {
+        debuggerExecution.setProgram(sProgram);
+      }
+
       updateDegreeDisplay();
       updateButtonStates();
     } catch (Exception e) {
@@ -381,6 +397,25 @@ public class Header {
               // Display the expanded program
               if (instructionTable != null) {
                 instructionTable.displayProgram(expandedProgram);
+              }
+
+              // Update the debugger execution component with the appropriate program
+              if (debuggerExecution != null) {
+                if (degree == 0) {
+                  // For degree 0, use the original program
+                  debuggerExecution.setProgram(sProgram);
+                } else {
+                  // For higher degrees, use the expanded program
+                  debuggerExecution.setProgram(expandedProgram);
+                }
+              }
+
+              // Update the label/variable combo box with the current program
+              // For degree 0, use original program; for higher degrees, use expanded program
+              if (degree == 0) {
+                populateLabelVariableComboBox(sProgram);
+              } else {
+                populateLabelVariableComboBox(expandedProgram);
               }
 
               // Update degree display and button states
@@ -524,6 +559,166 @@ public class Header {
     this.historyStats = historyStats;
     if (historyStats != null && sProgram != null) {
       historyStats.setProgram(sProgram);
+    }
+  }
+
+  // Method to populate the label/variable combo box
+  private void populateLabelVariableComboBox() {
+    // Determine which program to use based on current degree
+    SProgram programToUse;
+    if (currentDegree == 0) {
+      programToUse = sProgram; // Use original program for degree 0
+    } else {
+      // For higher degrees, use the expanded program from current expansion result
+      if (currentExpansionResult != null) {
+        // Create a temporary program from the current expansion result
+        SProgramImpl expandedProgram = new SProgramImpl("Expanded");
+        for (semulator.instructions.SInstruction instruction : currentExpansionResult.instructions()) {
+          expandedProgram.addInstruction(instruction);
+        }
+        programToUse = expandedProgram;
+      } else {
+        programToUse = sProgram; // Fallback to original program
+      }
+    }
+
+    populateLabelVariableComboBox(programToUse);
+  }
+
+  // Overloaded method to populate the combo box with a specific program
+  private void populateLabelVariableComboBox(SProgram program) {
+    labelVariableList.clear();
+
+    if (program == null || program.getInstructions() == null) {
+      labelVariableComboBox.setDisable(true);
+      return;
+    }
+
+    java.util.Set<String> uniqueItems = new java.util.TreeSet<>();
+
+    // Extract labels and variables from the specified program
+    for (semulator.instructions.SInstruction instruction : program.getInstructions()) {
+      // Add the main variable
+      if (instruction.getVariable() != null) {
+        uniqueItems.add(instruction.getVariable().toString());
+      }
+
+      // Add the label
+      if (instruction.getLabel() != null) {
+        if (instruction.getLabel().isExit()) {
+          uniqueItems.add("EXIT");
+        } else if (instruction.getLabel().getLabel() != null) {
+          uniqueItems.add(instruction.getLabel().getLabel());
+        }
+      }
+
+      // Add source variables for assignments
+      if (instruction instanceof semulator.instructions.AssignVariableInstruction assignVar) {
+        if (assignVar.getSource() != null) {
+          uniqueItems.add(assignVar.getSource().toString());
+        }
+      }
+
+      // Add other variables for comparisons
+      if (instruction instanceof semulator.instructions.JumpEqualVariableInstruction jumpVar) {
+        if (jumpVar.getOther() != null) {
+          uniqueItems.add(jumpVar.getOther().toString());
+        }
+      }
+    }
+
+    // Sort items in the specified order: labels, y, x variables, z variables
+    java.util.List<String> sortedItems = new java.util.ArrayList<>();
+
+    // 1. Add labels (L1, L2, L3, etc.) - sorted by number
+    java.util.List<String> labels = new java.util.ArrayList<>();
+    for (String item : uniqueItems) {
+      if (item.startsWith("L") && item.length() > 1) {
+        try {
+          Integer.parseInt(item.substring(1)); // Validate it's a number
+          labels.add(item);
+        } catch (NumberFormatException e) {
+          // Skip invalid label format
+        }
+      }
+    }
+    labels.sort((a, b) -> {
+      int numA = Integer.parseInt(a.substring(1));
+      int numB = Integer.parseInt(b.substring(1));
+      return Integer.compare(numA, numB);
+    });
+    sortedItems.addAll(labels);
+
+    // 2. Add output variable (y)
+    if (uniqueItems.contains("y")) {
+      sortedItems.add("y");
+    }
+
+    // 3. Add input variables (x1, x2, x3, etc.) - sorted by number
+    java.util.List<String> xVars = new java.util.ArrayList<>();
+    for (String item : uniqueItems) {
+      if (item.startsWith("x") && item.length() > 1) {
+        try {
+          Integer.parseInt(item.substring(1)); // Validate it's a number
+          xVars.add(item);
+        } catch (NumberFormatException e) {
+          // Skip invalid x variable format
+        }
+      }
+    }
+    xVars.sort((a, b) -> {
+      int numA = Integer.parseInt(a.substring(1));
+      int numB = Integer.parseInt(b.substring(1));
+      return Integer.compare(numA, numB);
+    });
+    sortedItems.addAll(xVars);
+
+    // 4. Add working variables (z1, z2, z3, etc.) - sorted by number
+    java.util.List<String> zVars = new java.util.ArrayList<>();
+    for (String item : uniqueItems) {
+      if (item.startsWith("z") && item.length() > 1) {
+        try {
+          Integer.parseInt(item.substring(1)); // Validate it's a number
+          zVars.add(item);
+        } catch (NumberFormatException e) {
+          // Skip invalid z variable format
+        }
+      }
+    }
+    zVars.sort((a, b) -> {
+      int numA = Integer.parseInt(a.substring(1));
+      int numB = Integer.parseInt(b.substring(1));
+      return Integer.compare(numA, numB);
+    });
+    sortedItems.addAll(zVars);
+
+    // 5. Add any other items (like EXIT) that don't fit the above categories
+    for (String item : uniqueItems) {
+      if (!sortedItems.contains(item)) {
+        sortedItems.add(item);
+      }
+    }
+
+    // Add all sorted items to the list
+    labelVariableList.addAll(sortedItems);
+
+    // Enable the combo box if we have items
+    labelVariableComboBox.setDisable(labelVariableList.isEmpty());
+  }
+
+  // Method to handle ComboBox selection
+  @FXML
+  private void onLabelVariableSelected(ActionEvent event) {
+    String selectedItem = labelVariableComboBox.getSelectionModel().getSelectedItem();
+
+    if (instructionTable != null) {
+      if (selectedItem != null) {
+        // Tell the instruction table to highlight rows containing this label/variable
+        instructionTable.highlightRowsContaining(selectedItem);
+      } else {
+        // Clear highlighting if no item is selected
+        instructionTable.clearHighlighting();
+      }
     }
   }
 }

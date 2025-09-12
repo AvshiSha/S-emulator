@@ -3,8 +3,10 @@ package ui.components.InstructionTable;
 import javafx.fxml.FXML;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.paint.Color;
 import semulator.instructions.*;
 import semulator.label.Label;
 import semulator.label.FixedLabel;
@@ -34,6 +36,9 @@ public class InstructionTable {
 
     private ObservableList<InstructionRow> instructionData = FXCollections.observableArrayList();
 
+    // For highlighting functionality
+    private String currentHighlightTerm = null;
+
     @FXML
     private void initialize() {
         // Set up the table columns
@@ -61,11 +66,15 @@ public class InstructionTable {
         commandTypeColumn.setSortable(false);
         labelColumn.setSortable(false);
         cyclesColumn.setSortable(false);
+
+        // Set up row highlighting
+        setupRowHighlighting();
     }
 
     public void displayProgram(SProgram program) {
         instructionData.clear();
         currentInstructions.clear();
+        currentHighlightTerm = null; // Clear any existing highlighting
 
         if (program == null || program.getInstructions() == null) {
             return;
@@ -225,5 +234,54 @@ public class InstructionTable {
         public int getCycles() {
             return cycles.get();
         }
+    }
+
+    // Method to highlight rows containing a specific label or variable
+    public void highlightRowsContaining(String term) {
+        currentHighlightTerm = term;
+        // Refresh the table to apply highlighting
+        instructionTableView.refresh();
+    }
+
+    // Method to clear highlighting
+    public void clearHighlighting() {
+        currentHighlightTerm = null;
+        instructionTableView.refresh();
+    }
+
+    // Set up row highlighting using row factory
+    private void setupRowHighlighting() {
+        instructionTableView.setRowFactory(tv -> {
+            TableRow<InstructionRow> row = new TableRow<InstructionRow>() {
+                @Override
+                protected void updateItem(InstructionRow item, boolean empty) {
+                    super.updateItem(item, empty);
+
+                    if (empty || item == null) {
+                        setStyle("");
+                    } else {
+                        // Check if this row should be highlighted
+                        if (currentHighlightTerm != null && rowContainsTerm(item, currentHighlightTerm)) {
+                            setStyle("-fx-background-color: #FFE135; -fx-font-weight: bold;"); // Yellow highlight
+                        } else {
+                            setStyle(""); // No highlighting
+                        }
+                    }
+                }
+            };
+            return row;
+        });
+    }
+
+    // Helper method to check if a row contains the search term
+    private boolean rowContainsTerm(InstructionRow row, String term) {
+        if (term == null || term.isEmpty()) {
+            return false;
+        }
+
+        // Check all text fields in the row
+        return (row.getLabel() != null && row.getLabel().contains(term)) ||
+                (row.getInstructionType() != null && row.getInstructionType().contains(term)) ||
+                (row.getCommandType() != null && row.getCommandType().contains(term));
     }
 }
