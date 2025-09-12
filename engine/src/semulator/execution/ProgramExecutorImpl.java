@@ -40,12 +40,9 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
         while (currentIndex < instructions.size()) {
             SInstruction currentInstruction = instructions.get(currentIndex);
-
+            totalCycles += currentInstruction.cycles();
             // Execute the instruction and get the next label
             Label nextLabel = currentInstruction.execute(context);
-
-            // Add cycles for this instruction
-            totalCycles += currentInstruction.cycles();
 
             // Determine next instruction based on the returned label
             if (nextLabel == FixedLabel.EMPTY) {
@@ -88,8 +85,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         }
 
         // Second pass: validate that all jump targets exist in our label map
-
-        // in the map)
         for (SInstruction instruction : instructions) {
             Label target = null;
 

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<S-Program xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="TestJumpCycles" xsi:noNamespaceSchemaLocation="S-Emulator-v1.xsd">
+<S-Instructions>
+<S-Instruction type="synthetic" name="ZERO_VARIABLE">
+<S-Variable>x1</S-Variable>
+<S-Label>L1</S-Label>
+</S-Instruction>
+<S-Instruction type="basic" name="INCREASE">
+<S-Variable>x1</S-Variable>
+</S-Instruction>
+<S-Instruction type="synthetic" name="GOTO_LABEL">
+<S-Variable>z1</S-Variable>
+<S-Instruction-Arguments>
+<S-Instruction-Argument name="gotoLabel" value="L1"/>
+</S-Instruction-Arguments>
+</S-Instruction>
+</S-Instructions>
+</S-Program>

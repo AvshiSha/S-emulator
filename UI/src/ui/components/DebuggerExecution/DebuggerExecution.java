@@ -571,22 +571,16 @@ public class DebuggerExecution {
         if (currentProgram != null && currentProgram.getInstructions() != null) {
             List<semulator.instructions.SInstruction> instructions = currentProgram.getInstructions();
 
-            // First pass: find all label definitions (instructions that define labels)
+            // First pass: collect all labels that are actually defined on instructions
             for (int i = 0; i < instructions.size(); i++) {
                 semulator.instructions.SInstruction instruction = instructions.get(i);
+                semulator.label.Label label = instruction.getLabel();
 
-                // Check if this instruction defines a label
-                if (instruction instanceof semulator.instructions.SInstruction) {
-                    // For now, we'll use a simpler approach - just map common labels
-                    // This is a simplified implementation
-                    if (instruction.toString().contains("L1")) {
-                        labelToIndexMap.put("L1", i);
-                    } else if (instruction.toString().contains("L2")) {
-                        labelToIndexMap.put("L2", i);
-                    } else if (instruction.toString().contains("L3")) {
-                        labelToIndexMap.put("L3", i);
-                    } else if (instruction.toString().contains("EXIT")) {
-                        labelToIndexMap.put("EXIT", i);
+                if (label != null && label != semulator.label.FixedLabel.EMPTY
+                        && label != semulator.label.FixedLabel.EXIT) {
+                    String labelName = label.getLabel();
+                    if (labelName != null && !labelName.isEmpty()) {
+                        labelToIndexMap.put(labelName, i);
                     }
                 }
             }
@@ -606,6 +600,9 @@ public class DebuggerExecution {
             if (headerController != null) {
                 headerController.setExpansionControlsEnabled(true);
             }
+
+            // Record the run in history
+            recordRunInHistory();
             return;
         }
 
@@ -620,15 +617,47 @@ public class DebuggerExecution {
             // Execute just this one instruction using the step execution context
             semulator.label.Label nextLabel = currentInstruction.execute(stepExecutionContext);
 
-            // Add cycles for this instruction
-            currentCycles.set(currentCycles.get() + currentInstruction.cycles());
-
             // Update variable states from the execution context
             updateVariableStatesFromContext();
 
-            // For now, just move to the next instruction
-            // TODO: Implement proper label jumping based on the returned label
-            currentInstructionIndex++;
+            // Determine next instruction based on the returned label
+            if (nextLabel == semulator.label.FixedLabel.EMPTY) {
+                // Add cycles for this instruction
+                currentCycles.set(currentCycles.get() + currentInstruction.cycles());
+                // Continue to next instruction in sequence
+                currentInstructionIndex++;
+            } else if (nextLabel == semulator.label.FixedLabel.EXIT) {
+                // Add cycles for this instruction
+                currentCycles.set(currentCycles.get() + currentInstruction.cycles());
+                // Exit the program
+                updateExecutionStatus("Program execution completed");
+                isExecuting.set(false);
+                isPaused.set(false);
+                isDebugMode.set(false);
+                isStepExecution = false;
+                updateButtonStates();
+
+                // Re-enable expansion controls when debug execution completes
+                if (headerController != null) {
+                    headerController.setExpansionControlsEnabled(true);
+                }
+
+                // Record the run in history
+                recordRunInHistory();
+                return;
+            } else {
+                // Add cycles for this instruction
+                currentCycles.set(currentCycles.get() + currentInstruction.cycles());
+                // Jump to the label
+                String labelName = nextLabel.getLabel();
+                Integer targetIndex = labelToIndexMap.get(labelName);
+                if (targetIndex != null) {
+                    currentInstructionIndex = targetIndex;
+                } else {
+                    // If label not found, continue to next instruction
+                    currentInstructionIndex++;
+                }
+            }
 
             // Update displays
             updateCyclesDisplay();
@@ -842,12 +871,7 @@ public class DebuggerExecution {
 
                                 // Calculate cycles by summing up all instruction cycles
                                 int totalCycles = 0;
-                                if (currentProgram != null && currentProgram.getInstructions() != null) {
-                                    for (semulator.instructions.SInstruction instruction : currentProgram
-                                            .getInstructions()) {
-                                        totalCycles += instruction.cycles();
-                                    }
-                                }
+                                totalCycles = executor.getTotalCycles();
                                 currentCycles.set(totalCycles);
                                 updateCyclesDisplay();
                                 updateVariablesDisplay();

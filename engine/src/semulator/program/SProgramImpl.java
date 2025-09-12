@@ -295,8 +295,10 @@ public class SProgramImpl implements SProgram {
                     out5.add(new DecreaseInstruction(z5)); // z5 --> z5 - 1
                 }
                 out5.add(new JumpNotZeroInstruction(z5, BL2)); // IF z5 != 0 goto BL2
-                out5.add(new GotoLabelInstruction(jec.getTarget())); // goto in.getLabel()
+                out5.add(new GotoLabelInstruction(jec.getTarget())); // goto original target
                 out5.add(new NoOpInstruction(Variable.RESULT, BL2)); // BL2: V --> V
+                // Add the original target label as a NoOp instruction so jumps can find it
+                out5.add(new NoOpInstruction(Variable.RESULT, jec.getTarget()));
                 return out5;
             case "IFEQV":
                 JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) in;
