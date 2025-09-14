@@ -72,12 +72,20 @@ public class HistoryChain {
         // Display chain from most recent (top) to oldest (bottom)
         for (int i = 0; i < chain.size(); i++) {
             SInstruction instruction = chain.get(i);
+            String variable = "";
+            try {
+                variable = instruction.getVariable().toString();
+            } catch (Exception e) {
+                // Some instructions don't have getVariable() method
+                variable = "";
+            }
             InstructionRow row = new InstructionRow(
                     i + 1, // Row number in the chain
                     getCommandType(instruction), // B or S
                     getLabelText(instruction.getLabel()), // Label text
                     getInstructionText(instruction), // Instruction description
-                    instruction.cycles() // Cycles
+                    instruction.cycles(),    // Cycles
+                    variable
             );
             historyData.add(row);
         }

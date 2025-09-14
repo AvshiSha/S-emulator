@@ -619,16 +619,15 @@ public class DebuggerExecution {
 
             // Update variable states from the execution context
             updateVariableStatesFromContext();
+            currentCycles.set(currentCycles.get() + currentInstruction.cycles());
 
             // Determine next instruction based on the returned label
             if (nextLabel == semulator.label.FixedLabel.EMPTY) {
                 // Add cycles for this instruction
-                currentCycles.set(currentCycles.get() + currentInstruction.cycles());
                 // Continue to next instruction in sequence
                 currentInstructionIndex++;
             } else if (nextLabel == semulator.label.FixedLabel.EXIT) {
                 // Add cycles for this instruction
-                currentCycles.set(currentCycles.get() + currentInstruction.cycles());
                 // Exit the program
                 updateExecutionStatus("Program execution completed");
                 isExecuting.set(false);
@@ -644,11 +643,12 @@ public class DebuggerExecution {
 
                 // Record the run in history
                 recordRunInHistory();
+                updateCyclesDisplay();
                 return;
             } else {
                 // Add cycles for this instruction
-                currentCycles.set(currentCycles.get() + currentInstruction.cycles());
-                // Jump to the label
+                // Jump to the next label
+
                 String labelName = nextLabel.getLabel();
                 Integer targetIndex = labelToIndexMap.get(labelName);
                 if (targetIndex != null) {

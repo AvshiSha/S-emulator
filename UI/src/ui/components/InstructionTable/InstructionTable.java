@@ -87,13 +87,20 @@ public class InstructionTable {
 
         for (int i = 0; i < instructions.size(); i++) {
             SInstruction instruction = instructions.get(i);
+            String variable = "";
+            try {
+                variable = instruction.getVariable().toString();
+            } catch (Exception e) {
+                // Some instructions don't have getVariable() method
+                variable = "";
+            }
             InstructionRow row = new InstructionRow(
                     i + 1, // Row number (1-based)
                     getCommandType(instruction), // B or S
                     getLabelText(instruction.getLabel()), // Label text
                     getInstructionText(instruction), // Instruction description
-                    instruction.cycles() // Cycles
-            );
+                    instruction.cycles(), // Cycles
+                    variable);
             instructionData.add(row);
         }
     }
@@ -186,13 +193,16 @@ public class InstructionTable {
         private final javafx.beans.property.StringProperty label;
         private final javafx.beans.property.StringProperty instructionType;
         private final javafx.beans.property.IntegerProperty cycles;
+        private final javafx.beans.property.StringProperty variable;
 
-        public InstructionRow(int rowNumber, String commandType, String label, String instructionType, int cycles) {
+        public InstructionRow(int rowNumber, String commandType, String label, String instructionType, int cycles,
+                String variable) {
             this.rowNumber = new javafx.beans.property.SimpleIntegerProperty(rowNumber);
             this.commandType = new javafx.beans.property.SimpleStringProperty(commandType);
             this.label = new javafx.beans.property.SimpleStringProperty(label);
             this.instructionType = new javafx.beans.property.SimpleStringProperty(instructionType);
             this.cycles = new javafx.beans.property.SimpleIntegerProperty(cycles);
+            this.variable = new javafx.beans.property.SimpleStringProperty(variable);
         }
 
         // Property getters for JavaFX binding
@@ -216,6 +226,11 @@ public class InstructionTable {
             return cycles;
         }
 
+        // Add this method
+        public javafx.beans.property.StringProperty variableProperty() {
+            return variable;
+        }
+
         // Regular getters
         public int getRowNumber() {
             return rowNumber.get();
@@ -236,12 +251,40 @@ public class InstructionTable {
         public int getCycles() {
             return cycles.get();
         }
+
+        public String getVariable() {
+            return variable.get();
+        }
+
+        // Highlighting functionality
+        private boolean highlighted = false;
+
+        public void setHighlighted(boolean highlighted) {
+            this.highlighted = highlighted;
+        }
+
+        public boolean isHighlighted() {
+            return highlighted;
+        }
     }
 
     // Method to highlight rows containing a specific label or variable
     public void highlightRowsContaining(String term) {
         currentHighlightTerm = term;
-        // Refresh the table to apply highlighting
+
+        // First, clear all previous highlights
+        for (InstructionRow row : instructionData) {
+            row.setHighlighted(false);
+        }
+
+        // Then, find and highlight matching rows
+        for (InstructionRow row : instructionData) {
+            if (row.getVariable().contains(term) || row.getLabel().contains(term)) {
+                row.setHighlighted(true);
+            }
+        }
+
+        // Finally, refresh the table once to apply all changes
         instructionTableView.refresh();
     }
 
