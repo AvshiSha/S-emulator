@@ -7,7 +7,7 @@
 <S-Instruction type="synthetic" name="ASSIGNMENT">
 <S-Variable>y</S-Variable>
 <S-Instruction-Arguments>
-<S-Instruction-Argument name="assignedVariable" value="x2"/>
+<S-Instruction-Argument name="assignedVariable" value="x3"/>
 </S-Instruction-Arguments>
 </S-Instruction>
 <S-Instruction type="synthetic" name="CONSTANT_ASSIGNMENT">
@@ -34,7 +34,7 @@
 <S-Label>L1</S-Label>
 <S-Instruction-Arguments>
 <S-Instruction-Argument name="JEVariableLabel" value="L2"/>
-<S-Instruction-Argument name="variableName" value="x2"/>
+<S-Instruction-Argument name="variableName" value="x3"/>
 </S-Instruction-Arguments>
 </S-Instruction>
 <S-Instruction type="synthetic" name="GOTO_LABEL">

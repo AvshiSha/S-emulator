@@ -28,7 +28,7 @@
             </Label>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
                <children>
-                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="35.0" prefWidth="150.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="Run" textFill="WHITE">
+                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="35.0" prefWidth="150.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="New Run" textFill="WHITE">
                      <font>
                         <Font name="System Bold" size="11.0" />
                      </font>
