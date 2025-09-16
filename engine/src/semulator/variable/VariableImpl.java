@@ -8,12 +8,16 @@ public class VariableImpl implements Variable {
     private final int number;
 
     public VariableImpl(VariableType type, int number) {
-        if (type == null) throw new IllegalArgumentException("type is null");
+        if (type == null)
+            throw new IllegalArgumentException("type is null");
         // ולידציה לפי סוג:
         if (type == VariableType.RESULT) {
             if (number != 0) {
                 throw new IllegalArgumentException("RESULT variable must have number 0 (got " + number + ")");
             }
+        } else if (type == VariableType.Constant) {
+            // Constants can be any integer value (positive, negative, or zero)
+            // No validation needed for constants
         } else {
             if (number <= 0) {
                 throw new IllegalArgumentException(type + " variable index must be >= 1 (got " + number + ")");
@@ -47,8 +51,10 @@ public class VariableImpl implements Variable {
     /** כדי לעבוד טוב עם Maps/Sets והשוואות לוגיות */
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Variable)) return false;
+        if (this == o)
+            return true;
+        if (!(o instanceof Variable))
+            return false;
         Variable that = (Variable) o;
         return number == that.getNumber() && type == that.getType();
     }

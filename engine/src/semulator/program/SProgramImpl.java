@@ -37,6 +37,7 @@ public class SProgramImpl implements SProgram {
     private final String name;
     private final List<SInstruction> instructions;
     private Path xmlPath;
+    private final Map<String, List<SInstruction>> functions = new HashMap<>();
 
     private final Set<String> baseUsedLabelNames = new HashSet<>();
     private final Set<String> baseUsedVarNames = new HashSet<>();
@@ -49,13 +50,13 @@ public class SProgramImpl implements SProgram {
     private static final Set<String> ALLOWED_NAMES = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
             "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
-            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION");
+            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION", "QUOTE");
 
     private static final Set<String> BASIC = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO");
     private static final Set<String> SYNTHETIC = Set.of(
             "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
-            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE");
+            "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE", "JUMP_EQUAL_FUNCTION");
 
     private static final Set<String> LABEL_TARGET_ARGS = Set.of(
             "JNZLabel",
@@ -87,6 +88,10 @@ public class SProgramImpl implements SProgram {
     @Override
     public List<SInstruction> getInstructions() {
         return instructions;
+    }
+
+    public Map<String, List<SInstruction>> getFunctions() {
+        return functions;
     }
 
     @Override
@@ -139,9 +144,9 @@ public class SProgramImpl implements SProgram {
                 Map.entry("ASSIGNC", 2),
                 Map.entry("IFZ", 2),
                 Map.entry("IFEQC", 3),
-                Map.entry("IFEQV", 3)
-        // "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION" are intentionally not included here.
-        );
+                Map.entry("IFEQV", 3),
+                Map.entry("QUOTE", 5),
+                Map.entry("JUMP_EQUAL_FUNCTION", 6));
 
         int max = 0;
         for (SInstruction ins : instructions) {
@@ -321,9 +326,207 @@ public class SProgramImpl implements SProgram {
                 out6.add(new JumpZeroInstruction(z7, Target2, BL5));
                 out6.add(new NoOpInstruction(Variable.RESULT, BL3));
                 return out6;
+            case "QUOTE":
+                return expandQuote((QuoteInstruction) in, names);
+            case "JUMP_EQUAL_FUNCTION":
+                return expandJumpEqualFunction((JumpEqualFunctionInstruction) in, names);
             default:
                 return List.of(in);
         }
+    }
+
+    private List<SInstruction> expandQuote(QuoteInstruction quote, NameSession names) {
+        String functionName = quote.getFunctionName();
+        List<Variable> arguments = quote.getFunctionArguments();
+        Variable target = quote.getVariable();
+
+        // Get the function body
+        List<SInstruction> functionBody = functions.get(functionName);
+        if (functionBody == null) {
+            throw new IllegalArgumentException("Function '" + functionName + "' not found");
+        }
+
+        // Create fresh variables for inputs, outputs, and working variables
+        Map<Variable, Variable> variableMap = new HashMap<>();
+        Map<Label, Label> labelMap = new HashMap<>();
+
+        // Map input variables (x1, x2, ...) to fresh working variables
+        for (int i = 0; i < arguments.size(); i++) {
+            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+            Variable freshVar = names.freshZ();
+            variableMap.put(inputVar, freshVar);
+        }
+
+        // Map output variable (y) to a fresh working variable
+        Variable outputVar = Variable.RESULT;
+        Variable freshOutputVar = names.freshZ();
+        variableMap.put(outputVar, freshOutputVar);
+
+        // Create fresh labels for all labels in the function
+        for (SInstruction inst : functionBody) {
+            if (inst.getLabel() != FixedLabel.EMPTY) {
+                Label originalLabel = inst.getLabel();
+                if (!labelMap.containsKey(originalLabel)) {
+                    labelMap.put(originalLabel, names.freshLabel());
+                }
+            }
+        }
+
+        // Create a fresh label for the end of the quoted function
+        Label endLabel = names.freshLabel();
+
+        List<SInstruction> expanded = new ArrayList<>();
+
+        expanded.add(new NoOpInstruction(Variable.RESULT, FixedLabel.EMPTY));
+        // If the input of the function is more than 0, we need to assign the input to a
+        // fresh working variable
+        if (arguments.size() > 0) {
+            for (int i = 0; i < arguments.size(); i++) {
+                Variable freshVar = names.freshZ();
+                expanded.add(new AssignVariableInstruction(freshVar, arguments.get(i)));
+            }
+        }
+
+        // // Add initialization instructions: zi <- Vi for each argument
+        // for (int i = 0; i < arguments.size(); i++) {
+        // Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+        // Variable freshVar = variableMap.get(inputVar);
+        // Variable argument = arguments.get(i);
+
+        // if (argument.getType() == VariableType.Constant) {
+        // // For constants, assign the constant value directly
+        // expanded.add(new AssignConstantInstruction(freshVar, (int)
+        // argument.getNumber()));
+        // } else {
+        // // For variables, assign the variable value
+        // expanded.add(new AssignVariableInstruction(freshVar, argument));
+        // }
+        // }
+
+        // Add the expanded function body
+        for (SInstruction inst : functionBody) {
+            SInstruction expandedInst = expandInstruction(inst, variableMap, labelMap, endLabel);
+            if (expandedInst != null) {
+                expanded.add(expandedInst);
+            }
+        }
+
+        expanded.add(new AssignVariableInstruction(target, freshOutputVar, endLabel));
+
+        return expanded;
+    }
+
+    private List<SInstruction> expandJumpEqualFunction(JumpEqualFunctionInstruction jef, NameSession names) {
+        String functionName = jef.getFunctionName();
+        List<Variable> arguments = jef.getFunctionArguments();
+        Variable compareVar = jef.getVariable();
+        Label targetLabel = jef.getTarget();
+
+        // Degree 1 expansion: Split into QUOTE call + comparison
+        // z1 = Q(x1, ...) (as a QUOTE instruction)
+        // IF V = z1 GOTO L
+
+        Variable freshOutputVar = names.freshZ();
+
+        // Create a QUOTE instruction: z1 <- (Q, x1, ...)
+        QuoteInstruction quoteInst = new QuoteInstruction(freshOutputVar, functionName, arguments);
+
+        // Create the comparison: IF V == z1 GOTO L
+        JumpEqualVariableInstruction comparison = new JumpEqualVariableInstruction(compareVar, freshOutputVar,
+                targetLabel);
+
+        return List.of(quoteInst, comparison);
+    }
+
+    private SInstruction expandInstruction(SInstruction inst, Map<Variable, Variable> variableMap,
+            Map<Label, Label> labelMap, Label endLabel) {
+        // Map the variable, with special handling for the function's output variable
+        // (y)
+        Variable newVar = variableMap.get(inst.getVariable());
+        if (newVar == null) {
+            // If not in the map, use the original variable (for working variables z1, z2,
+            // etc.)
+            newVar = inst.getVariable();
+        }
+        Label newLabel = labelMap.getOrDefault(inst.getLabel(), inst.getLabel());
+
+        // Handle EXIT label specially
+        if (inst.getLabel() == FixedLabel.EXIT) {
+            newLabel = endLabel;
+        }
+
+        return switch (inst.getName()) {
+            case "INCREASE" -> new IncreaseInstruction(newVar, newLabel);
+            case "DECREASE" -> new DecreaseInstruction(newVar, newLabel);
+            case "NEUTRAL" -> new NoOpInstruction(newVar, newLabel);
+            case "JUMP_NOT_ZERO" -> {
+                JumpNotZeroInstruction jnz = (JumpNotZeroInstruction) inst;
+                Label targetLabel = labelMap.getOrDefault(jnz.getTarget(), jnz.getTarget());
+                if (jnz.getTarget() == FixedLabel.EXIT) {
+                    targetLabel = endLabel;
+                }
+                yield new JumpNotZeroInstruction(newVar, newLabel, targetLabel);
+            }
+            case "ZERO" -> new ZeroVariableInstruction(newVar, newLabel);
+            case "ASSIGN" -> {
+                AssignVariableInstruction assign = (AssignVariableInstruction) inst;
+                Variable newSource = variableMap.get(assign.getSource());
+                if (newSource == null) {
+                    newSource = assign.getSource();
+                }
+                yield new AssignVariableInstruction(newVar, newSource, newLabel);
+            }
+            case "ASSIGNC" -> {
+                AssignConstantInstruction assign = (AssignConstantInstruction) inst;
+                yield new AssignConstantInstruction(newVar, assign.getConstant(), newLabel);
+            }
+            case "IFZ" -> {
+                JumpZeroInstruction jz = (JumpZeroInstruction) inst;
+                Label targetLabel = labelMap.getOrDefault(jz.getTarget(), jz.getTarget());
+                if (jz.getTarget() == FixedLabel.EXIT) {
+                    targetLabel = endLabel;
+                }
+                yield new JumpZeroInstruction(newVar, newLabel, targetLabel);
+            }
+            case "IFEQC" -> {
+                JumpEqualConstantInstruction jec = (JumpEqualConstantInstruction) inst;
+                Label targetLabel = labelMap.getOrDefault(jec.getTarget(), jec.getTarget());
+                if (jec.getTarget() == FixedLabel.EXIT) {
+                    targetLabel = endLabel;
+                }
+                yield new JumpEqualConstantInstruction(newVar, newLabel, jec.getConstant(), targetLabel);
+            }
+            case "JUMP_EQUAL_VARIABLE" -> {
+                JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) inst;
+                Variable newOther = variableMap.get(jev.getOther());
+                if (newOther == null) {
+                    newOther = jev.getOther();
+                }
+                Label targetLabel = labelMap.getOrDefault(jev.getTarget(), jev.getTarget());
+                if (jev.getTarget() == FixedLabel.EXIT) {
+                    targetLabel = endLabel;
+                }
+                yield new JumpEqualVariableInstruction(newVar, newLabel, newOther, targetLabel);
+            }
+            case "GOTO" -> {
+                GotoLabelInstruction gotoInst = (GotoLabelInstruction) inst;
+                Label targetLabel = labelMap.getOrDefault(gotoInst.getTarget(), gotoInst.getTarget());
+                if (gotoInst.getTarget() == FixedLabel.EXIT) {
+                    targetLabel = endLabel;
+                }
+                yield new GotoLabelInstruction(newLabel, targetLabel);
+            }
+            case "QUOTE" -> {
+                QuoteInstruction quote = (QuoteInstruction) inst;
+                yield new QuoteInstruction(newVar, quote.getFunctionName(), quote.getFunctionArguments(), newLabel);
+            }
+            case "JUMP_EQUAL_FUNCTION" -> {
+                JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) inst;
+                yield new JumpEqualFunctionInstruction(newVar, jef.getFunctionName(), jef.getFunctionArguments(),
+                        newLabel, jef.getTarget());
+            }
+            default -> null; // Unknown instruction
+        };
     }
 
     @Override
@@ -448,11 +651,181 @@ public class SProgramImpl implements SProgram {
                         instructions.add(new GotoLabelInstruction(target));
                 }
 
+                case "QUOTE" -> {
+                    String functionName = args.get("functionName");
+                    String functionArguments = args.get("functionArguments");
+                    List<Variable> argVars = new ArrayList<>();
+
+                    if (functionArguments != null && !functionArguments.trim().isEmpty()) {
+                        String[] argStrings = functionArguments.split(",");
+                        for (String arg : argStrings) {
+                            argVars.add(parseVariableOrConstant(arg.trim()));
+                        }
+                    }
+
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions.add(new QuoteInstruction(var, functionName, argVars, selfLabel));
+                    else
+                        instructions.add(new QuoteInstruction(var, functionName, argVars));
+                }
+
+                case "JUMP_EQUAL_FUNCTION" -> {
+                    String functionName = args.get("functionName");
+                    String functionArguments = args.get("functionArguments");
+                    String targetLabel = args.get("JEFunctionLabel");
+                    List<Variable> argVars = new ArrayList<>();
+
+                    if (functionArguments != null && !functionArguments.trim().isEmpty()) {
+                        String[] argStrings = functionArguments.split(",");
+                        for (String arg : argStrings) {
+                            argVars.add(parseVariableOrConstant(arg.trim()));
+                        }
+                    }
+
+                    Label target = parseLabel(targetLabel, labelPool);
+
+                    if (selfLabel != FixedLabel.EMPTY)
+                        instructions
+                                .add(new JumpEqualFunctionInstruction(var, functionName, argVars, target, selfLabel));
+                    else
+                        instructions.add(new JumpEqualFunctionInstruction(var, functionName, argVars, target));
+                }
+
                 default -> {
                     /* לא בונים הוראה לא מוכרת */ }
             }
 
         }
+
+        // Parse S-Functions if they exist
+        Element sFunctions = getSingleChild(root, "S-Functions");
+        if (sFunctions != null) {
+            parseFunctions(sFunctions, labelPool);
+        }
+    }
+
+    private void parseFunctions(Element sFunctions, Map<String, Label> labelPool) {
+        List<Element> functionElements = childElements(sFunctions, "S-Function");
+        for (Element functionEl : functionElements) {
+            String functionName = functionEl.getAttribute("name").trim();
+            if (functionName.isEmpty()) {
+                System.out.println("S-Function missing name attribute");
+                continue;
+            }
+
+            Element functionInstructions = getSingleChild(functionEl, "S-Instructions");
+            if (functionInstructions == null) {
+                System.out.println("S-Function '" + functionName + "' missing S-Instructions");
+                continue;
+            }
+
+            List<SInstruction> functionBody = new ArrayList<>();
+            List<Element> all = childElements(functionInstructions, "S-Instruction");
+            for (Element instEl : all) {
+                SInstruction instruction = parseInstruction(instEl, labelPool);
+                if (instruction != null) {
+                    functionBody.add(instruction);
+                }
+            }
+
+            functions.put(functionName, functionBody);
+        }
+    }
+
+    private SInstruction parseInstruction(Element instEl, Map<String, Label> labelPool) {
+        String name = instEl.getAttribute("name").trim();
+        String varText = textOfSingle(instEl, "S-Variable");
+        Variable var = parseVariable(varText);
+
+        String lblText = textOfOptional(instEl, "S-Label");
+        Label selfLabel = (lblText == null || lblText.isBlank())
+                ? FixedLabel.EMPTY
+                : getOrCreateLabel(lblText, labelPool);
+
+        Map<String, String> args = readArgs(instEl);
+
+        return switch (name) {
+            case "INCREASE" -> {
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new IncreaseInstruction(var, selfLabel);
+                else
+                    yield new IncreaseInstruction(var);
+            }
+            case "DECREASE" -> {
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new DecreaseInstruction(var, selfLabel);
+                else
+                    yield new DecreaseInstruction(var);
+            }
+            case "NEUTRAL" -> new NoOpInstruction(var);
+            case "JUMP_NOT_ZERO" -> {
+                String targetName = args.get("JNZLabel");
+                Label target = parseLabel(targetName, labelPool);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new JumpNotZeroInstruction(var, selfLabel, target);
+                else
+                    yield new JumpNotZeroInstruction(var, target);
+            }
+            case "ZERO_VARIABLE" -> {
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new ZeroVariableInstruction(var, selfLabel);
+                else
+                    yield new ZeroVariableInstruction(var);
+            }
+            case "ASSIGNMENT" -> {
+                String assignedVar = args.get("assignedVariable");
+                Variable sourceVar = parseVariable(assignedVar);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new AssignVariableInstruction(var, sourceVar, selfLabel);
+                else
+                    yield new AssignVariableInstruction(var, sourceVar);
+            }
+            case "CONSTANT_ASSIGNMENT" -> {
+                String constantValue = args.get("constantValue");
+                long value = Long.parseLong(constantValue);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new AssignConstantInstruction(var, value, selfLabel);
+                else
+                    yield new AssignConstantInstruction(var, value);
+            }
+            case "JUMP_ZERO" -> {
+                String targetName = args.get("JZLabel");
+                Label target = parseLabel(targetName, labelPool);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new JumpZeroInstruction(var, selfLabel, target);
+                else
+                    yield new JumpZeroInstruction(var, target);
+            }
+            case "JUMP_EQUAL_CONSTANT" -> {
+                String targetName = args.get("JEConstantLabel");
+                String constantValue = args.get("constantValue");
+                Label target = parseLabel(targetName, labelPool);
+                long value = Long.parseLong(constantValue);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new JumpEqualConstantInstruction(var, selfLabel, value, target);
+                else
+                    yield new JumpEqualConstantInstruction(var, value, target);
+            }
+            case "JUMP_EQUAL_VARIABLE" -> {
+                String targetName = args.get("JEVariableLabel");
+                String otherVar = args.get("otherVariable");
+                Label target = parseLabel(targetName, labelPool);
+                Variable other = parseVariable(otherVar);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new JumpEqualVariableInstruction(var, selfLabel, other, target);
+                else
+                    yield new JumpEqualVariableInstruction(var, other, target);
+            }
+            case "GOTO_LABEL" -> {
+                String targetName = args.get("gotoLabel");
+                Label target = parseLabel(targetName, labelPool);
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new GotoLabelInstruction(selfLabel, target);
+                else
+                    yield new GotoLabelInstruction(target);
+            }
+            default -> null; // Unknown instruction
+        };
     }
 
     private static String textOfSingle(Element parent, String tag) {
@@ -499,6 +872,22 @@ public class SProgramImpl implements SProgram {
             return new VariableImpl(VariableType.WORK, idx);
         } else {
             return null;
+        }
+    }
+
+    private static Variable parseVariableOrConstant(String txt) {
+        if (txt == null || txt.trim().isEmpty()) {
+            return null;
+        }
+        String t = txt.trim();
+
+        // Try to parse as a constant number first
+        try {
+            int constantValue = Integer.parseInt(t);
+            return new VariableImpl(VariableType.Constant, constantValue);
+        } catch (NumberFormatException e) {
+            // Not a number, try parsing as variable
+            return parseVariable(txt);
         }
     }
 
@@ -733,7 +1122,8 @@ public class SProgramImpl implements SProgram {
                 instrName.equals("JUMP_EQUAL_CONSTANT") ||
                 instrName.equals("JUMP_EQUAL_VARIABLE") ||
                 instrName.equals("QUOTE_PROGRAM") ||
-                instrName.equals("JUMP_EQUAL_FUNCTION");
+                instrName.equals("JUMP_EQUAL_FUNCTION") ||
+                instrName.equals("QUOTE");
         if (!usesArgs && container != null) {
             System.out.println(where + "Unexpected <S-Instruction-Arguments> for instruction '" + instrName + "'.");
             ok = false;

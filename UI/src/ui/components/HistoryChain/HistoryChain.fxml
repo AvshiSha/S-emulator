@@ -16,8 +16,8 @@
                   <TableColumn fx:id="historyRowNumberColumn" minWidth="60.0" prefWidth="80.0" text="Row #" />
                   <TableColumn fx:id="historyCommandTypeColumn" minWidth="36.5" prefWidth="36.5" text="B/S" />
                   <TableColumn fx:id="historyLabelColumn" minWidth="56.0" prefWidth="56.0" text="Label" />
-                  <TableColumn fx:id="historyInstructionTypeColumn" minWidth="129.5" prefWidth="141.0" text="Command" />
-                  <TableColumn fx:id="historyCyclesColumn" minWidth="59.5" prefWidth="59.5" text="Cycles" />
+                  <TableColumn fx:id="historyInstructionTypeColumn" minWidth="129.5" prefWidth="300.0" text="Command" />
+                  <TableColumn fx:id="historyCyclesColumn" minWidth="0.0" prefWidth="60.0" text="Cycles" />
                </columns>
             </TableView>
          </content>

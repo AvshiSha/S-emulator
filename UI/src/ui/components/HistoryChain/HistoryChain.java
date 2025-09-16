@@ -8,6 +8,7 @@ import javafx.collections.ObservableList;
 import semulator.instructions.*;
 import semulator.label.Label;
 import semulator.program.SProgram;
+import semulator.variable.Variable;
 import ui.components.InstructionTable.InstructionTable.InstructionRow;
 
 import java.util.List;
@@ -84,9 +85,8 @@ public class HistoryChain {
                     getCommandType(instruction), // B or S
                     getLabelText(instruction.getLabel()), // Label text
                     getInstructionText(instruction), // Instruction description
-                    instruction.cycles(),    // Cycles
-                    variable
-            );
+                    instruction.cycles(), // Cycles
+                    variable);
             historyData.add(row);
         }
     }
@@ -138,6 +138,33 @@ public class HistoryChain {
             return "IF " + j.getVariable() + " == " + j.getConstant() + " GOTO " + j.getTarget();
         } else if (instruction instanceof JumpEqualVariableInstruction j) {
             return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
+        } else if (instruction instanceof QuoteInstruction q) {
+            String arguments = "";
+            List<Variable> args = q.getFunctionArguments();
+            if (args.size() > 0) {
+                arguments += ",";
+            }
+            for (int i = 0; i < args.size(); i++) {
+                arguments += args.get(i).getRepresentation();
+                if (i < args.size() - 1) { // Not the last element
+                    arguments += ",";
+                }
+            }
+            return q.getVariable() + " <- (" + q.getFunctionName() + arguments + ")";
+        } else if (instruction instanceof JumpEqualFunctionInstruction jef) {
+            String arguments = "";
+            List<Variable> args = jef.getFunctionArguments();
+            if (args.size() > 0) {
+                arguments += ",";
+            }
+            for (int i = 0; i < args.size(); i++) {
+                arguments += args.get(i).getRepresentation();
+                if (i < args.size() - 1) { // Not the last element
+                    arguments += ",";
+                }
+            }
+            return "IF " + jef.getVariable() + " == (" + jef.getFunctionName() + arguments + ") GOTO "
+                    + jef.getTarget();
         }
         return instruction.getName();
     }

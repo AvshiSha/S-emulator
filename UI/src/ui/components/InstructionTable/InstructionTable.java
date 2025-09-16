@@ -11,6 +11,7 @@ import semulator.instructions.*;
 import semulator.label.Label;
 import semulator.label.FixedLabel;
 import semulator.program.SProgram;
+import semulator.variable.Variable;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -39,6 +40,9 @@ public class InstructionTable {
     // For highlighting functionality
     private String currentHighlightTerm = null;
     private int currentExecutingInstructionIndex = -1; // -1 means no instruction is executing
+
+    // Store current program to access functions
+    private SProgram currentProgram;
 
     @FXML
     private void initialize() {
@@ -77,6 +81,7 @@ public class InstructionTable {
         currentInstructions.clear();
         currentHighlightTerm = null; // Clear any existing highlighting
         currentExecutingInstructionIndex = -1; // Clear current instruction highlighting
+        currentProgram = program; // Store program reference
 
         if (program == null || program.getInstructions() == null) {
             return;
@@ -182,11 +187,62 @@ public class InstructionTable {
             return "IF " + j.getVariable() + " == " + j.getConstant() + " GOTO " + j.getTarget();
         } else if (instruction instanceof JumpEqualVariableInstruction j) {
             return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
+        } else if (instruction instanceof QuoteInstruction q) {
+            String arguments = "";
+            List<Variable> args = q.getFunctionArguments();
+            if (args.size() > 0) {
+                arguments += ",";
+            }
+            for (int i = 0; i < args.size(); i++) {
+                arguments += args.get(i).getRepresentation();
+                if (i < args.size() - 1) { // Not the last element
+                    arguments += ",";
+                }
+            }
+            return q.getVariable() + " <- (" + q.getFunctionName() + arguments + ")";
+        } else if (instruction instanceof JumpEqualFunctionInstruction jef) {
+            String arguments = "";
+            List<Variable> args = jef.getFunctionArguments();
+            if (args.size() > 0) {
+                arguments += ",";
+            }
+            for (int i = 0; i < args.size(); i++) {
+                arguments += args.get(i).getRepresentation();
+                if (i < args.size() - 1) { // Not the last element
+                    arguments += ",";
+                }
+            }
+            return "IF " + jef.getVariable() + " == (" + jef.getFunctionName() + arguments + ") GOTO "
+                    + jef.getTarget();
         }
         return instruction.getName();
     }
 
-    // Data model class for table rows
+    private void printFunctionBody(String functionName) {
+        if (currentProgram == null) {
+            System.out.println("  No program loaded");
+            return;
+        }
+
+        // Check if the program has functions (assuming it's SProgramImpl)
+        if (currentProgram instanceof semulator.program.SProgramImpl) {
+            semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) currentProgram;
+            var functions = programImpl.getFunctions();
+
+            if (functions.containsKey(functionName)) {
+                var functionInstructions = functions.get(functionName);
+                for (SInstruction inst : functionInstructions) {
+                    String instructionText = getInstructionText(inst);
+                    System.out.println("  " + instructionText);
+                }
+            } else {
+                System.out.println("  Function '" + functionName + "' not found");
+            }
+        } else {
+            System.out.println("  Program does not support functions");
+        }
+    }
+
     public static class InstructionRow {
         private final javafx.beans.property.IntegerProperty rowNumber;
         private final javafx.beans.property.StringProperty commandType;
@@ -194,9 +250,10 @@ public class InstructionTable {
         private final javafx.beans.property.StringProperty instructionType;
         private final javafx.beans.property.IntegerProperty cycles;
         private final javafx.beans.property.StringProperty variable;
+        private boolean highlighted = false;
 
-        public InstructionRow(int rowNumber, String commandType, String label, String instructionType, int cycles,
-                String variable) {
+        public InstructionRow(int rowNumber, String commandType, String label,
+                String instructionType, int cycles, String variable) {
             this.rowNumber = new javafx.beans.property.SimpleIntegerProperty(rowNumber);
             this.commandType = new javafx.beans.property.SimpleStringProperty(commandType);
             this.label = new javafx.beans.property.SimpleStringProperty(label);
@@ -205,7 +262,7 @@ public class InstructionTable {
             this.variable = new javafx.beans.property.SimpleStringProperty(variable);
         }
 
-        // Property getters for JavaFX binding
+        // Property getters
         public javafx.beans.property.IntegerProperty rowNumberProperty() {
             return rowNumber;
         }
@@ -226,12 +283,11 @@ public class InstructionTable {
             return cycles;
         }
 
-        // Add this method
         public javafx.beans.property.StringProperty variableProperty() {
             return variable;
         }
 
-        // Regular getters
+        // Value getters
         public int getRowNumber() {
             return rowNumber.get();
         }
@@ -256,9 +312,7 @@ public class InstructionTable {
             return variable.get();
         }
 
-        // Highlighting functionality
-        private boolean highlighted = false;
-
+        // Highlighting methods
         public void setHighlighted(boolean highlighted) {
             this.highlighted = highlighted;
         }
@@ -323,15 +377,15 @@ public class InstructionTable {
                         // Check if this is the currently executing instruction
                         if (rowIndex == currentExecutingInstructionIndex) {
                             style = "-fx-background-color: #4CAF50; -fx-font-weight: bold; -fx-text-fill: white;"; // Green
-                                                                                                                   // highlight
-                                                                                                                   // for
-                                                                                                                   // current
-                                                                                                                   // instruction
+                            // highlight
+                            // for
+                            // current
+                            // instruction
                         }
                         // Check if this row should be highlighted for search
                         else if (currentHighlightTerm != null && rowContainsTerm(item, currentHighlightTerm)) {
                             style = "-fx-background-color: #FFE135; -fx-font-weight: bold;"; // Yellow highlight for
-                                                                                             // search
+                            // search
                         }
 
                         setStyle(style);

@@ -18,6 +18,12 @@ public enum VariableType {
         public String getVariableRepresentation(int number) {
             return "z" + number;
         }
+    },
+    Constant {
+        @Override
+        public String getVariableRepresentation(int number) {
+            return number + "";
+        }
     };
 
     public abstract String getVariableRepresentation(int number);
