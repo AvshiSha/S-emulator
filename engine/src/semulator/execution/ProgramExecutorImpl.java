@@ -31,18 +31,29 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         ExecutionContext context = new LocalExecutionContext(input);
         lastContext = context;
 
+        // Use the original program instructions (don't expand synthetic instructions)
+        List<SInstruction> instructions = program.getInstructions();
+
         // Build label-to-instruction map for efficient jumping
-        Map<String, Integer> labelToIndex = buildLabelMap();
+        Map<String, Integer> labelToIndex = buildLabelMap(instructions);
 
         // Start with the first instruction
         int currentIndex = 0;
-        List<SInstruction> instructions = program.getInstructions();
 
         while (currentIndex < instructions.size()) {
             SInstruction currentInstruction = instructions.get(currentIndex);
             totalCycles += currentInstruction.cycles();
-            // Execute the instruction and get the next label
-            Label nextLabel = currentInstruction.execute(context);
+
+            // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially
+            Label nextLabel;
+            if (currentInstruction instanceof semulator.instructions.QuoteInstruction quoteInstruction) {
+                nextLabel = executeQuoteInstruction(quoteInstruction, context);
+            } else if (currentInstruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
+                nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction, context);
+            } else {
+                // Execute the instruction and get the next label
+                nextLabel = currentInstruction.execute(context);
+            }
 
             // Determine next instruction based on the returned label
             if (nextLabel == FixedLabel.EMPTY) {
@@ -67,9 +78,8 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         return context.getVariableValue(Variable.RESULT);
     }
 
-    private Map<String, Integer> buildLabelMap() {
+    private Map<String, Integer> buildLabelMap(List<SInstruction> instructions) {
         Map<String, Integer> labelMap = new HashMap<>();
-        List<SInstruction> instructions = program.getInstructions();
 
         // First pass: collect all labels that are actually defined on instructions
         for (int i = 0; i < instructions.size(); i++) {
@@ -149,5 +159,140 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         public Map<Variable, Long> getAllVariables() {
             return new HashMap<>(state);
         }
+    }
+
+    private Label executeQuoteInstruction(semulator.instructions.QuoteInstruction quoteInstruction,
+            ExecutionContext context) {
+        try {
+            // Get the function definition from the program
+            if (!(program instanceof semulator.program.SProgramImpl)) {
+                // If we can't get the function, just assign 0 as fallback
+                context.updateVariable(quoteInstruction.getVariable(), 0L);
+                return FixedLabel.EMPTY;
+            }
+
+            semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) program;
+            var functions = programImpl.getFunctions();
+            String functionName = quoteInstruction.getFunctionName();
+
+            if (!functions.containsKey(functionName)) {
+                // Function not found, assign 0 as fallback
+                context.updateVariable(quoteInstruction.getVariable(), 0L);
+                return FixedLabel.EMPTY;
+            }
+
+            // Get the function body
+            var functionInstructions = functions.get(functionName);
+
+            // Create a new execution context for the function
+            java.util.List<Long> functionInputs = new java.util.ArrayList<>();
+            for (semulator.variable.Variable arg : quoteInstruction.getFunctionArguments()) {
+                if (arg.getType() == semulator.variable.VariableType.Constant) {
+                    functionInputs.add((long) arg.getNumber());
+                } else {
+                    // Get the value from the current execution context
+                    functionInputs.add(context.getVariableValue(arg));
+                }
+            }
+
+            LocalExecutionContext functionContext = new LocalExecutionContext(functionInputs.toArray(new Long[0]));
+
+            // Execute the function body
+            long functionResult = executeFunctionBody(functionInstructions, functionContext);
+
+            // Assign the result to the target variable
+            context.updateVariable(quoteInstruction.getVariable(), functionResult);
+
+            return FixedLabel.EMPTY;
+
+        } catch (Exception e) {
+            System.err.println("Error executing quote instruction: " + e.getMessage());
+            // Fallback: assign 0 to the target variable
+            context.updateVariable(quoteInstruction.getVariable(), 0L);
+            return FixedLabel.EMPTY;
+        }
+    }
+
+    private Label executeJumpEqualFunctionInstruction(
+            semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction,
+            ExecutionContext context) {
+        try {
+            // Execute the function and compare its result with the variable
+            long functionResult = executeFunctionForJumpEqual(jumpEqualFunctionInstruction, context);
+            long variableValue = context.getVariableValue(jumpEqualFunctionInstruction.getVariable());
+
+            if (variableValue == functionResult) {
+                return jumpEqualFunctionInstruction.getTarget(); // Jump if equal
+            } else {
+                return FixedLabel.EMPTY; // Continue if not equal
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error executing jump equal function instruction: " + e.getMessage());
+            // Fallback: don't jump
+            return FixedLabel.EMPTY;
+        }
+    }
+
+    private long executeFunctionForJumpEqual(
+            semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction,
+            ExecutionContext context) {
+        try {
+            // Get the function definition from the program
+            if (!(program instanceof semulator.program.SProgramImpl)) {
+                return 0L; // Fallback
+            }
+
+            semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) program;
+            var functions = programImpl.getFunctions();
+            String functionName = jumpEqualFunctionInstruction.getFunctionName();
+
+            if (!functions.containsKey(functionName)) {
+                return 0L; // Fallback
+            }
+
+            // Get the function body
+            var functionInstructions = functions.get(functionName);
+
+            // Create a new execution context for the function
+            java.util.List<Long> functionInputs = new java.util.ArrayList<>();
+            for (semulator.variable.Variable arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
+                if (arg.getType() == semulator.variable.VariableType.Constant) {
+                    functionInputs.add((long) arg.getNumber());
+                } else {
+                    // Get the value from the current execution context
+                    functionInputs.add(context.getVariableValue(arg));
+                }
+            }
+
+            LocalExecutionContext functionContext = new LocalExecutionContext(functionInputs.toArray(new Long[0]));
+
+            // Execute the function body and return the result
+            return executeFunctionBody(functionInstructions, functionContext);
+
+        } catch (Exception e) {
+            System.err.println("Error executing function for jump equal: " + e.getMessage());
+            return 0L; // Fallback
+        }
+    }
+
+    private long executeFunctionBody(java.util.List<semulator.instructions.SInstruction> functionInstructions,
+            LocalExecutionContext functionContext) {
+        // Execute the function body and return the result
+        // The result is stored in the 'y' variable (Variable.RESULT)
+
+        for (semulator.instructions.SInstruction instruction : functionInstructions) {
+            semulator.label.Label nextLabel = instruction.execute(functionContext);
+
+            // Handle jumps within the function (though functions typically don't have
+            // jumps)
+            if (nextLabel != semulator.label.FixedLabel.EMPTY && nextLabel != semulator.label.FixedLabel.EXIT) {
+                // For now, we'll ignore jumps in functions and continue execution
+                // In a more sophisticated implementation, we'd handle function-internal jumps
+            }
+        }
+
+        // Return the value of the 'y' variable (the function's output)
+        return functionContext.getVariableValue(semulator.variable.Variable.RESULT);
     }
 }

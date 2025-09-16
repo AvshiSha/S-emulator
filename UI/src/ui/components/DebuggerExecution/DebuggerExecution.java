@@ -23,6 +23,7 @@ import semulator.instructions.SInstruction;
 
 import ui.RunResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -184,11 +185,15 @@ public class DebuggerExecution {
 
     @FXML
     private void startDebugExecution(ActionEvent event) {
+        System.out.println("DEBUG: startDebugExecution() called");
+
         if (currentProgram == null) {
+            System.out.println("DEBUG: No program loaded, showing alert");
             showAlert("No Program", "Please load a program first.");
             return;
         }
 
+        System.out.println("DEBUG: Starting debug mode for program: " + currentProgram.getName());
         isDebugMode.set(true);
         isPaused.set(true); // Start paused in debug mode
         isExecuting.set(true);
@@ -197,6 +202,7 @@ public class DebuggerExecution {
         isStepExecution = true;
 
         // Initialize debugger state
+        System.out.println("DEBUG: Initializing debugger state...");
         initializeDebuggerState();
 
         updateButtonStates();
@@ -205,6 +211,7 @@ public class DebuggerExecution {
 
         // Highlight the first instruction immediately when debug mode starts
         if (instructionTableCallback != null && !currentInstructions.isEmpty()) {
+            System.out.println("DEBUG: Highlighting first instruction (index 0)");
             instructionTableCallback.accept(0); // Highlight instruction at index 0
         }
 
@@ -212,6 +219,8 @@ public class DebuggerExecution {
         if (headerController != null) {
             headerController.setExpansionControlsEnabled(false);
         }
+
+        System.out.println("DEBUG: Debug mode initialization completed");
     }
 
     @FXML
@@ -256,8 +265,14 @@ public class DebuggerExecution {
 
     @FXML
     private void stepOver(ActionEvent event) {
+        System.out.println("DEBUG: stepOver() called - isDebugMode: " + isDebugMode.get() +
+                ", isPaused: " + isPaused.get() + ", isStepExecution: " + isStepExecution);
+
         if (isDebugMode.get() && isPaused.get() && isStepExecution) {
+            System.out.println("DEBUG: Conditions met, executing single step");
             executeSingleStep();
+        } else {
+            System.out.println("DEBUG: Conditions not met for step execution");
         }
     }
 
@@ -462,6 +477,10 @@ public class DebuggerExecution {
                         varName = jumpNotZero.getVariable().toString();
                     } else if (instruction instanceof semulator.instructions.JumpZeroInstruction jumpZero) {
                         varName = jumpZero.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.QuoteInstruction quote) {
+                        varName = quote.getVariable().toString();
+                    } else if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunc) {
+                        varName = jumpEqualFunc.getVariable().toString();
                     }
 
                     // Check if it's a valid input variable (x1, x2, x3, etc.)
@@ -546,9 +565,12 @@ public class DebuggerExecution {
 
     // Debugger-specific methods
     private void initializeDebuggerState() {
+        System.out.println("DEBUG: initializeDebuggerState() called");
+
         if (currentProgram != null && currentProgram.getInstructions() != null) {
             currentInstructions.clear();
             currentInstructions.addAll(currentProgram.getInstructions());
+            System.out.println("DEBUG: Loaded " + currentInstructions.size() + " instructions into debugger");
 
             // Initialize variable states
             previousVariableState.clear();
@@ -556,13 +578,18 @@ public class DebuggerExecution {
 
             // Initialize step-by-step execution context
             List<Long> inputs = getOrderedInputs();
+            System.out.println("DEBUG: Ordered inputs: " + inputs);
             stepExecutionContext = new StepExecutionContext(inputs.toArray(new Long[0]));
 
             // Build label-to-index map for step-by-step execution
             buildLabelMap();
+            System.out.println("DEBUG: Label map: " + labelToIndexMap);
 
             // Get initial variable state
             updateVariableStates();
+            System.out.println("DEBUG: Debugger state initialization completed");
+        } else {
+            System.out.println("DEBUG: No program or instructions available for debugger initialization");
         }
     }
 
@@ -588,7 +615,11 @@ public class DebuggerExecution {
     }
 
     private void executeSingleStep() {
+        System.out.println("DEBUG: executeSingleStep() called - currentInstructionIndex: " + currentInstructionIndex +
+                ", totalInstructions: " + currentInstructions.size());
+
         if (currentInstructionIndex >= currentInstructions.size()) {
+            System.out.println("DEBUG: Program execution completed - reached end of instructions");
             updateExecutionStatus("Program execution completed");
             isExecuting.set(false);
             isPaused.set(false);
@@ -613,20 +644,38 @@ public class DebuggerExecution {
 
             // Execute the current instruction
             semulator.instructions.SInstruction currentInstruction = currentInstructions.get(currentInstructionIndex);
+            System.out.println("DEBUG: Executing instruction " + currentInstructionIndex + ": " +
+                    currentInstruction.getName() + " (" + currentInstruction.getClass().getSimpleName() + ")");
 
-            // Execute just this one instruction using the step execution context
-            semulator.label.Label nextLabel = currentInstruction.execute(stepExecutionContext);
+            // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially in debug mode
+            semulator.label.Label nextLabel;
+            if (currentInstruction instanceof semulator.instructions.QuoteInstruction quoteInstruction) {
+                System.out.println("DEBUG: Detected QUOTE instruction - calling executeQuoteInstruction()");
+                nextLabel = executeQuoteInstruction(quoteInstruction);
+            } else if (currentInstruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
+                System.out.println(
+                        "DEBUG: Detected JUMP_EQUAL_FUNCTION instruction - calling executeJumpEqualFunctionInstruction()");
+                nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction);
+            } else {
+                System.out.println("DEBUG: Regular instruction - calling execute() directly");
+                // Execute just this one instruction using the step execution context
+                nextLabel = currentInstruction.execute(stepExecutionContext);
+            }
 
             // Update variable states from the execution context
             updateVariableStatesFromContext();
             currentCycles.set(currentCycles.get() + currentInstruction.cycles());
+            System.out.println("DEBUG: Updated cycles to: " + currentCycles.get() + " (added "
+                    + currentInstruction.cycles() + ")");
 
             // Determine next instruction based on the returned label
             if (nextLabel == semulator.label.FixedLabel.EMPTY) {
+                System.out.println("DEBUG: nextLabel is EMPTY - continuing to next instruction");
                 // Add cycles for this instruction
                 // Continue to next instruction in sequence
                 currentInstructionIndex++;
             } else if (nextLabel == semulator.label.FixedLabel.EXIT) {
+                System.out.println("DEBUG: nextLabel is EXIT - program execution completed");
                 // Add cycles for this instruction
                 // Exit the program
                 updateExecutionStatus("Program execution completed");
@@ -646,14 +695,18 @@ public class DebuggerExecution {
                 updateCyclesDisplay();
                 return;
             } else {
+                System.out.println("DEBUG: nextLabel is: " + nextLabel.getLabel() + " - attempting jump");
                 // Add cycles for this instruction
                 // Jump to the next label
 
                 String labelName = nextLabel.getLabel();
                 Integer targetIndex = labelToIndexMap.get(labelName);
                 if (targetIndex != null) {
+                    System.out.println("DEBUG: Jumping to label '" + labelName + "' at index: " + targetIndex);
                     currentInstructionIndex = targetIndex;
                 } else {
+                    System.out.println(
+                            "DEBUG: Label '" + labelName + "' not found in labelMap, continuing to next instruction");
                     // If label not found, continue to next instruction
                     currentInstructionIndex++;
                 }
@@ -665,11 +718,14 @@ public class DebuggerExecution {
 
             // Notify instruction table to highlight current instruction
             if (instructionTableCallback != null) {
+                System.out.println("DEBUG: Notifying instruction table to highlight instruction at index: "
+                        + currentInstructionIndex);
                 instructionTableCallback.accept(currentInstructionIndex);
             }
 
             updateExecutionStatus(
                     "Executed instruction " + (currentInstructionIndex - 1) + " of " + currentInstructions.size());
+            System.out.println("DEBUG: Step execution completed. Next instruction index: " + currentInstructionIndex);
 
             // Add a small delay to ensure UI updates are visible
             try {
@@ -679,6 +735,8 @@ public class DebuggerExecution {
             }
 
         } catch (Exception e) {
+            System.err.println("DEBUG: Exception in executeSingleStep: " + e.getMessage());
+            e.printStackTrace();
             updateExecutionStatus("Error executing step: " + e.getMessage());
             System.err.println("Error in step execution: " + e.getMessage());
         }
@@ -695,6 +753,167 @@ public class DebuggerExecution {
         if (stepExecutionContext != null && stepExecutionContext instanceof StepExecutionContext) {
             currentVariableState.clear();
             currentVariableState.putAll(((StepExecutionContext) stepExecutionContext).variableState());
+        }
+    }
+
+    private semulator.label.Label executeQuoteInstruction(semulator.instructions.QuoteInstruction quoteInstruction) {
+        System.out.println("DEBUG: executeQuoteInstruction() called");
+        System.out.println("DEBUG: Target variable: " + quoteInstruction.getVariable());
+        System.out.println("DEBUG: Function name: " + quoteInstruction.getFunctionName());
+        System.out.println("DEBUG: Function arguments: " + quoteInstruction.getFunctionArguments());
+
+        try {
+            // Get the function definition from the program
+            if (!(currentProgram instanceof semulator.program.SProgramImpl)) {
+                System.out.println("DEBUG: Program is not SProgramImpl, using fallback");
+                // If we can't get the function, just assign 0 as fallback
+                stepExecutionContext.updateVariable(quoteInstruction.getVariable(), 0L);
+                return semulator.label.FixedLabel.EMPTY;
+            }
+
+            semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) currentProgram;
+            var functions = programImpl.getFunctions();
+            String functionName = quoteInstruction.getFunctionName();
+            System.out.println("DEBUG: Available functions: " + functions.keySet());
+
+            if (!functions.containsKey(functionName)) {
+                System.out.println("DEBUG: Function '" + functionName + "' not found, using fallback");
+                // Function not found, assign 0 as fallback
+                stepExecutionContext.updateVariable(quoteInstruction.getVariable(), 0L);
+                return semulator.label.FixedLabel.EMPTY;
+            }
+
+            // Get the function body
+            var functionInstructions = functions.get(functionName);
+            System.out.println(
+                    "DEBUG: Function '" + functionName + "' has " + functionInstructions.size() + " instructions");
+
+            // Create a new execution context for the function
+            List<Long> functionInputs = new ArrayList<>();
+            for (semulator.variable.Variable arg : quoteInstruction.getFunctionArguments()) {
+                if (arg.getType() == semulator.variable.VariableType.Constant) {
+                    long constantValue = (long) arg.getNumber();
+                    functionInputs.add(constantValue);
+                    System.out.println("DEBUG: Constant argument: " + arg + " = " + constantValue);
+                } else {
+                    // Get the value from the current execution context
+                    long variableValue = stepExecutionContext.getVariableValue(arg);
+                    functionInputs.add(variableValue);
+                    System.out.println("DEBUG: Variable argument: " + arg + " = " + variableValue);
+                }
+            }
+
+            System.out.println("DEBUG: Function inputs: " + functionInputs);
+            StepExecutionContext functionContext = new StepExecutionContext(functionInputs.toArray(new Long[0]));
+
+            // Execute the function body
+            System.out.println("DEBUG: Executing function body...");
+            long functionResult = executeFunctionBody(functionInstructions, functionContext);
+            System.out.println("DEBUG: Function result: " + functionResult);
+
+            // Assign the result to the target variable
+            stepExecutionContext.updateVariable(quoteInstruction.getVariable(), functionResult);
+            System.out.println(
+                    "DEBUG: Assigned result " + functionResult + " to variable " + quoteInstruction.getVariable());
+
+            return semulator.label.FixedLabel.EMPTY;
+
+        } catch (Exception e) {
+            System.err.println("DEBUG: Exception in executeQuoteInstruction: " + e.getMessage());
+            e.printStackTrace();
+            // Fallback: assign 0 to the target variable
+            stepExecutionContext.updateVariable(quoteInstruction.getVariable(), 0L);
+            return semulator.label.FixedLabel.EMPTY;
+        }
+    }
+
+    private long executeFunctionBody(List<semulator.instructions.SInstruction> functionInstructions,
+            StepExecutionContext functionContext) {
+        System.out.println("DEBUG: executeFunctionBody() called with " + functionInstructions.size() + " instructions");
+
+        // Execute the function body and return the result
+        // The result is stored in the 'y' variable (Variable.RESULT)
+
+        for (int i = 0; i < functionInstructions.size(); i++) {
+            semulator.instructions.SInstruction instruction = functionInstructions.get(i);
+            System.out.println("DEBUG: Executing function instruction " + i + ": " + instruction.getName());
+
+            semulator.label.Label nextLabel = instruction.execute(functionContext);
+
+            // Handle jumps within the function (though functions typically don't have
+            // jumps)
+            if (nextLabel != semulator.label.FixedLabel.EMPTY && nextLabel != semulator.label.FixedLabel.EXIT) {
+                System.out
+                        .println("DEBUG: Function instruction returned label: " + nextLabel.getLabel() + " (ignoring)");
+                // For now, we'll ignore jumps in functions and continue execution
+                // In a more sophisticated implementation, we'd handle function-internal jumps
+            }
+        }
+
+        // Return the value of the 'y' variable (the function's output)
+        long result = functionContext.getVariableValue(semulator.variable.Variable.RESULT);
+        System.out.println("DEBUG: Function body execution completed, result (y): " + result);
+        return result;
+    }
+
+    private semulator.label.Label executeJumpEqualFunctionInstruction(
+            semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
+        try {
+            // Execute the function and compare its result with the variable
+            long functionResult = executeFunctionForJumpEqual(jumpEqualFunctionInstruction);
+            long variableValue = stepExecutionContext.getVariableValue(jumpEqualFunctionInstruction.getVariable());
+
+            if (variableValue == functionResult) {
+                return jumpEqualFunctionInstruction.getTarget(); // Jump if equal
+            } else {
+                return semulator.label.FixedLabel.EMPTY; // Continue if not equal
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error executing jump equal function instruction: " + e.getMessage());
+            // Fallback: don't jump
+            return semulator.label.FixedLabel.EMPTY;
+        }
+    }
+
+    private long executeFunctionForJumpEqual(
+            semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
+        try {
+            // Get the function definition from the program
+            if (!(currentProgram instanceof semulator.program.SProgramImpl)) {
+                return 0L; // Fallback
+            }
+
+            semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) currentProgram;
+            var functions = programImpl.getFunctions();
+            String functionName = jumpEqualFunctionInstruction.getFunctionName();
+
+            if (!functions.containsKey(functionName)) {
+                return 0L; // Fallback
+            }
+
+            // Get the function body
+            var functionInstructions = functions.get(functionName);
+
+            // Create a new execution context for the function
+            List<Long> functionInputs = new ArrayList<>();
+            for (semulator.variable.Variable arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
+                if (arg.getType() == semulator.variable.VariableType.Constant) {
+                    functionInputs.add((long) arg.getNumber());
+                } else {
+                    // Get the value from the current execution context
+                    functionInputs.add(stepExecutionContext.getVariableValue(arg));
+                }
+            }
+
+            StepExecutionContext functionContext = new StepExecutionContext(functionInputs.toArray(new Long[0]));
+
+            // Execute the function body and return the result
+            return executeFunctionBody(functionInstructions, functionContext);
+
+        } catch (Exception e) {
+            System.err.println("Error executing function for jump equal: " + e.getMessage());
+            return 0L; // Fallback
         }
     }
 

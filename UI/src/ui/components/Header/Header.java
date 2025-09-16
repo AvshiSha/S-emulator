@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.Map;
 
 public class Header {
   @FXML
@@ -47,6 +48,9 @@ public class Header {
   private Button btnIncreaseDegree;
 
   @FXML
+  private ComboBox<String> programFunctionSelector;
+
+  @FXML
   private ComboBox<String> labelVariableComboBox;
 
   private SProgram sProgram;
@@ -54,6 +58,11 @@ public class Header {
   private InstructionTable instructionTable;
   private HistoryStats historyStats;
   private ui.components.DebuggerExecution.DebuggerExecution debuggerExecution;
+
+  // Track current selection state for program/function selector
+  private boolean isShowingFunction = false;
+  private String currentFunctionName = null;
+  private boolean isProgrammaticallySettingSelection = false;
   private int currentDegree = 0;
   private int maxDegree = 0;
 
@@ -118,6 +127,9 @@ public class Header {
             if (instructionTable != null) {
               instructionTable.displayProgram(sProgram);
             }
+
+            // Populate the program/function selector
+            populateProgramFunctionSelector();
 
             // Set the program in the history stats component
             if (historyStats != null) {
@@ -358,93 +370,150 @@ public class Header {
 
   @FXML
   public void decreaseDegreePressed(ActionEvent event) {
+    System.out
+        .println("DEBUG: decreaseDegreePressed called, currentDegree: " + currentDegree + ", maxDegree: " + maxDegree);
     if (currentDegree > 0) {
       currentDegree--;
       expandToDegree(currentDegree);
+    } else {
+      System.out.println("DEBUG: Cannot decrease degree, already at minimum");
     }
   }
 
   @FXML
   public void increaseDegreePressed(ActionEvent event) {
+    System.out
+        .println("DEBUG: increaseDegreePressed called, currentDegree: " + currentDegree + ", maxDegree: " + maxDegree);
     if (currentDegree < maxDegree) {
       currentDegree++;
       expandToDegree(currentDegree);
+    } else {
+      System.out.println("DEBUG: Cannot increase degree, already at maximum");
     }
   }
 
   private void expandToDegree(int degree) {
+    System.out.println("DEBUG: expandToDegree called with degree: " + degree);
     try {
-      // Create a task for expansion to avoid blocking the UI
-      Task<Void> expansionTask = new Task<Void>() {
-        @Override
-        protected Void call() throws Exception {
-          // Perform expansion in background
-          semulator.program.ExpansionResult result = sProgram.expandToDegree(degree);
+      // DEBUG: Run expansion directly instead of using Task
+      System.out.println("DEBUG: Starting expansion for degree: " + degree);
+      // Always expand the main program, regardless of what's currently displayed
+      // Perform expansion directly
+      semulator.program.ExpansionResult result = sProgram.expandToDegree(degree);
+      System.out.println("DEBUG: Expansion completed, got " + result.instructions().size() + " instructions");
 
-          // Update UI on JavaFX thread
-          Platform.runLater(() -> {
-            try {
-              // Store the expansion result for history chain tracking
-              currentExpansionResult = result;
-              expansionResultsByDegree.put(degree, result);
+      // Update UI directly (no Platform.runLater needed)
+      try {
+        // Store the expansion result for history chain tracking
+        currentExpansionResult = result;
+        expansionResultsByDegree.put(degree, result);
 
-              // Create a temporary SProgram to hold the expanded instructions
-              SProgramImpl expandedProgram = new SProgramImpl("Expanded");
-              for (semulator.instructions.SInstruction instruction : result.instructions()) {
-                expandedProgram.addInstruction(instruction);
-              }
-
-              // Display the expanded program
-              if (instructionTable != null) {
-                instructionTable.displayProgram(expandedProgram);
-              }
-
-              // Update the debugger execution component with the appropriate program
-              if (debuggerExecution != null) {
-                if (degree == 0) {
-                  // For degree 0, use the original program
-                  debuggerExecution.setProgram(sProgram);
-                } else {
-                  // For higher degrees, use the expanded program
-                  debuggerExecution.setProgram(expandedProgram);
-                }
-              }
-
-              // Update the label/variable combo box with the current program
-              // For degree 0, use original program; for higher degrees, use expanded program
-              if (degree == 0) {
-                populateLabelVariableComboBox(sProgram);
-              } else {
-                populateLabelVariableComboBox(expandedProgram);
-              }
-
-              // Update degree display and button states
-              updateDegreeDisplay();
-              updateButtonStates();
-
-            } catch (Exception e) {
-              showErrorAlert("Expansion Error", "Failed to display expanded program: " + e.getMessage());
-              // Revert to previous degree
-              if (degree > currentDegree) {
-                currentDegree--;
-              } else if (degree < currentDegree) {
-                currentDegree++;
-              }
-              updateDegreeDisplay();
-              updateButtonStates();
-            }
-          });
-
-          return null;
+        // Create a temporary SProgram to hold the expanded instructions
+        SProgramImpl expandedProgram = new SProgramImpl("Expanded");
+        for (semulator.instructions.SInstruction instruction : result.instructions()) {
+          expandedProgram.addInstruction(instruction);
         }
-      };
 
-      // Start the expansion task
-      Thread expansionThread = new Thread(expansionTask);
-      expansionThread.setDaemon(true);
-      expansionThread.start();
+        // Copy functions from original program to expanded program
+        if (sProgram instanceof SProgramImpl) {
+          SProgramImpl originalProgram = (SProgramImpl) sProgram;
+          var originalFunctions = originalProgram.getFunctions();
+          for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
+              .entrySet()) {
+            expandedProgram.getFunctions().put(entry.getKey(), entry.getValue());
+          }
+          System.out.println("DEBUG: Copied " + originalFunctions.size() + " functions to expanded program");
+        }
+
+        // Display the expanded program
+        System.out.println("DEBUG: About to display expanded program with " + expandedProgram.getInstructions().size()
+            + " instructions");
+        if (instructionTable != null) {
+          System.out.println("DEBUG: instructionTable is not null, calling displayProgram");
+          instructionTable.displayProgram(expandedProgram);
+          System.out.println("DEBUG: displayProgram called successfully");
+        } else {
+          System.out.println("DEBUG: instructionTable is null!");
+        }
+
+        // For expanded programs, we should only show "Program" in the selector
+        // since functions are not available in expanded form
+        System.out.println("DEBUG: About to reset program/function selector");
+        if (programFunctionSelector != null) {
+          // Set flag BEFORE any operations that might trigger events
+          System.out.println("DEBUG: Setting programmatically setting selection flag");
+          isProgrammaticallySettingSelection = true;
+
+          ObservableList<String> items = FXCollections.observableArrayList();
+          items.add("Program");
+          programFunctionSelector.setItems(items);
+
+          // Reset function selection state since we're now showing expanded program
+          isShowingFunction = false;
+          currentFunctionName = null;
+
+          // Set selection without triggering event (to avoid overwriting expanded program
+          // display)
+          programFunctionSelector.getSelectionModel().select(0);
+          programFunctionSelector.setDisable(false);
+
+          // Clear flag AFTER all operations are complete
+          isProgrammaticallySettingSelection = false;
+          System.out.println("DEBUG: Finished setting programmatically setting selection flag");
+        }
+        System.out.println("DEBUG: Finished resetting program/function selector");
+
+        // Update the debugger execution component with the appropriate program
+        System.out.println("DEBUG: About to update debugger execution component");
+        if (debuggerExecution != null) {
+          if (degree == 0) {
+            // For degree 0, use the original program
+            System.out.println("DEBUG: Setting debugger to original program");
+            debuggerExecution.setProgram(sProgram);
+          } else {
+            // For higher degrees, use the expanded program
+            System.out.println("DEBUG: Setting debugger to expanded program");
+            debuggerExecution.setProgram(expandedProgram);
+          }
+        }
+        System.out.println("DEBUG: Finished updating debugger execution component");
+
+        // Update the label/variable combo box with the current program
+        // For degree 0, use original program; for higher degrees, use expanded program
+        System.out.println("DEBUG: About to populate label/variable combo box for degree: " + degree);
+        if (degree == 0) {
+          populateLabelVariableComboBox(sProgram);
+        } else {
+          populateLabelVariableComboBox(expandedProgram);
+        }
+        System.out.println("DEBUG: Finished populating label/variable combo box");
+
+        // Update current degree
+        currentDegree = degree;
+
+        // Update degree display and button states
+        System.out.println("DEBUG: About to update degree display and button states");
+        updateDegreeDisplay();
+        updateButtonStates();
+        System.out.println("DEBUG: Finished updating degree display and button states");
+
+      } catch (Exception e) {
+        System.out.println("DEBUG: Exception in expansion: " + e.getMessage());
+        e.printStackTrace();
+        showErrorAlert("Expansion Error", "Failed to display expanded program: " + e.getMessage());
+        // Revert to previous degree
+        if (degree > currentDegree) {
+          currentDegree--;
+        } else if (degree < currentDegree) {
+          currentDegree++;
+        }
+        updateDegreeDisplay();
+        updateButtonStates();
+      }
 
     } catch (Exception e) {
+      System.out.println("DEBUG: Exception in expandToDegree: " + e.getMessage());
+      e.printStackTrace();
       showErrorAlert("Expansion Error", "Failed to expand to degree " + degree + ": " + e.getMessage());
       // Revert to previous degree
       if (degree > currentDegree) {
@@ -570,10 +639,12 @@ public class Header {
 
   // Method to populate the label/variable combo box
   private void populateLabelVariableComboBox() {
+    System.out.println("DEBUG: populateLabelVariableComboBox() called with currentDegree: " + currentDegree);
     // Determine which program to use based on current degree
     SProgram programToUse;
     if (currentDegree == 0) {
       programToUse = sProgram; // Use original program for degree 0
+      System.out.println("DEBUG: Using original program for degree 0");
     } else {
       // For higher degrees, use the expanded program from current expansion result
       if (currentExpansionResult != null) {
@@ -582,9 +653,22 @@ public class Header {
         for (semulator.instructions.SInstruction instruction : currentExpansionResult.instructions()) {
           expandedProgram.addInstruction(instruction);
         }
+
+        // Copy functions from original program to expanded program
+        if (sProgram instanceof SProgramImpl) {
+          SProgramImpl originalProgram = (SProgramImpl) sProgram;
+          var originalFunctions = originalProgram.getFunctions();
+          for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
+              .entrySet()) {
+            expandedProgram.getFunctions().put(entry.getKey(), entry.getValue());
+          }
+          System.out.println("DEBUG: Copied " + originalFunctions.size() + " functions to expanded program");
+        }
         programToUse = expandedProgram;
+        System.out.println("DEBUG: Using expanded program for degree " + currentDegree);
       } else {
         programToUse = sProgram; // Fallback to original program
+        System.out.println("DEBUG: Using original program as fallback");
       }
     }
 
@@ -593,6 +677,8 @@ public class Header {
 
   // Overloaded method to populate the combo box with a specific program
   private void populateLabelVariableComboBox(SProgram program) {
+    System.out.println(
+        "DEBUG: populateLabelVariableComboBox called with program: " + (program != null ? program.getName() : "null"));
     labelVariableList.clear();
 
     if (program == null || program.getInstructions() == null) {
@@ -629,6 +715,18 @@ public class Header {
       if (instruction instanceof semulator.instructions.JumpEqualVariableInstruction jumpVar) {
         if (jumpVar.getOther() != null) {
           uniqueItems.add(jumpVar.getOther().toString());
+        }
+      }
+
+      // Add function arguments for QUOTE and JUMP_EQUAL_FUNCTION
+      if (instruction instanceof semulator.instructions.QuoteInstruction quote) {
+        for (semulator.variable.Variable arg : quote.getFunctionArguments()) {
+          uniqueItems.add(arg.toString());
+        }
+      }
+      if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunc) {
+        for (semulator.variable.Variable arg : jumpEqualFunc.getFunctionArguments()) {
+          uniqueItems.add(arg.toString());
         }
       }
     }
@@ -710,6 +808,136 @@ public class Header {
 
     // Enable the combo box if we have items
     labelVariableComboBox.setDisable(labelVariableList.isEmpty());
+  }
+
+  // Method to handle Program/Function selector
+  @FXML
+  private void onProgramFunctionSelected(ActionEvent event) {
+    System.out.println("DEBUG: onProgramFunctionSelected called, isProgrammaticallySettingSelection: "
+        + isProgrammaticallySettingSelection);
+    // Skip if we're programmatically setting the selection
+    if (isProgrammaticallySettingSelection) {
+      System.out.println("DEBUG: Skipping onProgramFunctionSelected due to programmatic setting");
+      return;
+    }
+
+    String selectedItem = programFunctionSelector.getSelectionModel().getSelectedItem();
+    System.out.println("DEBUG: onProgramFunctionSelected processing selection: " + selectedItem);
+    if (instructionTable != null && sProgram != null) {
+      if (selectedItem != null) {
+        if (selectedItem.equals("Program")) {
+          // Show the main program instructions
+          System.out.println("DEBUG: onProgramFunctionSelected displaying original program");
+          isShowingFunction = false;
+          currentFunctionName = null;
+          instructionTable.displayProgram(sProgram);
+        } else {
+          // Show function instructions
+          System.out.println("DEBUG: onProgramFunctionSelected displaying function: " + selectedItem);
+          isShowingFunction = true;
+          currentFunctionName = selectedItem;
+          displayFunctionInstructions(selectedItem);
+        }
+      }
+    }
+  }
+
+  // Method to display function instructions in the instruction table
+  private void displayFunctionInstructions(String functionName) {
+    if (sProgram instanceof SProgramImpl) {
+      SProgramImpl programImpl = (SProgramImpl) sProgram;
+      var functions = programImpl.getFunctions();
+
+      if (functions.containsKey(functionName)) {
+        var functionInstructions = functions.get(functionName);
+
+        // Create a temporary program with just the function instructions
+        SProgram functionProgram = new SProgram() {
+          @Override
+          public String getName() {
+            return functionName;
+          }
+
+          @Override
+          public void addInstruction(semulator.instructions.SInstruction instruction) {
+            // Not needed for display
+          }
+
+          @Override
+          public java.util.List<semulator.instructions.SInstruction> getInstructions() {
+            return functionInstructions;
+          }
+
+          @Override
+          public String validate(java.nio.file.Path xmlPath) {
+            return null; // Not needed for display
+          }
+
+          @Override
+          public int calculateMaxDegree() {
+            return 0; // Functions are typically basic
+          }
+
+          @Override
+          public int calculateCycles() {
+            return 0; // Not needed for display
+          }
+
+          @Override
+          public semulator.program.ExpansionResult expandToDegree(int degree) {
+            return null; // Not needed for display
+          }
+
+          @Override
+          public Object load()
+              throws javax.xml.parsers.ParserConfigurationException, java.io.IOException, org.xml.sax.SAXException {
+            return null; // Not needed for display
+          }
+        };
+
+        instructionTable.displayProgram(functionProgram);
+      }
+    }
+  }
+
+  // Method to populate the program/function selector
+  private void populateProgramFunctionSelector() {
+    if (programFunctionSelector == null || sProgram == null) {
+      System.out.println("DEBUG: populateProgramFunctionSelector - programFunctionSelector or sProgram is null");
+      return;
+    }
+
+    ObservableList<String> items = FXCollections.observableArrayList();
+
+    // Always add "Program" as the first option
+    items.add("Program");
+
+    // Add function names if available
+    if (sProgram instanceof SProgramImpl) {
+      SProgramImpl programImpl = (SProgramImpl) sProgram;
+      var functions = programImpl.getFunctions();
+      System.out.println("DEBUG: Found " + functions.size() + " functions: " + functions.keySet());
+      if (functions != null && !functions.isEmpty()) {
+        items.addAll(functions.keySet());
+      }
+    } else {
+      System.out.println("DEBUG: sProgram is not an instance of SProgramImpl");
+    }
+
+    System.out.println("DEBUG: Populating dropdown with items: " + items);
+    programFunctionSelector.setItems(items);
+
+    // Set default selection to "Program"
+    isProgrammaticallySettingSelection = true;
+    programFunctionSelector.getSelectionModel().selectFirst();
+    isProgrammaticallySettingSelection = false;
+
+    // Reset function selection state
+    isShowingFunction = false;
+    currentFunctionName = null;
+
+    // Enable the combo box if we have items
+    programFunctionSelector.setDisable(items.isEmpty());
   }
 
   // Method to handle ComboBox selection

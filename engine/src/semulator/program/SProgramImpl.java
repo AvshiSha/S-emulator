@@ -65,6 +65,22 @@ public class SProgramImpl implements SProgram {
             "JEVariableLabel",
             "gotoLabel");
 
+    // Fixed degrees under the current expansion definitions
+    private static final Map<String, Integer> DEGREE_BY_OPCODE = Map.ofEntries(
+            Map.entry("NEUTRAL", 0),
+            Map.entry("INCREASE", 0),
+            Map.entry("DECREASE", 0),
+            Map.entry("JUMP_NOT_ZERO", 0),
+            Map.entry("ZERO", 1),
+            Map.entry("GOTO", 1),
+            Map.entry("ASSIGN", 2),
+            Map.entry("ASSIGNC", 2),
+            Map.entry("IFZ", 2),
+            Map.entry("IFEQC", 3),
+            Map.entry("IFEQV", 3),
+            Map.entry("QUOTE", 2),
+            Map.entry("JUMP_EQUAL_FUNCTION", 3));
+
     private static final class InstrNode {
         final SInstruction ins;
         final int rowNumber;
@@ -132,30 +148,230 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public int calculateMaxDegree() {
-        // Fixed degrees under the current expansion definitions
-        final Map<String, Integer> DEGREE_BY_OPCODE = Map.ofEntries(
-                Map.entry("NEUTRAL", 0),
-                Map.entry("INCREASE", 0),
-                Map.entry("DECREASE", 0),
-                Map.entry("JUMP_NOT_ZERO", 0),
-                Map.entry("ZERO", 1),
-                Map.entry("GOTO", 1),
-                Map.entry("ASSIGN", 2),
-                Map.entry("ASSIGNC", 2),
-                Map.entry("IFZ", 2),
-                Map.entry("IFEQC", 3),
-                Map.entry("IFEQV", 3),
-                Map.entry("QUOTE", 5),
-                Map.entry("JUMP_EQUAL_FUNCTION", 6));
-
+        System.out.println("\n=== DEBUG: Starting maximum degree calculation ===");
+        System.out.println("DEBUG: Method calculateMaxDegree() called!");
         int max = 0;
+
+        System.out.println("DEBUG: Analyzing main program instructions (" + instructions.size() + " instructions)");
         for (SInstruction ins : instructions) {
             Integer d = DEGREE_BY_OPCODE.get(ins.getName());
             if (d != null && d > max) {
                 max = d;
+                System.out.println("DEBUG: Main program instruction '" + ins.getName() + "' sets max degree to " + max);
+            } else {
+                System.out.println("DEBUG: Main program instruction '" + ins.getName() + "' has degree " + d
+                        + " (current max: " + max + ")");
             }
         }
+
+        System.out.println("DEBUG: Analyzing functions (" + functions.size() + " functions found)");
+        for (Map.Entry<String, List<SInstruction>> functionEntry : functions.entrySet()) {
+            String functionName = functionEntry.getKey();
+            List<SInstruction> functionInstructions = functionEntry.getValue();
+
+            System.out.println("DEBUG: Analyzing function '" + functionName + "' with " + functionInstructions.size()
+                    + " instructions");
+
+            for (SInstruction ins : functionInstructions) {
+                if (ins instanceof QuoteInstruction) {
+                    // For QUOTE instructions, we need to recursively calculate the degree
+                    // of the function they call, plus the degree of the QUOTE instruction itself
+                    QuoteInstruction quote = (QuoteInstruction) ins;
+                    String calledFunctionName = quote.getFunctionName();
+
+                    System.out.println("DEBUG: Found QUOTE instruction in function '" + functionName + "' calling '"
+                            + calledFunctionName + "'");
+
+                    if (functions.containsKey(calledFunctionName)) {
+                        // Recursively calculate the degree of the called function
+                        System.out.println("DEBUG: Recursively calculating degree for called function '"
+                                + calledFunctionName + "'");
+                        int calledFunctionDegree = calculateFunctionMaxDegree(calledFunctionName, new HashSet<>())
+                                + DEGREE_BY_OPCODE.get("QUOTE");
+                        ;
+                        System.out.println("DEBUG: Called function '" + calledFunctionName + "' has degree "
+                                + calledFunctionDegree);
+                        if (calledFunctionDegree > max) {
+                            max = calledFunctionDegree;
+                            System.out.println("DEBUG: Function '" + functionName
+                                    + "' QUOTE instruction sets max degree to " + max);
+                        }
+                    } else {
+                        // Function not found, use default degree for QUOTE
+                        Integer d = DEGREE_BY_OPCODE.get("QUOTE");
+                        System.out.println("DEBUG: Called function '" + calledFunctionName
+                                + "' not found, using default QUOTE degree " + d);
+                        if (d != null && d > max) {
+                            max = d;
+                            System.out.println("DEBUG: Function '" + functionName
+                                    + "' QUOTE instruction (default) sets max degree to " + max);
+                        }
+                    }
+                } else if (ins instanceof JumpEqualFunctionInstruction) {
+                    // For JUMP_EQUAL_FUNCTION instructions, similar recursive approach
+                    JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) ins;
+                    String calledFunctionName = jef.getFunctionName();
+
+                    System.out.println("DEBUG: Found JUMP_EQUAL_FUNCTION instruction in function '" + functionName
+                            + "' calling '" + calledFunctionName + "'");
+
+                    if (functions.containsKey(calledFunctionName)) {
+                        // Recursively calculate the degree of the called function
+                        System.out.println("DEBUG: Recursively calculating degree for called function '"
+                                + calledFunctionName + "'");
+                        int calledFunctionDegree = calculateFunctionMaxDegree(calledFunctionName, new HashSet<>())
+                                + DEGREE_BY_OPCODE.get("JUMP_EQUAL_FUNCTION");
+                        System.out.println("DEBUG: Called function '" + calledFunctionName + "' has degree "
+                                + calledFunctionDegree);
+                        if (calledFunctionDegree > max) {
+                            max = calledFunctionDegree;
+                            System.out.println("DEBUG: Function '" + functionName
+                                    + "' JUMP_EQUAL_FUNCTION instruction sets max degree to " + max);
+                        }
+                    } else {
+                        // Function not found, use default degree for JUMP_EQUAL_FUNCTION
+                        Integer d = DEGREE_BY_OPCODE.get("JUMP_EQUAL_FUNCTION");
+                        System.out.println("DEBUG: Called function '" + calledFunctionName
+                                + "' not found, using default JUMP_EQUAL_FUNCTION degree " + d);
+                        if (d != null && d > max) {
+                            max = d;
+                            System.out.println("DEBUG: Function '" + functionName
+                                    + "' JUMP_EQUAL_FUNCTION instruction (default) sets max degree to " + max);
+                        }
+                    }
+                } else {
+                    // For other instructions, use the predefined degree
+                    Integer d = DEGREE_BY_OPCODE.get(ins.getName());
+                    // if (ins is called by QuoteInstruction)
+                    // d = d + DEGREE_BY_OPCODE.get("QUOTE");
+                    // if (ins is called by JumpEqualFunctionInstruction)
+                    // d = d + DEGREE_BY_OPCODE.get("JUMP_EQUAL_FUNCTION");
+                    System.out.println("DEBUG: Function '" + functionName + "' instruction '" + ins.getName()
+                            + "' has degree " + d + " (current max: " + max + ")");
+                    if (d != null && d > max) {
+                        max = d;
+                        System.out.println("DEBUG: Function '" + functionName + "' instruction '" + ins.getName()
+                                + "' sets max degree to " + max);
+                    }
+                }
+            }
+        }
+
+        System.out.println("=== DEBUG: Final calculated maximum degree: " + max + " ===\n");
         return max;
+    }
+
+    /**
+     * Recursively calculate the maximum degree of a function, preventing circular
+     * dependencies
+     */
+    private int calculateFunctionMaxDegree(String functionName, Set<String> visitedFunctions) {
+        System.out.println("DEBUG: calculateFunctionMaxDegree called for function '" + functionName + "' (visited: "
+                + visitedFunctions + ")");
+
+        // Prevent infinite recursion
+        if (visitedFunctions.contains(functionName)) {
+            System.out
+                    .println("DEBUG: Circular dependency detected for function '" + functionName + "', using degree 1");
+            return 1; // Return a safe default degree
+        }
+
+        if (!functions.containsKey(functionName)) {
+            System.out.println("DEBUG: Function '" + functionName + "' not found, using degree 1");
+            return 1; // Return a safe default degree
+        }
+
+        // Add function to visited set to prevent circular dependencies
+        visitedFunctions.add(functionName);
+        System.out.println("DEBUG: Added '" + functionName + "' to visited set: " + visitedFunctions);
+
+        List<SInstruction> functionInstructions = functions.get(functionName);
+        int maxDegree = 0;
+        System.out.println(
+                "DEBUG: Analyzing " + functionInstructions.size() + " instructions in function '" + functionName + "'");
+
+        for (SInstruction ins : functionInstructions) {
+            if (ins instanceof QuoteInstruction) {
+                QuoteInstruction quote = (QuoteInstruction) ins;
+                String calledFunctionName = quote.getFunctionName();
+
+                System.out.println("DEBUG: [RECURSIVE] Found QUOTE instruction in function '" + functionName
+                        + "' calling '" + calledFunctionName + "'");
+
+                if (functions.containsKey(calledFunctionName)) {
+                    // Recursively calculate the degree of the called function
+                    System.out.println("DEBUG: [RECURSIVE] Recursively calculating degree for called function '"
+                            + calledFunctionName + "'");
+                    int calledFunctionDegree = calculateFunctionMaxDegree(calledFunctionName, visitedFunctions)
+                            + DEGREE_BY_OPCODE.get("QUOTE");
+                    System.out.println("DEBUG: [RECURSIVE] Called function '" + calledFunctionName
+                            + "' returned degree " + calledFunctionDegree);
+                    if (calledFunctionDegree > maxDegree) {
+                        maxDegree = calledFunctionDegree;
+                        System.out.println("DEBUG: [RECURSIVE] Function '" + functionName
+                                + "' QUOTE instruction sets max degree to " + maxDegree);
+                    }
+                } else {
+                    // Function not found, use default degree for QUOTE
+                    Integer d = DEGREE_BY_OPCODE.get("QUOTE");
+                    System.out.println("DEBUG: [RECURSIVE] Called function '" + calledFunctionName
+                            + "' not found, using default QUOTE degree " + d);
+                    if (d != null && d > maxDegree) {
+                        maxDegree = d;
+                        System.out.println("DEBUG: [RECURSIVE] Function '" + functionName
+                                + "' QUOTE instruction (default) sets max degree to " + maxDegree);
+                    }
+                }
+            } else if (ins instanceof JumpEqualFunctionInstruction) {
+                JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) ins;
+                String calledFunctionName = jef.getFunctionName();
+
+                System.out.println("DEBUG: [RECURSIVE] Found JUMP_EQUAL_FUNCTION instruction in function '"
+                        + functionName + "' calling '" + calledFunctionName + "'");
+
+                if (functions.containsKey(calledFunctionName)) {
+                    // Recursively calculate the degree of the called function
+                    System.out.println("DEBUG: [RECURSIVE] Recursively calculating degree for called function '"
+                            + calledFunctionName + "'");
+                    int calledFunctionDegree = calculateFunctionMaxDegree(calledFunctionName, visitedFunctions)
+                            + DEGREE_BY_OPCODE.get("JUMP_EQUAL_FUNCTION");
+                    System.out.println("DEBUG: [RECURSIVE] Called function '" + calledFunctionName
+                            + "' returned degree " + calledFunctionDegree);
+                    if (calledFunctionDegree > maxDegree) {
+                        maxDegree = calledFunctionDegree;
+                        System.out.println("DEBUG: [RECURSIVE] Function '" + functionName
+                                + "' JUMP_EQUAL_FUNCTION instruction sets max degree to " + maxDegree);
+                    }
+                } else {
+                    // Function not found, use default degree for JUMP_EQUAL_FUNCTION
+                    Integer d = DEGREE_BY_OPCODE.get("JUMP_EQUAL_FUNCTION");
+                    System.out.println("DEBUG: [RECURSIVE] Called function '" + calledFunctionName
+                            + "' not found, using default JUMP_EQUAL_FUNCTION degree " + d);
+                    if (d != null && d > maxDegree) {
+                        maxDegree = d;
+                        System.out.println("DEBUG: [RECURSIVE] Function '" + functionName
+                                + "' JUMP_EQUAL_FUNCTION instruction (default) sets max degree to " + maxDegree);
+                    }
+                }
+            } else {
+                // For other instructions, use the predefined degree
+                Integer d = DEGREE_BY_OPCODE.get(ins.getName());
+                System.out.println("DEBUG: [RECURSIVE] Function '" + functionName + "' instruction '" + ins.getName()
+                        + "' has degree " + d + " (current max: " + maxDegree + ")");
+                if (d != null && d > maxDegree) {
+                    maxDegree = d;
+                    System.out.println("DEBUG: [RECURSIVE] Function '" + functionName + "' instruction '"
+                            + ins.getName() + "' sets max degree to " + maxDegree);
+                }
+            }
+        }
+
+        // Remove function from visited set (backtracking)
+        visitedFunctions.remove(functionName);
+        System.out.println("DEBUG: Removed '" + functionName + "' from visited set: " + visitedFunctions);
+
+        System.out.println("DEBUG: Function '" + functionName + "' has max degree: " + maxDegree);
+        return maxDegree;
     }
 
     @Override

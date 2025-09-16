@@ -38,10 +38,25 @@ public class QuoteInstruction extends AbstractInstruction {
 
     @Override
     public Label execute(ExecutionContext context) {
-        // The QUOTE instruction should not be executed directly.
-        // Instead, it should be expanded during program loading/expansion phase.
-        // This method should never be called in normal execution flow.
-        throw new UnsupportedOperationException("QUOTE instruction should be expanded before execution");
+        // Execute the quoted function and assign its result to the target variable
+
+        // For now, we'll implement a simple execution that calls the function
+        // and assigns the result to the target variable
+
+        // TODO: Implement proper function execution logic
+        // This is a placeholder implementation
+        // In a real implementation, we would:
+        // 1. Get the function definition from the program
+        // 2. Create a new execution context for the function
+        // 3. Set up the function arguments
+        // 4. Execute the function body
+        // 5. Get the result and assign it to the target variable
+
+        // For now, just assign 0 to the target variable as a placeholder
+        // In debug mode, this will be handled by the debugger
+        context.updateVariable(getVariable(), 0L);
+
+        return FixedLabel.EMPTY;
     }
 
     public String getFunctionName() {

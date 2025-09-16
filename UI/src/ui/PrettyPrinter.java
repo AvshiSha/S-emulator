@@ -141,6 +141,27 @@ public final class PrettyPrinter {
             return "IF " + j.getVariable() + " == " + j.getConstant() + " GOTO " + j.getTarget();
         } else if (in instanceof JumpEqualVariableInstruction j) {
             return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
+        } else if (in instanceof QuoteInstruction q) {
+            String arguments = "";
+            List<semulator.variable.Variable> args = q.getFunctionArguments();
+            for (int i = 0; i < args.size(); i++) {
+                arguments += args.get(i).getRepresentation();
+                if (i < args.size() - 1) {
+                    arguments += ",";
+                }
+            }
+            return q.getVariable() + " <- (" + q.getFunctionName() + ", " + arguments + ")";
+        } else if (in instanceof JumpEqualFunctionInstruction jef) {
+            String arguments = "";
+            List<semulator.variable.Variable> args = jef.getFunctionArguments();
+            for (int i = 0; i < args.size(); i++) {
+                arguments += args.get(i).getRepresentation();
+                if (i < args.size() - 1) {
+                    arguments += ",";
+                }
+            }
+            return "IF " + jef.getVariable() + " == (" + jef.getFunctionName() + ", " + arguments + ") GOTO "
+                    + jef.getTarget();
         }
         return in.getName();
     }

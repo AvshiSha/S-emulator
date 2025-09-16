@@ -108,6 +108,9 @@ public class InstructionTable {
                     variable);
             instructionData.add(row);
         }
+
+        // Refresh the table to display the new data
+        instructionTableView.refresh();
     }
 
     public void clearTable() {
