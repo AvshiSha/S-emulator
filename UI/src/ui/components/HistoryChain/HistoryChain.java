@@ -140,12 +140,12 @@ public class HistoryChain {
             return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
         } else if (instruction instanceof QuoteInstruction q) {
             String arguments = "";
-            List<Variable> args = q.getFunctionArguments();
+            List<FunctionArgument> args = q.getFunctionArguments();
             if (args.size() > 0) {
                 arguments += ",";
             }
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).getRepresentation();
+                arguments += args.get(i).toString();
                 if (i < args.size() - 1) { // Not the last element
                     arguments += ",";
                 }
@@ -153,12 +153,12 @@ public class HistoryChain {
             return q.getVariable() + " <- (" + q.getFunctionName() + arguments + ")";
         } else if (instruction instanceof JumpEqualFunctionInstruction jef) {
             String arguments = "";
-            List<Variable> args = jef.getFunctionArguments();
+            List<FunctionArgument> args = jef.getFunctionArguments();
             if (args.size() > 0) {
                 arguments += ",";
             }
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).getRepresentation();
+                arguments += args.get(i).toString();
                 if (i < args.size() - 1) { // Not the last element
                     arguments += ",";
                 }

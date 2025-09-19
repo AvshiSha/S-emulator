@@ -8,13 +8,13 @@
 <VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.InstructionTable.InstructionTable">
    <children>
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Instruction Table" />
-      <TableView fx:id="instructionTableView" prefHeight="300.0" prefWidth="400.0">
+      <TableView fx:id="instructionTableView" prefHeight="300.0" prefWidth="600.0">
          <columns>
             <TableColumn fx:id="rowNumberColumn" prefWidth="51.5" text="Row #" />
             <TableColumn fx:id="commandTypeColumn" prefWidth="37.0" text="B/S" />
             <TableColumn fx:id="labelColumn" prefWidth="49.0" text="Label" />
-            <TableColumn fx:id="instructionTypeColumn" prefWidth="202.0" text="Command" />
-            <TableColumn fx:id="cyclesColumn" prefWidth="42.5" text="Cycles" />
+            <TableColumn fx:id="instructionTypeColumn" prefWidth="400.5" text="Command" />
+            <TableColumn fx:id="cyclesColumn" prefWidth="60.0" text="Cycles" />
          </columns>
       </TableView>
    </children>

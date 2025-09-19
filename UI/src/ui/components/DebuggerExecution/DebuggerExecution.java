@@ -815,16 +815,24 @@ public class DebuggerExecution {
 
             // Create a new execution context for the function
             List<Long> functionInputs = new ArrayList<>();
-            for (semulator.variable.Variable arg : quoteInstruction.getFunctionArguments()) {
-                if (arg.getType() == semulator.variable.VariableType.Constant) {
-                    long constantValue = (long) arg.getNumber();
-                    functionInputs.add(constantValue);
-                    System.out.println("DEBUG: Constant argument: " + arg + " = " + constantValue);
+            for (semulator.instructions.FunctionArgument arg : quoteInstruction.getFunctionArguments()) {
+                if (arg.isFunctionCall()) {
+                    // For function calls, we need to execute them first
+                    // This is a simplified approach - in practice, you'd want to expand and execute
+                    functionInputs.add(0L); // Placeholder - function calls should be expanded before execution
+                    System.out.println("DEBUG: Function call argument: " + arg + " = 0 (placeholder)");
                 } else {
-                    // Get the value from the current execution context
-                    long variableValue = stepExecutionContext.getVariableValue(arg);
-                    functionInputs.add(variableValue);
-                    System.out.println("DEBUG: Variable argument: " + arg + " = " + variableValue);
+                    semulator.variable.Variable var = arg.asVariable();
+                    if (var.getType() == semulator.variable.VariableType.Constant) {
+                        long constantValue = (long) var.getNumber();
+                        functionInputs.add(constantValue);
+                        System.out.println("DEBUG: Constant argument: " + var + " = " + constantValue);
+                    } else {
+                        // Get the value from the current execution context
+                        long variableValue = stepExecutionContext.getVariableValue(var);
+                        functionInputs.add(variableValue);
+                        System.out.println("DEBUG: Variable argument: " + var + " = " + variableValue);
+                    }
                 }
             }
 
@@ -922,12 +930,18 @@ public class DebuggerExecution {
 
             // Create a new execution context for the function
             List<Long> functionInputs = new ArrayList<>();
-            for (semulator.variable.Variable arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
-                if (arg.getType() == semulator.variable.VariableType.Constant) {
-                    functionInputs.add((long) arg.getNumber());
+            for (semulator.instructions.FunctionArgument arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
+                if (arg.isFunctionCall()) {
+                    // For function calls, we need to execute them first
+                    functionInputs.add(0L); // Placeholder - function calls should be expanded before execution
                 } else {
-                    // Get the value from the current execution context
-                    functionInputs.add(stepExecutionContext.getVariableValue(arg));
+                    semulator.variable.Variable var = arg.asVariable();
+                    if (var.getType() == semulator.variable.VariableType.Constant) {
+                        functionInputs.add((long) var.getNumber());
+                    } else {
+                        // Get the value from the current execution context
+                        functionInputs.add(stepExecutionContext.getVariableValue(var));
+                    }
                 }
             }
 

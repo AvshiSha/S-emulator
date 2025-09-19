@@ -580,7 +580,7 @@ public class SProgramImpl implements SProgram {
 
     private List<SInstruction> expandQuote(QuoteInstruction quote, NameSession names) {
         String functionName = quote.getFunctionName();
-        List<Variable> arguments = quote.getFunctionArguments();
+        List<FunctionArgument> arguments = quote.getFunctionArguments();
         Variable target = quote.getVariable();
 
         // Get the function body
@@ -589,14 +589,35 @@ public class SProgramImpl implements SProgram {
             throw new IllegalArgumentException("Function '" + functionName + "' not found");
         }
 
+        List<SInstruction> expanded = new ArrayList<>();
+
+        // Process each argument - this is where composition happens
+        List<Variable> processedArguments = new ArrayList<>();
+        for (FunctionArgument arg : arguments) {
+            if (arg.isFunctionCall()) {
+                // This is a function call - expand it first (composition)
+                FunctionCall call = arg.asFunctionCall();
+                Variable resultVar = names.freshZ();
+
+                // Recursively expand the nested function call
+                List<SInstruction> nestedExpansion = expandNestedFunctionCall(call, resultVar, names);
+                expanded.addAll(nestedExpansion);
+
+                processedArguments.add(resultVar);
+            } else {
+                // Simple variable - use as before
+                processedArguments.add(arg.asVariable());
+            }
+        }
+
         // Create fresh variables for inputs, outputs, and working variables
         Map<Variable, Variable> variableMap = new HashMap<>();
         Map<Label, Label> labelMap = new HashMap<>();
 
-        // Map input variables (x1, x2, ...) to fresh working variables
-        for (int i = 0; i < arguments.size(); i++) {
+        // Map input variables (x1, x2, ...) to the processed arguments
+        for (int i = 0; i < processedArguments.size(); i++) {
             Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
-            Variable freshVar = names.freshZ();
+            Variable freshVar = processedArguments.get(i);
             variableMap.put(inputVar, freshVar);
         }
 
@@ -604,6 +625,31 @@ public class SProgramImpl implements SProgram {
         Variable outputVar = Variable.RESULT;
         Variable freshOutputVar = names.freshZ();
         variableMap.put(outputVar, freshOutputVar);
+
+        // Map ALL variables used in the function body to fresh variables
+        for (SInstruction inst : functionBody) {
+            Variable var = inst.getVariable();
+            if (var != null && !variableMap.containsKey(var)) {
+                // This is a working variable or other variable used in the function
+                Variable freshVar = names.freshZ();
+                variableMap.put(var, freshVar);
+            }
+
+            // Also check for variables in instruction arguments
+            if (inst instanceof AssignVariableInstruction assign) {
+                Variable sourceVar = assign.getSource();
+                if (sourceVar != null && !variableMap.containsKey(sourceVar)) {
+                    Variable freshVar = names.freshZ();
+                    variableMap.put(sourceVar, freshVar);
+                }
+            } else if (inst instanceof JumpEqualVariableInstruction jev) {
+                Variable otherVar = jev.getOther();
+                if (otherVar != null && !variableMap.containsKey(otherVar)) {
+                    Variable freshVar = names.freshZ();
+                    variableMap.put(otherVar, freshVar);
+                }
+            }
+        }
 
         // Create fresh labels for all labels in the function
         for (SInstruction inst : functionBody) {
@@ -618,17 +664,11 @@ public class SProgramImpl implements SProgram {
         // Create a fresh label for the end of the quoted function
         Label endLabel = names.freshLabel();
 
-        List<SInstruction> expanded = new ArrayList<>();
-
         expanded.add(new NoOpInstruction(Variable.RESULT, FixedLabel.EMPTY));
-        // If the input of the function is more than 0, we need to assign the input to a
-        // fresh working variable
-        if (arguments.size() > 0) {
-            for (int i = 0; i < arguments.size(); i++) {
-                Variable freshVar = names.freshZ();
-                expanded.add(new AssignVariableInstruction(freshVar, arguments.get(i)));
-            }
-        }
+
+        // Input variables are already initialized through processedArguments
+        // No need for additional assignment since we're using processedArguments
+        // directly
 
         // // Add initialization instructions: zi <- Vi for each argument
         // for (int i = 0; i < arguments.size(); i++) {
@@ -661,7 +701,7 @@ public class SProgramImpl implements SProgram {
 
     private List<SInstruction> expandJumpEqualFunction(JumpEqualFunctionInstruction jef, NameSession names) {
         String functionName = jef.getFunctionName();
-        List<Variable> arguments = jef.getFunctionArguments();
+        List<FunctionArgument> arguments = jef.getFunctionArguments();
         Variable compareVar = jef.getVariable();
         Label targetLabel = jef.getTarget();
 
@@ -677,8 +717,12 @@ public class SProgramImpl implements SProgram {
 
         Variable freshOutputVar = names.freshZ();
 
+        // Convert arguments to FunctionArgument (they're already FunctionArgument)
+        List<FunctionArgument> functionArguments = arguments;
+
         // Create a QUOTE instruction: z1 <- (Q, x1, ...)
-        QuoteInstruction quoteInst = new QuoteInstruction(freshOutputVar, functionName, arguments, functionBody);
+        QuoteInstruction quoteInst = new QuoteInstruction(freshOutputVar, functionName, functionArguments,
+                functionBody);
 
         // Create the comparison: IF V == z1 GOTO L
         JumpEqualVariableInstruction comparison = new JumpEqualVariableInstruction(compareVar, freshOutputVar,
@@ -689,13 +733,11 @@ public class SProgramImpl implements SProgram {
 
     private SInstruction expandInstruction(SInstruction inst, Map<Variable, Variable> variableMap,
             Map<Label, Label> labelMap, Label endLabel) {
-        // Map the variable, with special handling for the function's output variable
-        // (y)
+        // Map the variable - all variables should be in the map now
         Variable newVar = variableMap.get(inst.getVariable());
         if (newVar == null) {
-            // If not in the map, use the original variable (for working variables z1, z2,
-            // etc.)
-            newVar = inst.getVariable();
+            // This should not happen if we properly mapped all variables
+            throw new IllegalStateException("Variable " + inst.getVariable() + " not found in variable map");
         }
         Label newLabel = labelMap.getOrDefault(inst.getLabel(), inst.getLabel());
 
@@ -721,7 +763,8 @@ public class SProgramImpl implements SProgram {
                 AssignVariableInstruction assign = (AssignVariableInstruction) inst;
                 Variable newSource = variableMap.get(assign.getSource());
                 if (newSource == null) {
-                    newSource = assign.getSource();
+                    throw new IllegalStateException(
+                            "Source variable " + assign.getSource() + " not found in variable map");
                 }
                 yield new AssignVariableInstruction(newVar, newSource, newLabel);
             }
@@ -749,7 +792,7 @@ public class SProgramImpl implements SProgram {
                 JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) inst;
                 Variable newOther = variableMap.get(jev.getOther());
                 if (newOther == null) {
-                    newOther = jev.getOther();
+                    throw new IllegalStateException("Other variable " + jev.getOther() + " not found in variable map");
                 }
                 Label targetLabel = labelMap.getOrDefault(jev.getTarget(), jev.getTarget());
                 if (jev.getTarget() == FixedLabel.EXIT) {
@@ -919,12 +962,13 @@ public class SProgramImpl implements SProgram {
                 case "QUOTE" -> {
                     String functionName = args.get("functionName");
                     String functionArguments = args.get("functionArguments");
-                    List<Variable> argVars = new ArrayList<>();
+                    List<FunctionArgument> argVars = new ArrayList<>();
 
                     if (functionArguments != null && !functionArguments.trim().isEmpty()) {
-                        String[] argStrings = functionArguments.split(",");
+                        // Use the new parser that handles nested function calls
+                        String[] argStrings = splitFunctionArguments(functionArguments);
                         for (String arg : argStrings) {
-                            argVars.add(parseVariableOrConstant(arg.trim()));
+                            argVars.add(FunctionArgumentParser.parseFunctionArgument(arg));
                         }
                     }
 
@@ -943,12 +987,13 @@ public class SProgramImpl implements SProgram {
                     String functionName = args.get("functionName");
                     String functionArguments = args.get("functionArguments");
                     String targetLabel = args.get("JEFunctionLabel");
-                    List<Variable> argVars = new ArrayList<>();
+                    List<FunctionArgument> argVars = new ArrayList<>();
 
                     if (functionArguments != null && !functionArguments.trim().isEmpty()) {
-                        String[] argStrings = functionArguments.split(",");
+                        // Use the new parser that handles nested function calls
+                        String[] argStrings = splitFunctionArguments(functionArguments);
                         for (String arg : argStrings) {
-                            argVars.add(parseVariableOrConstant(arg.trim()));
+                            argVars.add(FunctionArgumentParser.parseFunctionArgument(arg));
                         }
                     }
 
@@ -1544,6 +1589,121 @@ public class SProgramImpl implements SProgram {
             if (in instanceof JumpEqualVariableInstruction j)
                 recordVar.accept(j.getOther());
         }
+    }
+
+    /**
+     * Split function arguments by commas while respecting nested parentheses.
+     * This handles the composition syntax where arguments can be nested function
+     * calls.
+     */
+    private String[] splitFunctionArguments(String args) {
+        List<String> result = new ArrayList<>();
+        int depth = 0;
+        int start = 0;
+
+        for (int i = 0; i < args.length(); i++) {
+            char c = args.charAt(i);
+            if (c == '(') {
+                depth++;
+            } else if (c == ')') {
+                depth--;
+            } else if (c == ',' && depth == 0) {
+                // Only split on commas when we're at the top level (depth 0)
+                result.add(args.substring(start, i).trim());
+                start = i + 1;
+            }
+        }
+
+        // Add the last argument
+        result.add(args.substring(start).trim());
+
+        return result.toArray(new String[0]);
+    }
+
+    /**
+     * Expand a nested function call (composition).
+     * This recursively handles function calls that are arguments to other
+     * functions.
+     */
+    private List<SInstruction> expandNestedFunctionCall(FunctionCall call, Variable resultVar, NameSession names) {
+        String functionName = call.getFunctionName();
+        List<FunctionArgument> arguments = call.getArguments();
+
+        // Get the function body
+        List<SInstruction> functionBody = functions.get(functionName);
+        if (functionBody == null) {
+            throw new IllegalArgumentException("Function '" + functionName + "' not found");
+        }
+
+        List<SInstruction> expanded = new ArrayList<>();
+
+        // Process each argument recursively
+        List<Variable> processedArguments = new ArrayList<>();
+        for (FunctionArgument arg : arguments) {
+            if (arg.isFunctionCall()) {
+                // Recursive composition
+                FunctionCall nestedCall = arg.asFunctionCall();
+                Variable nestedResultVar = names.freshZ();
+
+                List<SInstruction> nestedExpansion = expandNestedFunctionCall(nestedCall, nestedResultVar, names);
+                expanded.addAll(nestedExpansion);
+
+                processedArguments.add(nestedResultVar);
+            } else {
+                // Simple variable
+                processedArguments.add(arg.asVariable());
+            }
+        }
+
+        // Create fresh variables for inputs, outputs, and working variables
+        Map<Variable, Variable> variableMap = new HashMap<>();
+        Map<Label, Label> labelMap = new HashMap<>();
+
+        // Map input variables (x1, x2, ...) to fresh working variables
+        for (int i = 0; i < processedArguments.size(); i++) {
+            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+            Variable freshVar = names.freshZ();
+            variableMap.put(inputVar, freshVar);
+        }
+
+        // Map output variable (y) to the result variable
+        Variable outputVar = Variable.RESULT;
+        variableMap.put(outputVar, resultVar);
+
+        // Create fresh labels for all labels in the function
+        for (SInstruction inst : functionBody) {
+            if (inst.getLabel() != FixedLabel.EMPTY) {
+                Label originalLabel = inst.getLabel();
+                if (!labelMap.containsKey(originalLabel)) {
+                    labelMap.put(originalLabel, names.freshLabel());
+                }
+            }
+        }
+
+        // Create a fresh label for the end of the quoted function
+        Label endLabel = names.freshLabel();
+
+        expanded.add(new NoOpInstruction(Variable.RESULT, FixedLabel.EMPTY));
+
+        // Assign arguments to fresh variables
+        if (processedArguments.size() > 0) {
+            for (int i = 0; i < processedArguments.size(); i++) {
+                Variable freshVar = names.freshZ();
+                expanded.add(new AssignVariableInstruction(freshVar, processedArguments.get(i)));
+            }
+        }
+
+        // Add the expanded function body
+        for (SInstruction inst : functionBody) {
+            SInstruction expandedInst = expandInstruction(inst, variableMap, labelMap, endLabel);
+            if (expandedInst != null) {
+                expanded.add(expandedInst);
+            }
+        }
+
+        expanded.add(new NoOpInstruction(Variable.RESULT, endLabel));
+
+        return expanded;
     }
 
 }

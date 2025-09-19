@@ -143,9 +143,9 @@ public final class PrettyPrinter {
             return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
         } else if (in instanceof QuoteInstruction q) {
             String arguments = "";
-            List<semulator.variable.Variable> args = q.getFunctionArguments();
+            List<FunctionArgument> args = q.getFunctionArguments();
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).getRepresentation();
+                arguments += args.get(i).toString();
                 if (i < args.size() - 1) {
                     arguments += ",";
                 }
@@ -153,9 +153,9 @@ public final class PrettyPrinter {
             return q.getVariable() + " <- (" + q.getFunctionName() + ", " + arguments + ")";
         } else if (in instanceof JumpEqualFunctionInstruction jef) {
             String arguments = "";
-            List<semulator.variable.Variable> args = jef.getFunctionArguments();
+            List<FunctionArgument> args = jef.getFunctionArguments();
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).getRepresentation();
+                arguments += args.get(i).toString();
                 if (i < args.size() - 1) {
                     arguments += ",";
                 }

@@ -720,12 +720,12 @@ public class Header {
 
       // Add function arguments for QUOTE and JUMP_EQUAL_FUNCTION
       if (instruction instanceof semulator.instructions.QuoteInstruction quote) {
-        for (semulator.variable.Variable arg : quote.getFunctionArguments()) {
+        for (semulator.instructions.FunctionArgument arg : quote.getFunctionArguments()) {
           uniqueItems.add(arg.toString());
         }
       }
       if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunc) {
-        for (semulator.variable.Variable arg : jumpEqualFunc.getFunctionArguments()) {
+        for (semulator.instructions.FunctionArgument arg : jumpEqualFunc.getFunctionArguments()) {
           uniqueItems.add(arg.toString());
         }
       }

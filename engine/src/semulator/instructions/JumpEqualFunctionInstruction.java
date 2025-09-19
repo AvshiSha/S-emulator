@@ -10,11 +10,12 @@ import java.util.List;
 public class JumpEqualFunctionInstruction extends AbstractInstruction {
 
     private final String functionName;
-    private final List<Variable> functionArguments;
+    private final List<FunctionArgument> functionArguments;
     private final List<SInstruction> functionInstructions;
     private final Label target;
 
-    public JumpEqualFunctionInstruction(Variable variable, String functionName, List<Variable> functionArguments,
+    public JumpEqualFunctionInstruction(Variable variable, String functionName,
+            List<FunctionArgument> functionArguments,
             List<SInstruction> functionInstructions, Label target) {
         super(InstructionData.JUMP_EQUAL_FUNCTION, variable);
         if (functionName == null || functionName.trim().isEmpty()) {
@@ -35,7 +36,8 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
         this.target = target;
     }
 
-    public JumpEqualFunctionInstruction(Variable variable, String functionName, List<Variable> functionArguments,
+    public JumpEqualFunctionInstruction(Variable variable, String functionName,
+            List<FunctionArgument> functionArguments,
             List<SInstruction> functionInstructions, Label target, Label label) {
         super(InstructionData.JUMP_EQUAL_FUNCTION, variable, label);
         if (functionName == null || functionName.trim().isEmpty()) {
@@ -77,7 +79,7 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
         return functionName;
     }
 
-    public List<Variable> getFunctionArguments() {
+    public List<FunctionArgument> getFunctionArguments() {
         return functionArguments;
     }
 
