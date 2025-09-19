@@ -1139,6 +1139,48 @@ public class SProgramImpl implements SProgram {
                 else
                     yield new GotoLabelInstruction(target);
             }
+            case "QUOTE" -> {
+                String functionName = args.get("functionName");
+                String functionArguments = args.get("functionArguments");
+                List<FunctionArgument> parsedArguments = new ArrayList<>();
+                if (functionArguments != null && !functionArguments.trim().isEmpty()) {
+                    String[] argStrings = splitFunctionArguments(functionArguments);
+                    for (String arg : argStrings) {
+                        parsedArguments.add(FunctionArgumentParser.parseFunctionArgument(arg));
+                    }
+                }
+                List<SInstruction> functionInstructions = functions.get(functionName);
+                if (functionInstructions == null) {
+                    functionInstructions = new ArrayList<>(); // fallback
+                }
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new QuoteInstruction(var, functionName, parsedArguments, functionInstructions, selfLabel);
+                else
+                    yield new QuoteInstruction(var, functionName, parsedArguments, functionInstructions);
+            }
+            case "JUMP_EQUAL_FUNCTION" -> {
+                String functionName = args.get("functionName");
+                String functionArguments = args.get("functionArguments");
+                String targetName = args.get("JEFunctionLabel");
+                Label target = parseLabel(targetName, labelPool);
+                List<FunctionArgument> parsedArguments = new ArrayList<>();
+                if (functionArguments != null && !functionArguments.trim().isEmpty()) {
+                    String[] argStrings = splitFunctionArguments(functionArguments);
+                    for (String arg : argStrings) {
+                        parsedArguments.add(FunctionArgumentParser.parseFunctionArgument(arg));
+                    }
+                }
+                List<SInstruction> functionInstructions = functions.get(functionName);
+                if (functionInstructions == null) {
+                    functionInstructions = new ArrayList<>(); // fallback
+                }
+                if (selfLabel != FixedLabel.EMPTY)
+                    yield new JumpEqualFunctionInstruction(var, functionName, parsedArguments, functionInstructions,
+                            target, selfLabel);
+                else
+                    yield new JumpEqualFunctionInstruction(var, functionName, parsedArguments, functionInstructions,
+                            target);
+            }
             default -> null; // Unknown instruction
         };
     }

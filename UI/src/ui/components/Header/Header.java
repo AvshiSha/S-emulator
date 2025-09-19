@@ -24,6 +24,11 @@ import java.nio.file.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Set;
+import java.util.HashSet;
 
 public class Header {
   @FXML
@@ -825,9 +830,9 @@ public class Header {
     System.out.println("DEBUG: onProgramFunctionSelected processing selection: " + selectedItem);
     if (instructionTable != null && sProgram != null) {
       if (selectedItem != null) {
-        if (selectedItem.equals("Program")) {
+        if (selectedItem.equals("Main Program")) {
           // Show the main program instructions
-          System.out.println("DEBUG: onProgramFunctionSelected displaying original program");
+          System.out.println("DEBUG: onProgramFunctionSelected displaying main program");
           isShowingFunction = false;
           currentFunctionName = null;
           instructionTable.displayProgram(sProgram);
@@ -844,12 +849,17 @@ public class Header {
 
   // Method to display function instructions in the instruction table
   private void displayFunctionInstructions(String functionName) {
+    System.out.println("DEBUG: displayFunctionInstructions called for function: " + functionName);
     if (sProgram instanceof SProgramImpl) {
       SProgramImpl programImpl = (SProgramImpl) sProgram;
       var functions = programImpl.getFunctions();
+      System.out.println("DEBUG: Available functions: " + functions.keySet());
+      System.out.println("DEBUG: Looking for function: " + functionName);
+      System.out.println("DEBUG: Function exists: " + functions.containsKey(functionName));
 
       if (functions.containsKey(functionName)) {
         var functionInstructions = functions.get(functionName);
+        System.out.println("DEBUG: Found function with " + functionInstructions.size() + " instructions");
 
         // Create a temporary program with just the function instructions
         SProgram functionProgram = new SProgram() {
@@ -896,7 +906,13 @@ public class Header {
         };
 
         instructionTable.displayProgram(functionProgram);
+        System.out.println("DEBUG: Function program displayed successfully");
+      } else {
+        System.out.println("DEBUG: Function '" + functionName + "' not found in functions map");
+        System.out.println("DEBUG: Available functions are: " + functions.keySet());
       }
+    } else {
+      System.out.println("DEBUG: sProgram is not an instance of SProgramImpl");
     }
   }
 
@@ -909,16 +925,25 @@ public class Header {
 
     ObservableList<String> items = FXCollections.observableArrayList();
 
-    // Always add "Program" as the first option
-    items.add("Program");
+    // Always add "Main Program" as the first option
+    items.add("Main Program");
 
     // Add function names if available
     if (sProgram instanceof SProgramImpl) {
       SProgramImpl programImpl = (SProgramImpl) sProgram;
       var functions = programImpl.getFunctions();
       System.out.println("DEBUG: Found " + functions.size() + " functions: " + functions.keySet());
-      if (functions != null && !functions.isEmpty()) {
-        items.addAll(functions.keySet());
+
+      // Discover all functions that are referenced anywhere in the program
+      Set<String> allReferencedFunctions = discoverAllReferencedFunctions(programImpl);
+      System.out.println(
+          "DEBUG: Discovered " + allReferencedFunctions.size() + " referenced functions: " + allReferencedFunctions);
+
+      if (!allReferencedFunctions.isEmpty()) {
+        // Sort function names alphabetically for better user experience
+        List<String> sortedFunctionNames = new ArrayList<>(allReferencedFunctions);
+        Collections.sort(sortedFunctionNames);
+        items.addAll(sortedFunctionNames);
       }
     } else {
       System.out.println("DEBUG: sProgram is not an instance of SProgramImpl");
@@ -927,7 +952,7 @@ public class Header {
     System.out.println("DEBUG: Populating dropdown with items: " + items);
     programFunctionSelector.setItems(items);
 
-    // Set default selection to "Program"
+    // Set default selection to "Main Program"
     isProgrammaticallySettingSelection = true;
     programFunctionSelector.getSelectionModel().selectFirst();
     isProgrammaticallySettingSelection = false;
@@ -936,8 +961,76 @@ public class Header {
     isShowingFunction = false;
     currentFunctionName = null;
 
-    // Enable the combo box if we have items
+    // Enable the combo box and make it visible
     programFunctionSelector.setDisable(items.isEmpty());
+    programFunctionSelector.setVisible(true);
+
+    // Update the prompt text based on whether we have functions
+    if (items.size() > 1) {
+      programFunctionSelector.setPromptText("Select Program/Function (" + (items.size() - 1) + " functions)");
+    } else {
+      programFunctionSelector.setPromptText("Main Program Only");
+    }
+  }
+
+  // Method to discover all functions referenced anywhere in the program
+  private Set<String> discoverAllReferencedFunctions(SProgramImpl programImpl) {
+    Set<String> referencedFunctions = new HashSet<>();
+
+    // Add all directly defined functions
+    referencedFunctions.addAll(programImpl.getFunctions().keySet());
+
+    // Discover functions called in the main program
+    discoverFunctionsInInstructions(programImpl.getInstructions(), referencedFunctions);
+
+    // Discover functions called within other functions (recursive)
+    for (List<semulator.instructions.SInstruction> functionBody : programImpl.getFunctions().values()) {
+      discoverFunctionsInInstructions(functionBody, referencedFunctions);
+    }
+
+    return referencedFunctions;
+  }
+
+  // Helper method to discover functions called in a list of instructions
+  private void discoverFunctionsInInstructions(List<semulator.instructions.SInstruction> instructions,
+      Set<String> referencedFunctions) {
+    for (semulator.instructions.SInstruction instruction : instructions) {
+      if (instruction instanceof semulator.instructions.QuoteInstruction quote) {
+        // Add the function being called
+        referencedFunctions.add(quote.getFunctionName());
+
+        // Also check for nested function calls in arguments
+        for (semulator.instructions.FunctionArgument arg : quote.getFunctionArguments()) {
+          if (arg.isFunctionCall()) {
+            discoverFunctionsInFunctionCall(arg.asFunctionCall(), referencedFunctions);
+          }
+        }
+      } else if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction jef) {
+        // Add the function being called
+        referencedFunctions.add(jef.getFunctionName());
+
+        // Also check for nested function calls in arguments
+        for (semulator.instructions.FunctionArgument arg : jef.getFunctionArguments()) {
+          if (arg.isFunctionCall()) {
+            discoverFunctionsInFunctionCall(arg.asFunctionCall(), referencedFunctions);
+          }
+        }
+      }
+    }
+  }
+
+  // Helper method to discover functions in nested function calls
+  private void discoverFunctionsInFunctionCall(semulator.instructions.FunctionCall call,
+      Set<String> referencedFunctions) {
+    // Add the function being called
+    referencedFunctions.add(call.getFunctionName());
+
+    // Check for nested function calls in arguments
+    for (semulator.instructions.FunctionArgument arg : call.getArguments()) {
+      if (arg.isFunctionCall()) {
+        discoverFunctionsInFunctionCall(arg.asFunctionCall(), referencedFunctions);
+      }
+    }
   }
 
   // Method to handle ComboBox selection
