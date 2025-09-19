@@ -441,26 +441,33 @@ public class Header {
           System.out.println("DEBUG: instructionTable is null!");
         }
 
-        // For expanded programs, we should only show "Program" in the selector
-        // since functions are not available in expanded form
-        System.out.println("DEBUG: About to reset program/function selector");
+        // Handle program/function selector based on degree
+        System.out.println("DEBUG: About to reset program/function selector for degree: " + degree);
         if (programFunctionSelector != null) {
           // Set flag BEFORE any operations that might trigger events
           System.out.println("DEBUG: Setting programmatically setting selection flag");
           isProgrammaticallySettingSelection = true;
 
-          ObservableList<String> items = FXCollections.observableArrayList();
-          items.add("Program");
-          programFunctionSelector.setItems(items);
+          if (degree == 0) {
+            // For degree 0, restore the full function selector
+            System.out.println("DEBUG: Restoring function selector for degree 0");
+            populateProgramFunctionSelector();
+          } else {
+            // For expanded programs, only show "Program" since functions are not available
+            // in expanded form
+            System.out.println("DEBUG: Showing only Program for expanded degree " + degree);
+            ObservableList<String> items = FXCollections.observableArrayList();
+            items.add("Program");
+            programFunctionSelector.setItems(items);
 
-          // Reset function selection state since we're now showing expanded program
-          isShowingFunction = false;
-          currentFunctionName = null;
+            // Reset function selection state since we're now showing expanded program
+            isShowingFunction = false;
+            currentFunctionName = null;
 
-          // Set selection without triggering event (to avoid overwriting expanded program
-          // display)
-          programFunctionSelector.getSelectionModel().select(0);
-          programFunctionSelector.setDisable(false);
+            // Set selection without triggering event
+            programFunctionSelector.getSelectionModel().select(0);
+            programFunctionSelector.setDisable(false);
+          }
 
           // Clear flag AFTER all operations are complete
           isProgrammaticallySettingSelection = false;
