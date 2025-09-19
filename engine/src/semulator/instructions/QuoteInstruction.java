@@ -4,6 +4,7 @@ import semulator.execution.ExecutionContext;
 import semulator.label.FixedLabel;
 import semulator.label.Label;
 import semulator.variable.Variable;
+import semulator.variable.VariableType;
 
 import java.util.List;
 
@@ -11,8 +12,10 @@ public class QuoteInstruction extends AbstractInstruction {
 
     private final String functionName;
     private final List<Variable> functionArguments;
+    private final List<SInstruction> functionInstructions;
 
-    public QuoteInstruction(Variable target, String functionName, List<Variable> functionArguments) {
+    public QuoteInstruction(Variable target, String functionName, List<Variable> functionArguments,
+            List<SInstruction> functionInstructions) {
         super(InstructionData.QUOTE, target);
         if (functionName == null || functionName.trim().isEmpty()) {
             throw new IllegalArgumentException("functionName cannot be null or empty");
@@ -20,11 +23,17 @@ public class QuoteInstruction extends AbstractInstruction {
         if (functionArguments == null) {
             throw new IllegalArgumentException("functionArguments cannot be null");
         }
+        if (functionInstructions == null) {
+            throw new IllegalArgumentException("functionInstructions cannot be null");
+        }
         this.functionName = functionName.trim();
         this.functionArguments = functionArguments;
+        // we need to add in here all the instructions that are in the function body
+        this.functionInstructions = functionInstructions;
     }
 
-    public QuoteInstruction(Variable target, String functionName, List<Variable> functionArguments, Label label) {
+    public QuoteInstruction(Variable target, String functionName, List<Variable> functionArguments,
+            List<SInstruction> functionInstructions, Label label) {
         super(InstructionData.QUOTE, target, label);
         if (functionName == null || functionName.trim().isEmpty()) {
             throw new IllegalArgumentException("functionName cannot be null or empty");
@@ -32,8 +41,12 @@ public class QuoteInstruction extends AbstractInstruction {
         if (functionArguments == null) {
             throw new IllegalArgumentException("functionArguments cannot be null");
         }
+        if (functionInstructions == null) {
+            throw new IllegalArgumentException("functionInstructions cannot be null");
+        }
         this.functionName = functionName.trim();
         this.functionArguments = functionArguments;
+        this.functionInstructions = functionInstructions;
     }
 
     @Override
@@ -67,10 +80,16 @@ public class QuoteInstruction extends AbstractInstruction {
         return functionArguments;
     }
 
+    public List<SInstruction> getFunctionInstructions() {
+        return functionInstructions;
+    }
+
     @Override
     public int cycles() {
-        // QUOTE instructions have 5 base cycles plus the cycles of the quoted function
-        // This will be calculated during expansion
-        return 5;
+        int cycles = 0;
+        for (SInstruction ins : functionInstructions) {
+            cycles += ins.cycles();
+        }
+        return 5 + cycles;
     }
 }

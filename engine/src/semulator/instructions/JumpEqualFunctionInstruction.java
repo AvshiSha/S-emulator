@@ -11,10 +11,11 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
 
     private final String functionName;
     private final List<Variable> functionArguments;
+    private final List<SInstruction> functionInstructions;
     private final Label target;
 
     public JumpEqualFunctionInstruction(Variable variable, String functionName, List<Variable> functionArguments,
-            Label target) {
+            List<SInstruction> functionInstructions, Label target) {
         super(InstructionData.JUMP_EQUAL_FUNCTION, variable);
         if (functionName == null || functionName.trim().isEmpty()) {
             throw new IllegalArgumentException("functionName cannot be null or empty");
@@ -22,16 +23,20 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
         if (functionArguments == null) {
             throw new IllegalArgumentException("functionArguments cannot be null");
         }
+        if (functionInstructions == null) {
+            throw new IllegalArgumentException("functionInstructions cannot be null");
+        }
         if (target == null) {
             throw new IllegalArgumentException("target cannot be null");
         }
         this.functionName = functionName.trim();
         this.functionArguments = functionArguments;
+        this.functionInstructions = functionInstructions;
         this.target = target;
     }
 
     public JumpEqualFunctionInstruction(Variable variable, String functionName, List<Variable> functionArguments,
-            Label target, Label label) {
+            List<SInstruction> functionInstructions, Label target, Label label) {
         super(InstructionData.JUMP_EQUAL_FUNCTION, variable, label);
         if (functionName == null || functionName.trim().isEmpty()) {
             throw new IllegalArgumentException("functionName cannot be null or empty");
@@ -39,11 +44,15 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
         if (functionArguments == null) {
             throw new IllegalArgumentException("functionArguments cannot be null");
         }
+        if (functionInstructions == null) {
+            throw new IllegalArgumentException("functionInstructions cannot be null");
+        }
         if (target == null) {
             throw new IllegalArgumentException("target cannot be null");
         }
         this.functionName = functionName.trim();
         this.functionArguments = functionArguments;
+        this.functionInstructions = functionInstructions;
         this.target = target;
     }
 
@@ -72,6 +81,10 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
         return functionArguments;
     }
 
+    public List<SInstruction> getFunctionInstructions() {
+        return functionInstructions;
+    }
+
     public Label getTarget() {
         return target;
     }
@@ -80,7 +93,10 @@ public class JumpEqualFunctionInstruction extends AbstractInstruction {
     public int cycles() {
         // JUMP_EQUAL_FUNCTION instructions have 6 base cycles plus the cycles of the
         // quoted function
-        // This will be calculated during expansion
-        return 6;
+        int cycles = 0;
+        for (SInstruction ins : functionInstructions) {
+            cycles += ins.cycles();
+        }
+        return 6 + cycles;
     }
 }

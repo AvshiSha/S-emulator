@@ -24,11 +24,13 @@ import semulator.instructions.SInstruction;
 import ui.RunResult;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class DebuggerExecution {
 
@@ -494,22 +496,30 @@ public class DebuggerExecution {
                     }
                 }
 
-                // Create input fields for ALL input variables from x1 to the maximum found
+                // Create input fields ONLY for the input variables that actually exist in the
+                // program
                 if (!inputNumbers.isEmpty()) {
-                    int maxInputNumber = inputNumbers.stream().mapToInt(Integer::intValue).max().orElse(0);
+                    // Sort the input numbers to display them in order
+                    List<Integer> sortedInputNumbers = new ArrayList<>(inputNumbers);
+                    Collections.sort(sortedInputNumbers);
 
-                    for (int i = 1; i <= maxInputNumber; i++) {
-                        String inputVar = "x" + i;
+                    for (Integer inputNumber : sortedInputNumbers) {
+                        String inputVar = "x" + inputNumber;
                         // Initialize with default value 0
                         inputVariables.put(inputVar, 0);
                         createInputField(inputVar, "0");
                     }
 
-                    // Set next input number to continue from where we left off
+                    // Set next input number to continue from the maximum found + 1
+                    int maxInputNumber = sortedInputNumbers.get(sortedInputNumbers.size() - 1);
                     nextInputNumber = maxInputNumber + 1;
 
-                    updateExecutionStatus("Found input variables x1 to x" + maxInputNumber + " (total: "
-                            + maxInputNumber + " inputs)");
+                    updateExecutionStatus("Found input variables: " +
+                            sortedInputNumbers.stream()
+                                    .map(n -> "x" + n)
+                                    .collect(Collectors.joining(", "))
+                            +
+                            " (total: " + sortedInputNumbers.size() + " inputs)");
                 } else {
                     // No input variables found, start from x1
                     nextInputNumber = 1;
@@ -664,9 +674,24 @@ public class DebuggerExecution {
 
             // Update variable states from the execution context
             updateVariableStatesFromContext();
-            currentCycles.set(currentCycles.get() + currentInstruction.cycles());
+
+            // Calculate cycles properly for QUOTE and JUMP_EQUAL_FUNCTION instructions
+            int cyclesToAdd;
+            if (currentInstruction.getName().equals("QUOTE")) {
+                // For QUOTE instructions, use the proper cycle calculation: 5 + function cycles
+                cyclesToAdd = currentInstruction.cycles();
+            } else if (currentInstruction.getName().equals("JUMP_EQUAL_FUNCTION")) {
+                // For JUMP_EQUAL_FUNCTION instructions, use the proper cycle calculation
+                cyclesToAdd = currentInstruction.cycles();
+            } else {
+                // For regular instructions, use the standard cycle count
+                cyclesToAdd = currentInstruction.cycles();
+            }
+
+            currentCycles.set(currentCycles.get() + cyclesToAdd);
+
             System.out.println("DEBUG: Updated cycles to: " + currentCycles.get() + " (added "
-                    + currentInstruction.cycles() + ")");
+                    + cyclesToAdd + ")");
 
             // Determine next instruction based on the returned label
             if (nextLabel == semulator.label.FixedLabel.EMPTY) {
