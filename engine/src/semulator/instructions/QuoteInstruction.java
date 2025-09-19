@@ -126,19 +126,44 @@ public class QuoteInstruction extends AbstractInstruction {
         // Execute the function body and return the result
         // The result is stored in the 'y' variable (Variable.RESULT)
 
-        for (SInstruction instruction : functionInstructions) {
+        int instructionIndex = 0;
+        while (instructionIndex < functionInstructions.size()) {
+            SInstruction instruction = functionInstructions.get(instructionIndex);
             Label nextLabel = instruction.execute(functionContext);
 
-            // Handle jumps within the function (though functions typically don't have
-            // jumps)
-            if (nextLabel != FixedLabel.EMPTY && nextLabel != FixedLabel.EXIT) {
-                // For now, we'll ignore jumps in functions and continue execution
-                // In a more sophisticated implementation, we'd handle function-internal jumps
+            // Handle jumps within the function
+            if (nextLabel == FixedLabel.EXIT) {
+                break; // Exit the function
+            } else if (nextLabel != FixedLabel.EMPTY) {
+                // Find the target instruction by label
+                int targetIndex = findInstructionByLabel(nextLabel);
+                if (targetIndex != -1) {
+                    instructionIndex = targetIndex;
+                } else {
+                    // Label not found, continue to next instruction
+                    instructionIndex++;
+                }
+            } else {
+                // No jump, continue to next instruction
+                instructionIndex++;
             }
         }
 
         // Return the value of the 'y' variable (the function's output)
         return functionContext.getVariableValue(Variable.RESULT);
+    }
+
+    /**
+     * Find the index of an instruction with the given label
+     */
+    private int findInstructionByLabel(Label targetLabel) {
+        for (int i = 0; i < functionInstructions.size(); i++) {
+            SInstruction instruction = functionInstructions.get(i);
+            if (instruction.getLabel() != null && instruction.getLabel().equals(targetLabel)) {
+                return i;
+            }
+        }
+        return -1; // Label not found
     }
 
     public String getFunctionName() {

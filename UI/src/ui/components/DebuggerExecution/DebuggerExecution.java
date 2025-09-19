@@ -867,26 +867,65 @@ public class DebuggerExecution {
         // Execute the function body and return the result
         // The result is stored in the 'y' variable (Variable.RESULT)
 
-        for (int i = 0; i < functionInstructions.size(); i++) {
-            semulator.instructions.SInstruction instruction = functionInstructions.get(i);
-            System.out.println("DEBUG: Executing function instruction " + i + ": " + instruction.getName());
+        int instructionIndex = 0;
+        while (instructionIndex < functionInstructions.size()) {
+            semulator.instructions.SInstruction instruction = functionInstructions.get(instructionIndex);
+            System.out.println(
+                    "DEBUG: Executing function instruction " + instructionIndex + ": " + instruction.getName());
 
             semulator.label.Label nextLabel = instruction.execute(functionContext);
 
-            // Handle jumps within the function (though functions typically don't have
-            // jumps)
-            if (nextLabel != semulator.label.FixedLabel.EMPTY && nextLabel != semulator.label.FixedLabel.EXIT) {
-                System.out
-                        .println("DEBUG: Function instruction returned label: " + nextLabel.getLabel() + " (ignoring)");
-                // For now, we'll ignore jumps in functions and continue execution
-                // In a more sophisticated implementation, we'd handle function-internal jumps
+            // Debug: Print variable state after each instruction
+            System.out.println("DEBUG: After instruction " + instructionIndex + ", y (RESULT) = "
+                    + functionContext.getVariableValue(semulator.variable.Variable.RESULT));
+
+            // Handle jumps within the function
+            if (nextLabel == semulator.label.FixedLabel.EXIT) {
+                System.out.println("DEBUG: Function instruction returned EXIT - ending function execution");
+                break; // Exit the function
+            } else if (nextLabel != semulator.label.FixedLabel.EMPTY) {
+                // Find the target instruction by label
+                int targetIndex = findInstructionByLabel(functionInstructions, nextLabel);
+                if (targetIndex != -1) {
+                    System.out.println(
+                            "DEBUG: Jumping to instruction " + targetIndex + " (label: " + nextLabel.getLabel() + ")");
+                    instructionIndex = targetIndex;
+                } else {
+                    System.out.println("DEBUG: Warning - label " + nextLabel.getLabel()
+                            + " not found, continuing to next instruction");
+                    instructionIndex++;
+                }
+            } else {
+                // No jump, continue to next instruction
+                instructionIndex++;
             }
         }
 
         // Return the value of the 'y' variable (the function's output)
         long result = functionContext.getVariableValue(semulator.variable.Variable.RESULT);
         System.out.println("DEBUG: Function body execution completed, result (y): " + result);
+
+        // Debug: Print all variable states in the function context
+        System.out.println("DEBUG: Function context variable states:");
+        for (var entry : functionContext.variableState().entrySet()) {
+            System.out.println("  " + entry.getKey() + " = " + entry.getValue());
+        }
+
         return result;
+    }
+
+    /**
+     * Find the index of an instruction with the given label
+     */
+    private int findInstructionByLabel(List<semulator.instructions.SInstruction> instructions,
+            semulator.label.Label targetLabel) {
+        for (int i = 0; i < instructions.size(); i++) {
+            semulator.instructions.SInstruction instruction = instructions.get(i);
+            if (instruction.getLabel() != null && instruction.getLabel().equals(targetLabel)) {
+                return i;
+            }
+        }
+        return -1; // Label not found
     }
 
     private semulator.label.Label executeJumpEqualFunctionInstruction(
