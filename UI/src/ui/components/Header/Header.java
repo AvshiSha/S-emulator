@@ -455,33 +455,16 @@ public class Header {
           System.out.println("DEBUG: instructionTable is null!");
         }
 
-        // Handle program/function selector based on degree
+        // Handle program/function selector - now available at all degrees
         System.out.println("DEBUG: About to reset program/function selector for degree: " + degree);
         if (programFunctionSelector != null) {
           // Set flag BEFORE any operations that might trigger events
           System.out.println("DEBUG: Setting programmatically setting selection flag");
           isProgrammaticallySettingSelection = true;
 
-          if (degree == 0) {
-            // For degree 0, restore the full function selector
-            System.out.println("DEBUG: Restoring function selector for degree 0");
-            populateProgramFunctionSelector();
-          } else {
-            // For expanded programs, only show "Program" since functions are not available
-            // in expanded form
-            System.out.println("DEBUG: Showing only Program for expanded degree " + degree);
-            ObservableList<String> items = FXCollections.observableArrayList();
-            items.add("Program");
-            programFunctionSelector.setItems(items);
-
-            // Reset function selection state since we're now showing expanded program
-            isShowingFunction = false;
-            currentFunctionName = null;
-
-            // Set selection without triggering event
-            programFunctionSelector.getSelectionModel().select(0);
-            programFunctionSelector.setDisable(false);
-          }
+          // Always populate the full function selector regardless of degree
+          System.out.println("DEBUG: Populating function selector for degree " + degree);
+          populateProgramFunctionSelector();
 
           // Clear flag AFTER all operations are complete
           isProgrammaticallySettingSelection = false;
@@ -876,19 +859,59 @@ public class Header {
     if (instructionTable != null && sProgram != null) {
       if (selectedItem != null) {
         if (selectedItem.equals("Main Program")) {
-          // Show the main program instructions
-          System.out.println("DEBUG: onProgramFunctionSelected displaying main program");
+          // Show the main program instructions (either original or expanded based on
+          // current degree)
+          System.out.println("DEBUG: onProgramFunctionSelected displaying main program for degree: " + currentDegree);
           isShowingFunction = false;
           currentFunctionName = null;
-          instructionTable.displayProgram(sProgram);
+
+          if (currentDegree == 0) {
+            // Show original program
+            instructionTable.displayProgram(sProgram);
+          } else {
+            // Show expanded program for current degree
+            displayExpandedProgram();
+          }
         } else {
           // Show function instructions
-          System.out.println("DEBUG: onProgramFunctionSelected displaying function: " + selectedItem);
+          System.out.println("DEBUG: onProgramFunctionSelected displaying function: " + selectedItem + " for degree: "
+              + currentDegree);
           isShowingFunction = true;
           currentFunctionName = selectedItem;
           displayFunctionInstructions(selectedItem);
         }
       }
+    }
+  }
+
+  // Method to display the expanded program for the current degree
+  private void displayExpandedProgram() {
+    System.out.println("DEBUG: displayExpandedProgram called for degree: " + currentDegree);
+    if (currentExpansionResult != null) {
+      // Create a temporary program from the current expansion result
+      SProgramImpl expandedProgram = new SProgramImpl("Expanded");
+      for (semulator.instructions.SInstruction instruction : currentExpansionResult.instructions()) {
+        expandedProgram.addInstruction(instruction);
+      }
+
+      // Copy functions from original program to expanded program
+      if (sProgram instanceof SProgramImpl) {
+        SProgramImpl originalProgram = (SProgramImpl) sProgram;
+        var originalFunctions = originalProgram.getFunctions();
+        for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
+            .entrySet()) {
+          expandedProgram.getFunctions().put(entry.getKey(), entry.getValue());
+        }
+        System.out.println("DEBUG: Copied " + originalFunctions.size() + " functions to expanded program");
+      }
+
+      // Display the expanded program
+      instructionTable.displayProgram(expandedProgram);
+      System.out.println("DEBUG: Expanded program displayed successfully");
+    } else {
+      System.out.println("DEBUG: No expansion result available for degree " + currentDegree);
+      // Fallback to original program
+      instructionTable.displayProgram(sProgram);
     }
   }
 
