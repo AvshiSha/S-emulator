@@ -64,6 +64,7 @@ public class Header {
   // Track current selection state for program/function selector
   private boolean isShowingFunction = false;
   private String currentFunctionName = null;
+  private SProgram currentFunctionProgram = null; // Store the current function program
   private boolean isProgrammaticallySettingSelection = false;
   private boolean isProgrammaticallySettingLevelSelection = false;
   private int currentDegree = 0;
@@ -354,17 +355,25 @@ public class Header {
 
   // Degree control methods
   private void initializeDegreeControls() {
+    updateDegreeControlsForProgram(sProgram);
+  }
+
+  // Method to update degree controls for any program (main or function)
+  private void updateDegreeControlsForProgram(SProgram program) {
     try {
       currentDegree = 0;
-      maxDegree = sProgram.calculateMaxDegree();
+      maxDegree = program.calculateMaxDegree();
+
+      // Clear any cached expansion results from previous programs
+      expansionResultsByDegree.clear();
 
       // Store the base program (degree 0) expansion result
-      currentExpansionResult = sProgram.expandToDegree(0);
+      currentExpansionResult = program.expandToDegree(0);
       expansionResultsByDegree.put(0, currentExpansionResult);
 
-      // Ensure the debugger execution component gets the original program (degree 0)
+      // Ensure the debugger execution component gets the current program
       if (debuggerExecution != null) {
-        debuggerExecution.setProgram(sProgram);
+        debuggerExecution.setProgram(program);
       }
 
       // Populate level selector with options from 0 to maxDegree
@@ -372,6 +381,9 @@ public class Header {
 
       updateDegreeDisplay();
       updateLevelSelectorState();
+
+      System.out.println("DEBUG: Updated degree controls for program: " + program.getName() +
+          ", max degree: " + maxDegree);
     } catch (Exception e) {
       showErrorAlert("Degree Calculation Error", "Failed to calculate maximum degree: " + e.getMessage());
       currentDegree = 0;
@@ -416,9 +428,31 @@ public class Header {
     try {
       // DEBUG: Run expansion directly instead of using Task
       System.out.println("DEBUG: Starting expansion for degree: " + degree);
-      // Always expand the main program, regardless of what's currently displayed
+
+      // Determine which program to expand based on current selection
+      SProgram programToExpand;
+      if (isShowingFunction && currentFunctionName != null) {
+        // Expand the currently selected function
+        System.out.println("DEBUG: Expanding function: " + currentFunctionName);
+        programToExpand = getCurrentFunctionProgram();
+        if (programToExpand == null) {
+          System.out.println("DEBUG: Could not get function program, falling back to main program");
+          programToExpand = sProgram;
+        } else {
+          System.out.println("DEBUG: Successfully got function program: " + programToExpand.getName() +
+              ", max degree: " + programToExpand.calculateMaxDegree());
+        }
+      } else {
+        // Expand the main program
+        System.out.println("DEBUG: Expanding main program");
+        programToExpand = sProgram;
+      }
+
+      // Store reference to the program being expanded for later use
+      SProgram activeProgram = programToExpand;
+
       // Perform expansion directly
-      semulator.program.ExpansionResult result = sProgram.expandToDegree(degree);
+      semulator.program.ExpansionResult result = programToExpand.expandToDegree(degree);
       System.out.println("DEBUG: Expansion completed, got " + result.instructions().size() + " instructions");
 
       // Update UI directly (no Platform.runLater needed)
@@ -455,20 +489,14 @@ public class Header {
           System.out.println("DEBUG: instructionTable is null!");
         }
 
-        // Handle program/function selector - now available at all degrees
+        // Handle program/function selector - preserve current selection during
+        // expansion
         System.out.println("DEBUG: About to reset program/function selector for degree: " + degree);
         if (programFunctionSelector != null) {
-          // Set flag BEFORE any operations that might trigger events
-          System.out.println("DEBUG: Setting programmatically setting selection flag");
-          isProgrammaticallySettingSelection = true;
-
-          // Always populate the full function selector regardless of degree
-          System.out.println("DEBUG: Populating function selector for degree " + degree);
-          populateProgramFunctionSelector();
-
-          // Clear flag AFTER all operations are complete
-          isProgrammaticallySettingSelection = false;
-          System.out.println("DEBUG: Finished setting programmatically setting selection flag");
+          // Don't repopulate or restore selection during expansion - just keep current
+          // state
+          System.out.println("DEBUG: Preserving current selection during expansion - isShowingFunction: " +
+              isShowingFunction + ", currentFunctionName: " + currentFunctionName);
         }
         System.out.println("DEBUG: Finished resetting program/function selector");
 
@@ -476,9 +504,9 @@ public class Header {
         System.out.println("DEBUG: About to update debugger execution component");
         if (debuggerExecution != null) {
           if (degree == 0) {
-            // For degree 0, use the original program
-            System.out.println("DEBUG: Setting debugger to original program");
-            debuggerExecution.setProgram(sProgram);
+            // For degree 0, use the original active program
+            System.out.println("DEBUG: Setting debugger to original active program");
+            debuggerExecution.setProgram(activeProgram);
           } else {
             // For higher degrees, use the expanded program
             System.out.println("DEBUG: Setting debugger to expanded program");
@@ -488,17 +516,23 @@ public class Header {
         System.out.println("DEBUG: Finished updating debugger execution component");
 
         // Update the label/variable combo box with the current program
-        // For degree 0, use original program; for higher degrees, use expanded program
+        // For degree 0, use original active program; for higher degrees, use expanded
+        // program
         System.out.println("DEBUG: About to populate label/variable combo box for degree: " + degree);
         if (degree == 0) {
-          populateLabelVariableComboBox(sProgram);
+          populateLabelVariableComboBox(activeProgram);
         } else {
           populateLabelVariableComboBox(expandedProgram);
         }
         System.out.println("DEBUG: Finished populating label/variable combo box");
 
-        // Update current degree
+        // Update current degree and max degree for the active program
         currentDegree = degree;
+        maxDegree = activeProgram.calculateMaxDegree();
+        System.out.println("DEBUG: Updated maxDegree to " + maxDegree + " for program: " + activeProgram.getName());
+
+        // Update level selector options with new max degree
+        populateLevelSelector();
 
         // Update degree display and level selector state
         System.out.println("DEBUG: About to update degree display and level selector state");
@@ -536,7 +570,7 @@ public class Header {
   }
 
   private void updateDegreeDisplay() {
-    if (sProgram == null || maxDegree == 0) {
+    if (maxDegree == 0) {
       lblDegreeStatus.setText("— / —");
     } else {
       lblDegreeStatus.setText(currentDegree + " / " + maxDegree);
@@ -544,7 +578,7 @@ public class Header {
   }
 
   private void updateLevelSelectorState() {
-    if (sProgram == null || maxDegree == 0) {
+    if (maxDegree == 0) {
       levelSelector.setDisable(true);
     } else {
       levelSelector.setDisable(false);
@@ -865,6 +899,12 @@ public class Header {
           isShowingFunction = false;
           currentFunctionName = null;
 
+          // Clear function program when switching back to main program
+          currentFunctionProgram = null;
+
+          // Always update degree controls for main program when switching back
+          updateDegreeControlsForProgram(sProgram);
+
           if (currentDegree == 0) {
             // Show original program
             instructionTable.displayProgram(sProgram);
@@ -915,6 +955,52 @@ public class Header {
     }
   }
 
+  // Method to get the current function program (if a function is selected)
+  private SProgram getCurrentFunctionProgram() {
+    if (!isShowingFunction || currentFunctionName == null) {
+      return null;
+    }
+
+    // Return the stored function program if it exists and matches the current
+    // function
+    if (currentFunctionProgram != null && currentFunctionProgram.getName().equals(currentFunctionName)) {
+      System.out.println("DEBUG: Returning stored function program: " + currentFunctionName);
+      return currentFunctionProgram;
+    }
+
+    if (sProgram instanceof SProgramImpl) {
+      SProgramImpl programImpl = (SProgramImpl) sProgram;
+      var functions = programImpl.getFunctions();
+
+      if (functions.containsKey(currentFunctionName)) {
+        var functionInstructions = functions.get(currentFunctionName);
+
+        // Create a full SProgramImpl instance for the function
+        SProgramImpl functionProgram = new SProgramImpl(currentFunctionName);
+
+        // Add all function instructions to the program
+        for (semulator.instructions.SInstruction instruction : functionInstructions) {
+          functionProgram.addInstruction(instruction);
+        }
+
+        // Copy all functions from the original program so the function can call other
+        // functions
+        var originalFunctions = programImpl.getFunctions();
+        for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
+            .entrySet()) {
+          functionProgram.getFunctions().put(entry.getKey(), entry.getValue());
+        }
+
+        // Store the function program for future use
+        currentFunctionProgram = functionProgram;
+        System.out.println("DEBUG: Created and stored new function program: " + currentFunctionName);
+        return functionProgram;
+      }
+    }
+
+    return null;
+  }
+
   // Method to display function instructions in the instruction table
   private void displayFunctionInstructions(String functionName) {
     System.out.println("DEBUG: displayFunctionInstructions called for function: " + functionName);
@@ -929,52 +1015,52 @@ public class Header {
         var functionInstructions = functions.get(functionName);
         System.out.println("DEBUG: Found function with " + functionInstructions.size() + " instructions");
 
-        // Create a temporary program with just the function instructions
-        SProgram functionProgram = new SProgram() {
-          @Override
-          public String getName() {
-            return functionName;
-          }
-
-          @Override
-          public void addInstruction(semulator.instructions.SInstruction instruction) {
-            // Not needed for display
-          }
-
-          @Override
-          public java.util.List<semulator.instructions.SInstruction> getInstructions() {
-            return functionInstructions;
-          }
-
-          @Override
-          public String validate(java.nio.file.Path xmlPath) {
-            return null; // Not needed for display
-          }
-
+        // Create a custom SProgramImpl that only considers its own instructions for
+        // degree calculation
+        SProgramImpl functionProgram = new SProgramImpl(functionName) {
           @Override
           public int calculateMaxDegree() {
-            return 0; // Functions are typically basic
-          }
-
-          @Override
-          public int calculateCycles() {
-            return 0; // Not needed for display
-          }
-
-          @Override
-          public semulator.program.ExpansionResult expandToDegree(int degree) {
-            return null; // Not needed for display
-          }
-
-          @Override
-          public Object load()
-              throws javax.xml.parsers.ParserConfigurationException, java.io.IOException, org.xml.sax.SAXException {
-            return null; // Not needed for display
+            // Temporarily clear functions to calculate degree only for main instructions
+            var originalFunctions = new java.util.HashMap<>(getFunctions());
+            getFunctions().clear();
+            int maxDegree = super.calculateMaxDegree();
+            getFunctions().putAll(originalFunctions);
+            return maxDegree;
           }
         };
 
+        // Add all function instructions to the program
+        for (semulator.instructions.SInstruction instruction : functionInstructions) {
+          functionProgram.addInstruction(instruction);
+        }
+
+        // Copy all functions from the original program so the function can call other
+        // functions
+        var originalFunctions = programImpl.getFunctions();
+        for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
+            .entrySet()) {
+          functionProgram.getFunctions().put(entry.getKey(), entry.getValue());
+        }
+
+        System.out.println(
+            "DEBUG: Created function program with " + functionProgram.getInstructions().size() + " instructions");
+        System.out.println("DEBUG: Function program max degree: " + functionProgram.calculateMaxDegree());
+        System.out.println("DEBUG: Function program cycles: " + functionProgram.calculateCycles());
+        System.out.println("DEBUG: Function program has " + functionProgram.getFunctions().size() + " functions");
+
+        // Store the function program for future use
+        currentFunctionProgram = functionProgram;
+
+        // Display the function program
         instructionTable.displayProgram(functionProgram);
-        System.out.println("DEBUG: Function program displayed successfully");
+
+        // Always update degree controls for the function program (resets max degree)
+        updateDegreeControlsForProgram(functionProgram);
+
+        // Update the label/variable combo box for the function
+        populateLabelVariableComboBox(functionProgram);
+
+        System.out.println("DEBUG: Function program displayed successfully with full feature support");
       } else {
         System.out.println("DEBUG: Function '" + functionName + "' not found in functions map");
         System.out.println("DEBUG: Available functions are: " + functions.keySet());
@@ -1020,14 +1106,13 @@ public class Header {
     System.out.println("DEBUG: Populating dropdown with items: " + items);
     programFunctionSelector.setItems(items);
 
-    // Set default selection to "Main Program"
+    // Set default selection to "Main Program" (only if not programmatically
+    // setting)
     isProgrammaticallySettingSelection = true;
     programFunctionSelector.getSelectionModel().selectFirst();
     isProgrammaticallySettingSelection = false;
 
-    // Reset function selection state
-    isShowingFunction = false;
-    currentFunctionName = null;
+    // Note: Function selection state is preserved during expansion
 
     // Enable the combo box and make it visible
     programFunctionSelector.setDisable(items.isEmpty());

@@ -5,26 +5,23 @@ import java.nio.file.Path;
 public class SimpleTest {
     public static void main(String[] args) {
         try {
-            System.out.println("Starting test...");
+            SProgram program = new SProgramImpl("SimpleTest");
+            Path xmlFile = Path.of("test_quote.xml").toAbsolutePath();
 
-            SProgram program = new SProgramImpl("test");
-            Path xmlFile = Path.of("test_max_degree.xml").toAbsolutePath();
-
-            System.out.println("Validating...");
             String validation = program.validate(xmlFile);
-            System.out.println("Validation result: " + validation);
-
             if (!"Valid".equals(validation)) {
+                System.out.println("Validation failed: " + validation);
                 return;
             }
 
-            System.out.println("Loading...");
             Object result = program.load();
-            System.out.println("Load result: " + result);
+            if (result == null) {
+                System.out.println("Failed to load XML file");
+                return;
+            }
 
-            System.out.println("Calculating max degree...");
             int maxDegree = program.calculateMaxDegree();
-            System.out.println("Max degree: " + maxDegree);
+            System.out.println("Maximum degree: " + maxDegree);
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());

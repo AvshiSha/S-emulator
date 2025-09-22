@@ -48,14 +48,14 @@ public class SProgramImpl implements SProgram {
     }
 
     private static final Set<String> ALLOWED_NAMES = Set.of(
-            "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO",
+            "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO", "ZERO",
             "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
             "JUMP_ZERO", "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE_PROGRAM", "JUMP_EQUAL_FUNCTION", "QUOTE");
 
     private static final Set<String> BASIC = Set.of(
             "NEUTRAL", "INCREASE", "DECREASE", "JUMP_NOT_ZERO");
     private static final Set<String> SYNTHETIC = Set.of(
-            "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT",
+            "ZERO_VARIABLE", "ASSIGNMENT", "GOTO_LABEL", "CONSTANT_ASSIGNMENT", "ZERO",
             "JUMP_EQUAL_CONSTANT", "JUMP_EQUAL_VARIABLE", "QUOTE", "JUMP_EQUAL_FUNCTION", "IFZ", "JUMP_ZERO");
 
     private static final Set<String> LABEL_TARGET_ARGS = Set.of(
@@ -159,28 +159,15 @@ public class SProgramImpl implements SProgram {
      */
     private int deg_prog() {
         int maxDegree = 0;
-
-        // Calculate degree for main program instructions
+        // Calculate degree for main program instructions only
+        // deg_prog(P) = max degree over all instructions in program P (main program
+        // only)
         for (SInstruction instruction : instructions) {
             int instructionDegree = deg_inst(instruction);
             if (instructionDegree > maxDegree) {
                 maxDegree = instructionDegree;
             }
         }
-
-        // Calculate degree for all function instructions
-        for (Map.Entry<String, List<SInstruction>> functionEntry : functions.entrySet()) {
-            String functionName = functionEntry.getKey();
-            List<SInstruction> functionInstructions = functionEntry.getValue();
-
-            for (SInstruction instruction : functionInstructions) {
-                int instructionDegree = deg_inst(instruction);
-                if (instructionDegree > maxDegree) {
-                    maxDegree = instructionDegree;
-                }
-            }
-        }
-
         return maxDegree;
     }
 
@@ -189,28 +176,43 @@ public class SProgramImpl implements SProgram {
      * deg_func(F) = max degree over all instructions in function F.
      */
     private int deg_func(String functionName, Set<String> visitedFunctions) {
+        System.out.println("DEBUG: deg_func('" + functionName + "') called with visited: " + visitedFunctions);
+
         // Prevent infinite recursion
         if (visitedFunctions.contains(functionName)) {
+            System.out.println("DEBUG: Circular dependency detected for function '" + functionName + "', returning 1");
             return 1; // Return safe default for circular dependencies
         }
 
         if (!functions.containsKey(functionName)) {
+            System.out.println("DEBUG: Function '" + functionName + "' not found in functions map");
+            System.out.println("DEBUG: Available functions: " + functions.keySet());
+            System.out.println("DEBUG: Returning 1 as safe default");
             return 1; // Return safe default for missing functions
         }
 
         visitedFunctions.add(functionName);
+        System.out.println("DEBUG: Added '" + functionName + "' to visited set: " + visitedFunctions);
 
         List<SInstruction> functionInstructions = functions.get(functionName);
         int maxDegree = 0;
+        System.out.println(
+                "DEBUG: Analyzing " + functionInstructions.size() + " instructions in function '" + functionName + "'");
 
-        for (SInstruction instruction : functionInstructions) {
+        for (int i = 0; i < functionInstructions.size(); i++) {
+            SInstruction instruction = functionInstructions.get(i);
             int instructionDegree = deg_inst(instruction);
+            System.out.println("DEBUG: Function '" + functionName + "' instruction " + (i + 1) + ": "
+                    + instruction.getName() + " -> degree " + instructionDegree);
             if (instructionDegree > maxDegree) {
                 maxDegree = instructionDegree;
+                System.out.println("DEBUG: New max degree in function '" + functionName + "': " + maxDegree);
             }
         }
 
         visitedFunctions.remove(functionName);
+        System.out.println("DEBUG: Removed '" + functionName + "' from visited set: " + visitedFunctions);
+        System.out.println("DEBUG: deg_func('" + functionName + "') returning: " + maxDegree);
         return maxDegree;
     }
 
@@ -223,27 +225,38 @@ public class SProgramImpl implements SProgram {
      */
     private int deg_inst(SInstruction instruction) {
         String instructionName = instruction.getName();
+        System.out.println("DEBUG: deg_inst() analyzing instruction: " + instructionName);
 
         // Basic instructions have degree 0
         if (BASIC.contains(instructionName)) {
+            System.out.println("DEBUG: " + instructionName + " is basic -> degree 0");
             return 0;
         }
 
         // Handle QUOTE instructions
         if (instruction instanceof QuoteInstruction) {
             QuoteInstruction quote = (QuoteInstruction) instruction;
-            return deg_expr(quote.getFunctionName(), quote.getFunctionArguments(), new HashSet<>());
+            System.out.println("DEBUG: " + instructionName + " is QUOTE calling function: " + quote.getFunctionName());
+            int result = deg_expr(quote.getFunctionName(), quote.getFunctionArguments(), new HashSet<>());
+            System.out.println("DEBUG: QUOTE instruction degree: " + result);
+            return result;
         }
 
         // Handle JUMP_EQUAL_FUNCTION instructions
         if (instruction instanceof JumpEqualFunctionInstruction) {
             JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) instruction;
-            return deg_expr(jef.getFunctionName(), jef.getFunctionArguments(), new HashSet<>()) + 1;
+            System.out.println(
+                    "DEBUG: " + instructionName + " is JUMP_EQUAL_FUNCTION calling function: " + jef.getFunctionName());
+            int result = deg_expr(jef.getFunctionName(), jef.getFunctionArguments(), new HashSet<>());
+            System.out.println("DEBUG: JUMP_EQUAL_FUNCTION instruction degree: " + result);
+            return result;
         }
 
         // For other synthetic instructions, use their known fixed degrees
         Integer fixedDegree = DEGREE_BY_OPCODE.get(instructionName);
-        return (fixedDegree != null) ? fixedDegree : 0;
+        int result = (fixedDegree != null) ? fixedDegree : 0;
+        System.out.println("DEBUG: " + instructionName + " is synthetic -> degree " + result);
+        return result;
     }
 
     /**
@@ -253,20 +266,29 @@ public class SProgramImpl implements SProgram {
      * deg_expr(ai))
      */
     private int deg_expr(String functionName, List<FunctionArgument> arguments, Set<String> visitedFunctions) {
+        System.out.println("DEBUG: deg_expr('" + functionName + "', " + arguments.size() + " args) called");
+
         // Calculate degree of the function body
         int functionDegree = deg_func(functionName, visitedFunctions);
+        System.out.println("DEBUG: Function '" + functionName + "' body degree: " + functionDegree);
 
         // Calculate maximum degree of arguments
         int maxArgumentDegree = 0;
-        for (FunctionArgument arg : arguments) {
+        for (int i = 0; i < arguments.size(); i++) {
+            FunctionArgument arg = arguments.get(i);
             int argDegree = deg_expr(arg, visitedFunctions);
+            System.out.println("DEBUG: Argument " + (i + 1) + " degree: " + argDegree);
             if (argDegree > maxArgumentDegree) {
                 maxArgumentDegree = argDegree;
             }
         }
+        System.out.println("DEBUG: Max argument degree: " + maxArgumentDegree);
 
         // Expression degree = 1 + max(function degree, max argument degree)
-        return 1 + Math.max(functionDegree, maxArgumentDegree);
+        int result = 1 + Math.max(functionDegree, maxArgumentDegree);
+        System.out.println("DEBUG: deg_expr('" + functionName + "') = 1 + max(" + functionDegree + ", "
+                + maxArgumentDegree + ") = " + result);
+        return result;
     }
 
     /**
@@ -277,9 +299,13 @@ public class SProgramImpl implements SProgram {
         if (argument.isFunctionCall()) {
             // This is a nested function call - calculate its degree
             FunctionCall call = argument.asFunctionCall();
-            return deg_expr(call.getFunctionName(), call.getArguments(), visitedFunctions);
+            System.out.println("DEBUG: Argument is function call: " + call.getFunctionName());
+            int result = deg_expr(call.getFunctionName(), call.getArguments(), visitedFunctions);
+            System.out.println("DEBUG: Function call argument degree: " + result);
+            return result;
         } else {
             // This is a simple variable or constant - degree is 0
+            System.out.println("DEBUG: Argument is variable/constant: " + argument.toString() + " -> degree 0");
             return 0;
         }
     }
@@ -753,8 +779,13 @@ public class SProgramImpl implements SProgram {
 
         // Parse functions FIRST before main instructions
         Element sFunctions = getSingleChild(root, "S-Functions");
+        System.out.println("DEBUG: S-Functions element found: " + (sFunctions != null));
         if (sFunctions != null) {
+            System.out.println("DEBUG: Parsing functions...");
             parseFunctions(sFunctions, new HashMap<>());
+            System.out.println("DEBUG: Functions parsed. Total functions: " + functions.size());
+        } else {
+            System.out.println("DEBUG: No S-Functions section found in XML");
         }
 
         Element sInstructions = getSingleChild(root, "S-Instructions");
