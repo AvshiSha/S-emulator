@@ -592,17 +592,22 @@ public class SProgramImpl implements SProgram {
         List<SInstruction> expanded = new ArrayList<>();
 
         // Process each argument - this is where composition happens
+        // For each argument, if it's a function call, we create a QUOTE instruction
+        // that will be expanded in the next degree, not fully expanded now.
         List<Variable> processedArguments = new ArrayList<>();
         for (FunctionArgument arg : arguments) {
             if (arg.isFunctionCall()) {
-                // This is a function call - expand it first (composition)
+                // This is a function call - create a QUOTE instruction for it
+                // Example: (+, x1, y) becomes z2 <- (+, x1, y) which will be expanded later
                 FunctionCall call = arg.asFunctionCall();
                 Variable resultVar = names.freshZ();
 
-                // Recursively expand the nested function call
-                List<SInstruction> nestedExpansion = expandNestedFunctionCall(call, resultVar, names);
-                expanded.addAll(nestedExpansion);
+                // Create a QUOTE instruction for the nested function call
+                // This will be expanded in the next degree, not now
+                QuoteInstruction nestedQuote = new QuoteInstruction(resultVar, call.getFunctionName(), call.getArguments(), functions.get(call.getFunctionName()));
+                expanded.add(nestedQuote);
 
+                // The result of the nested function becomes an input to the parent
                 processedArguments.add(resultVar);
             } else {
                 // Simple variable - use as before
@@ -1662,90 +1667,5 @@ public class SProgramImpl implements SProgram {
         return result.toArray(new String[0]);
     }
 
-    /**
-     * Expand a nested function call (composition).
-     * This recursively handles function calls that are arguments to other
-     * functions.
-     */
-    private List<SInstruction> expandNestedFunctionCall(FunctionCall call, Variable resultVar, NameSession names) {
-        String functionName = call.getFunctionName();
-        List<FunctionArgument> arguments = call.getArguments();
-
-        // Get the function body
-        List<SInstruction> functionBody = functions.get(functionName);
-        if (functionBody == null) {
-            throw new IllegalArgumentException("Function '" + functionName + "' not found");
-        }
-
-        List<SInstruction> expanded = new ArrayList<>();
-
-        // Process each argument recursively
-        List<Variable> processedArguments = new ArrayList<>();
-        for (FunctionArgument arg : arguments) {
-            if (arg.isFunctionCall()) {
-                // Recursive composition
-                FunctionCall nestedCall = arg.asFunctionCall();
-                Variable nestedResultVar = names.freshZ();
-
-                List<SInstruction> nestedExpansion = expandNestedFunctionCall(nestedCall, nestedResultVar, names);
-                expanded.addAll(nestedExpansion);
-
-                processedArguments.add(nestedResultVar);
-            } else {
-                // Simple variable
-                processedArguments.add(arg.asVariable());
-            }
-        }
-
-        // Create fresh variables for inputs, outputs, and working variables
-        Map<Variable, Variable> variableMap = new HashMap<>();
-        Map<Label, Label> labelMap = new HashMap<>();
-
-        // Map input variables (x1, x2, ...) to fresh working variables
-        for (int i = 0; i < processedArguments.size(); i++) {
-            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
-            Variable freshVar = names.freshZ();
-            variableMap.put(inputVar, freshVar);
-        }
-
-        // Map output variable (y) to the result variable
-        Variable outputVar = Variable.RESULT;
-        variableMap.put(outputVar, resultVar);
-
-        // Create fresh labels for all labels in the function
-        for (SInstruction inst : functionBody) {
-            if (inst.getLabel() != FixedLabel.EMPTY) {
-                Label originalLabel = inst.getLabel();
-                if (!labelMap.containsKey(originalLabel)) {
-                    labelMap.put(originalLabel, names.freshLabel());
-                }
-            }
-        }
-
-        // Create a fresh label for the end of the quoted function
-        Label endLabel = names.freshLabel();
-
-        expanded.add(new NoOpInstruction(Variable.RESULT, FixedLabel.EMPTY));
-
-        // Assign arguments to fresh variables
-        if (processedArguments.size() > 0) {
-            for (int i = 0; i < processedArguments.size(); i++) {
-                Variable freshVar = names.freshZ();
-                expanded.add(new AssignVariableInstruction(freshVar, processedArguments.get(i)));
-            }
-        }
-
-        // Add the expanded function body
-        for (SInstruction inst : functionBody) {
-            SInstruction expandedInst = expandInstruction(inst, variableMap, labelMap, endLabel);
-            if (expandedInst != null) {
-                expanded.add(expandedInst);
-            }
-        }
-
-        expanded.add(new NoOpInstruction(Variable.RESULT, endLabel));
-
-        return expanded;
-    }
 
 }
