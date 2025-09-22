@@ -44,13 +44,10 @@ public class Header {
   private Label progressLabel;
 
   @FXML
-  private Button btnDecreaseDegree;
+  private ComboBox<String> levelSelector;
 
   @FXML
   private Label lblDegreeStatus;
-
-  @FXML
-  private Button btnIncreaseDegree;
 
   @FXML
   private ComboBox<String> programFunctionSelector;
@@ -68,11 +65,15 @@ public class Header {
   private boolean isShowingFunction = false;
   private String currentFunctionName = null;
   private boolean isProgrammaticallySettingSelection = false;
+  private boolean isProgrammaticallySettingLevelSelection = false;
   private int currentDegree = 0;
   private int maxDegree = 0;
 
   // For tracking labels and variables
   private ObservableList<String> labelVariableList = FXCollections.observableArrayList();
+
+  // For tracking level selector options
+  private ObservableList<String> levelOptions = FXCollections.observableArrayList();
 
   // Store expansion results for history chain tracking
   private semulator.program.ExpansionResult currentExpansionResult;
@@ -86,11 +87,15 @@ public class Header {
   private void initialize() {
     // Initialize degree controls to disabled state
     updateDegreeDisplay();
-    updateButtonStates();
+    updateLevelSelectorState();
 
     // Initialize the label/variable combo box
     labelVariableComboBox.setItems(labelVariableList);
     labelVariableComboBox.setDisable(true); // Disabled until a program is loaded
+
+    // Initialize the level selector
+    levelSelector.setItems(levelOptions);
+    levelSelector.setDisable(true); // Disabled until a program is loaded
   }
 
   @FXML
@@ -362,38 +367,47 @@ public class Header {
         debuggerExecution.setProgram(sProgram);
       }
 
+      // Populate level selector with options from 0 to maxDegree
+      populateLevelSelector();
+
       updateDegreeDisplay();
-      updateButtonStates();
+      updateLevelSelectorState();
     } catch (Exception e) {
       showErrorAlert("Degree Calculation Error", "Failed to calculate maximum degree: " + e.getMessage());
       currentDegree = 0;
       maxDegree = 0;
       updateDegreeDisplay();
-      updateButtonStates();
+      updateLevelSelectorState();
     }
   }
 
   @FXML
-  public void decreaseDegreePressed(ActionEvent event) {
-    System.out
-        .println("DEBUG: decreaseDegreePressed called, currentDegree: " + currentDegree + ", maxDegree: " + maxDegree);
-    if (currentDegree > 0) {
-      currentDegree--;
-      expandToDegree(currentDegree);
-    } else {
-      System.out.println("DEBUG: Cannot decrease degree, already at minimum");
-    }
-  }
+  public void onLevelSelected(ActionEvent event) {
+    System.out.println("DEBUG: onLevelSelected called, isProgrammaticallySettingLevelSelection: "
+        + isProgrammaticallySettingLevelSelection);
 
-  @FXML
-  public void increaseDegreePressed(ActionEvent event) {
-    System.out
-        .println("DEBUG: increaseDegreePressed called, currentDegree: " + currentDegree + ", maxDegree: " + maxDegree);
-    if (currentDegree < maxDegree) {
-      currentDegree++;
-      expandToDegree(currentDegree);
-    } else {
-      System.out.println("DEBUG: Cannot increase degree, already at maximum");
+    // Skip if we're programmatically setting the selection
+    if (isProgrammaticallySettingLevelSelection) {
+      System.out.println("DEBUG: Skipping onLevelSelected due to programmatic setting");
+      return;
+    }
+
+    String selectedLevel = levelSelector.getSelectionModel().getSelectedItem();
+    System.out.println("DEBUG: onLevelSelected processing selection: " + selectedLevel);
+
+    if (selectedLevel != null) {
+      try {
+        // Extract the level number from the selection (e.g., "Level 0" -> 0)
+        int selectedDegree = Integer.parseInt(selectedLevel.replace("Level ", ""));
+        System.out.println("DEBUG: Selected degree: " + selectedDegree + ", currentDegree: " + currentDegree);
+
+        if (selectedDegree != currentDegree) {
+          expandToDegree(selectedDegree);
+        }
+      } catch (NumberFormatException e) {
+        System.out.println("DEBUG: Invalid level selection: " + selectedLevel);
+        showErrorAlert("Invalid Selection", "Invalid level selection: " + selectedLevel);
+      }
     }
   }
 
@@ -503,11 +517,11 @@ public class Header {
         // Update current degree
         currentDegree = degree;
 
-        // Update degree display and button states
-        System.out.println("DEBUG: About to update degree display and button states");
+        // Update degree display and level selector state
+        System.out.println("DEBUG: About to update degree display and level selector state");
         updateDegreeDisplay();
-        updateButtonStates();
-        System.out.println("DEBUG: Finished updating degree display and button states");
+        updateLevelSelectorState();
+        System.out.println("DEBUG: Finished updating degree display and level selector state");
 
       } catch (Exception e) {
         System.out.println("DEBUG: Exception in expansion: " + e.getMessage());
@@ -520,7 +534,7 @@ public class Header {
           currentDegree++;
         }
         updateDegreeDisplay();
-        updateButtonStates();
+        updateLevelSelectorState();
       }
 
     } catch (Exception e) {
@@ -534,7 +548,7 @@ public class Header {
         currentDegree++;
       }
       updateDegreeDisplay();
-      updateButtonStates();
+      updateLevelSelectorState();
     }
   }
 
@@ -546,20 +560,44 @@ public class Header {
     }
   }
 
-  private void updateButtonStates() {
-    if (sProgram == null) {
-      btnDecreaseDegree.setDisable(true);
-      btnIncreaseDegree.setDisable(true);
+  private void updateLevelSelectorState() {
+    if (sProgram == null || maxDegree == 0) {
+      levelSelector.setDisable(true);
     } else {
-      btnDecreaseDegree.setDisable(currentDegree == 0);
-      btnIncreaseDegree.setDisable(currentDegree == maxDegree);
+      levelSelector.setDisable(false);
+      // Update the selection to reflect current degree
+      updateLevelSelectorSelection();
+    }
+  }
+
+  private void populateLevelSelector() {
+    levelOptions.clear();
+
+    if (maxDegree >= 0) {
+      for (int i = 0; i <= maxDegree; i++) {
+        levelOptions.add("Level " + i);
+      }
+    }
+
+    levelSelector.setItems(levelOptions);
+    updateLevelSelectorSelection();
+  }
+
+  private void updateLevelSelectorSelection() {
+    if (levelSelector != null && !levelOptions.isEmpty()) {
+      isProgrammaticallySettingLevelSelection = true;
+      try {
+        String currentLevelText = "Level " + currentDegree;
+        levelSelector.getSelectionModel().select(currentLevelText);
+      } finally {
+        isProgrammaticallySettingLevelSelection = false;
+      }
     }
   }
 
   // Method to disable/enable expansion controls during debug execution
   public void setExpansionControlsEnabled(boolean enabled) {
-    btnDecreaseDegree.setDisable(!enabled || currentDegree == 0);
-    btnIncreaseDegree.setDisable(!enabled || currentDegree == maxDegree);
+    levelSelector.setDisable(!enabled);
   }
 
   // Method to get the history chain for a selected instruction

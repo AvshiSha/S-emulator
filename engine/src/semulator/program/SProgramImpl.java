@@ -449,7 +449,7 @@ public class SProgramImpl implements SProgram {
                 out6.add(new DecreaseInstruction(z6));
                 out6.add(new DecreaseInstruction(z7));
                 out6.add(new GotoLabelInstruction(BL4));
-                out6.add(new JumpZeroInstruction(z7, Target2, BL5));
+                out6.add(new JumpZeroInstruction(z7, BL5, Target2));
                 out6.add(new NoOpInstruction(Variable.RESULT, BL3));
                 return out6;
             case "QUOTE":

@@ -336,7 +336,7 @@ public class InstructionTable {
 
         // Then, find and highlight matching rows
         for (InstructionRow row : instructionData) {
-            if (row.getVariable().contains(term) || row.getLabel().contains(term)) {
+            if (rowContainsTerm(row, term)) {
                 row.setHighlighted(true);
             }
         }
@@ -405,9 +405,36 @@ public class InstructionTable {
             return false;
         }
 
-        // Check all text fields in the row
-        return (row.getLabel() != null && row.getLabel().contains(term)) ||
-                (row.getInstructionType() != null && row.getInstructionType().contains(term)) ||
-                (row.getCommandType() != null && row.getCommandType().contains(term));
+        // Check label field with exact matching (labels should match exactly)
+        if (row.getLabel() != null && row.getLabel().equals(term)) {
+            return true;
+        }
+
+        // Check variable field with exact matching (variables should match exactly)
+        if (row.getVariable() != null && row.getVariable().equals(term)) {
+            return true;
+        }
+
+        // Check instruction text field with word boundary matching
+        if (row.getInstructionType() != null) {
+            String instructionText = row.getInstructionType();
+            // Use word boundaries to match complete words/tokens, not substrings
+            // This prevents L1 from matching L10, L11, etc.
+            if (instructionText.contains(term)) {
+                // Additional check: ensure it's not a substring within a larger word
+                // Look for the term surrounded by word boundaries or at start/end
+                String pattern = "\\b" + java.util.regex.Pattern.quote(term) + "\\b";
+                if (java.util.regex.Pattern.compile(pattern).matcher(instructionText).find()) {
+                    return true;
+                }
+            }
+        }
+
+        // Check command type field with exact matching
+        if (row.getCommandType() != null && row.getCommandType().equals(term)) {
+            return true;
+        }
+
+        return false;
     }
 }

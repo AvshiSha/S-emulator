@@ -39,27 +39,16 @@
                   <Tooltip text="Select the main program or any subfunction to view its instructions in the table below" />
                </tooltip>
             </ComboBox>
-            <Button fx:id="btnDecreaseDegree" mnemonicParsing="false" onAction="#decreaseDegreePressed" prefHeight="35.0" prefWidth="80.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="[-]">
-               <font>
-                  <Font name="System Bold" size="12.0" />
-               </font>
+            <ComboBox fx:id="levelSelector" maxWidth="200.0" minWidth="150.0" prefHeight="35.0" prefWidth="200.0" promptText="Select Level" style="-fx-background-color: #FFF8DC; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-font-weight: bold;" onAction="#onLevelSelected">
                <tooltip>
-                  <Tooltip text="Decrease expansion degree" />
+                  <Tooltip text="Select the expansion level to jump directly to that degree" />
                </tooltip>
-            </Button>
+            </ComboBox>
             <Label fx:id="lblDegreeStatus" alignment="CENTER" prefHeight="35.0" prefWidth="200.0" style="-fx-background-color: #F0F0F0; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 8px;" text="— / —">
                <font>
                   <Font name="System Bold" size="12.0" />
                </font>
             </Label>
-            <Button fx:id="btnIncreaseDegree" mnemonicParsing="false" onAction="#increaseDegreePressed" prefHeight="35.0" prefWidth="80.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="[+]">
-               <font>
-                  <Font name="System Bold" size="12.0" />
-               </font>
-               <tooltip>
-                  <Tooltip text="Increase expansion degree" />
-               </tooltip>
-            </Button>
             <ComboBox fx:id="labelVariableComboBox" maxWidth="200.0" minWidth="150.0" prefHeight="35.0" prefWidth="200.0" promptText="Select Label/Variable" style="-fx-background-color: #FFF8DC; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;" onAction="#onLabelVariableSelected">
                <tooltip>
                   <Tooltip text="Select a label or variable to highlight its usage in the instruction table" />
