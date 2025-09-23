@@ -158,8 +158,65 @@ public class SProgramImpl implements SProgram {
         return deg_prog();
     }
 
+    /**
+     * Calculate the template degree of a function (no +1 for call-site expansion).
+     * This is used when we want to know the internal complexity of a function
+     * without the call-site expansion layer.
+     */
+    public int calculateFunctionTemplateDegree(String functionName) {
+        if (!functions.containsKey(functionName)) {
+            return 0;
+        }
+
+        // Clear memoization cache for fresh calculation
+        functionDegreeMemo.clear();
+
+        // Calculate the template degree (no +1)
+        Set<String> visited = new HashSet<>();
+        return deg_func_template(functionName, visited);
+    }
+
+    /**
+     * Calculate the template degree of a function (no +1 for internal calls).
+     * This is used when calculating deg_func(F) to avoid double-counting.
+     */
+    private int deg_func_template(String functionName, Set<String> visitedFunctions) {
+        // Check memoization first
+        Integer memo = functionDegreeMemo.get(functionName);
+        if (memo != null) {
+            return memo;
+        }
+
+        if (!functions.containsKey(functionName)) {
+            // Missing function: treat as basic, but don't memoize it
+            return 0;
+        }
+
+        if (!visitedFunctions.add(functionName)) {
+            // Cycle detected
+            functionDegreeMemo.put(functionName, UNBOUNDED);
+            return UNBOUNDED;
+        }
+
+        List<SInstruction> functionInstructions = functions.get(functionName);
+        int maxDegree = 0;
+
+        for (SInstruction instruction : functionInstructions) {
+            maxDegree = Math.max(maxDegree, deg_inst_template(instruction, visitedFunctions, false));
+        }
+
+        visitedFunctions.remove(functionName);
+
+        // Memoize the result
+        functionDegreeMemo.put(functionName, maxDegree);
+        return maxDegree;
+    }
+
     // Memoization map for function degrees
     private Map<String, Integer> functionDegreeMemo = new HashMap<>();
+
+    // Sentinel value for unbounded recursion
+    private static final int UNBOUNDED = Integer.MAX_VALUE / 4; // keep headroom for +1
 
     /**
      * Calculate the maximum degree of a program using the new expression-based
@@ -168,12 +225,10 @@ public class SProgramImpl implements SProgram {
      */
     private int deg_prog() {
         int maxDegree = 0;
+        Set<String> visited = new HashSet<>();
         // Calculate degree for main program instructions only
         for (SInstruction instruction : instructions) {
-            int instructionDegree = deg_inst(instruction);
-            if (instructionDegree > maxDegree) {
-                maxDegree = instructionDegree;
-            }
+            maxDegree = Math.max(maxDegree, deg_inst(instruction, visited));
         }
         return maxDegree;
     }
@@ -184,29 +239,28 @@ public class SProgramImpl implements SProgram {
      */
     private int deg_func(String functionName, Set<String> visitedFunctions) {
         // Check memoization first
-        if (functionDegreeMemo.containsKey(functionName)) {
-            return functionDegreeMemo.get(functionName);
-        }
-
-        // Prevent infinite recursion
-        if (visitedFunctions.contains(functionName)) {
-            return 1; // Return safe default for circular dependencies
+        Integer memo = functionDegreeMemo.get(functionName);
+        if (memo != null) {
+            return memo;
         }
 
         if (!functions.containsKey(functionName)) {
-            return 1; // Return safe default for missing functions
+            // Missing function: treat as basic, but don't memoize it
+            // The function might be defined in XML but not yet loaded
+            return 0;
         }
 
-        visitedFunctions.add(functionName);
+        if (!visitedFunctions.add(functionName)) {
+            // Cycle detected
+            functionDegreeMemo.put(functionName, UNBOUNDED);
+            return UNBOUNDED;
+        }
 
         List<SInstruction> functionInstructions = functions.get(functionName);
         int maxDegree = 0;
 
         for (SInstruction instruction : functionInstructions) {
-            int instructionDegree = deg_inst(instruction);
-            if (instructionDegree > maxDegree) {
-                maxDegree = instructionDegree;
-            }
+            maxDegree = Math.max(maxDegree, deg_inst_template(instruction, visitedFunctions, false));
         }
 
         visitedFunctions.remove(functionName);
@@ -223,7 +277,11 @@ public class SProgramImpl implements SProgram {
      * JUMP_EQUAL_FUNCTION: degree = deg_expr(Q)
      * Other synthetic instructions: use their known fixed degrees
      */
-    private int deg_inst(SInstruction instruction) {
+    private int deg_inst(SInstruction instruction, Set<String> visitedFunctions) {
+        return deg_inst_template(instruction, visitedFunctions, true);
+    }
+
+    private int deg_inst_template(SInstruction instruction, Set<String> visitedFunctions, boolean isCallSite) {
         String instructionName = instruction.getName();
 
         // Basic instructions have degree 0
@@ -234,13 +292,30 @@ public class SProgramImpl implements SProgram {
         // Handle QUOTE instructions
         if (instruction instanceof QuoteInstruction) {
             QuoteInstruction quote = (QuoteInstruction) instruction;
-            return deg_expr(quote.getFunctionName(), quote.getFunctionArguments(), new HashSet<>());
+            return deg_expr_template(quote.getFunctionName(), quote.getFunctionArguments(), visitedFunctions,
+                    isCallSite);
         }
 
         // Handle JUMP_EQUAL_FUNCTION instructions
         if (instruction instanceof JumpEqualFunctionInstruction) {
             JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) instruction;
-            return deg_expr(jef.getFunctionName(), jef.getFunctionArguments(), new HashSet<>());
+            // JUMP_EQUAL_FUNCTION has two-step expansion, so add +1 to the expression
+            // degree
+            int exprDegree = deg_expr_template(jef.getFunctionName(), jef.getFunctionArguments(), visitedFunctions,
+                    isCallSite);
+            if (exprDegree == UNBOUNDED) {
+                return UNBOUNDED;
+            }
+            if (isCallSite) {
+                // Guard against overflow when adding +1
+                if (exprDegree >= UNBOUNDED - 1) {
+                    return UNBOUNDED;
+                }
+                return exprDegree + 1;
+            } else {
+                // Template context: no extra +1
+                return exprDegree;
+            }
         }
 
         // For other synthetic instructions, use their known fixed degrees
@@ -255,20 +330,57 @@ public class SProgramImpl implements SProgram {
      * deg_expr(ai))
      */
     private int deg_expr(String functionName, List<FunctionArgument> arguments, Set<String> visitedFunctions) {
+        return deg_expr_template(functionName, arguments, visitedFunctions, true);
+    }
+
+    /**
+     * Calculate the degree of an expression in template context (no +1) or
+     * call-site context (+1).
+     * Template context: used when calculating deg_func(F) - no +1 for internal
+     * calls
+     * Call-site context: used when evaluating program instructions - +1 for
+     * expansion layer
+     */
+    private int deg_expr_template(String functionName, List<FunctionArgument> arguments, Set<String> visitedFunctions,
+            boolean isCallSite) {
         // Calculate degree of the function body
         int functionDegree = deg_func(functionName, visitedFunctions);
+
+        if (functionDegree == UNBOUNDED) {
+            return UNBOUNDED;
+        }
 
         // Calculate maximum degree among arguments
         int maxArgumentDegree = 0;
         for (FunctionArgument arg : arguments) {
-            int argDegree = deg_expr(arg, visitedFunctions);
-            if (argDegree > maxArgumentDegree) {
-                maxArgumentDegree = argDegree;
+            int argDegree = deg_expr_template(arg, visitedFunctions, isCallSite);
+            if (argDegree == UNBOUNDED) {
+                return UNBOUNDED;
             }
+            // Add +1 for intermediate variable creation for function call arguments
+            // only when we're in template context (not call-site context)
+            if (arg.isFunctionCall() && !isCallSite) {
+                if (argDegree >= UNBOUNDED - 1) {
+                    return UNBOUNDED;
+                }
+                argDegree = 1 + argDegree;
+            }
+            maxArgumentDegree = Math.max(maxArgumentDegree, argDegree);
         }
 
-        // deg_expr(E) = 1 + max(deg_func(f), max_i deg_expr(ai))
-        return 1 + Math.max(functionDegree, maxArgumentDegree);
+        // Template context: no +1, just measure internal complexity
+        int maxDegree = Math.max(functionDegree, maxArgumentDegree);
+
+        if (isCallSite) {
+            // Call-site context: add +1 for the expansion layer
+            if (maxDegree >= UNBOUNDED - 1) {
+                return UNBOUNDED;
+            }
+            return maxDegree + 1;
+        } else {
+            // Template context: no +1
+            return maxDegree;
+        }
     }
 
     /**
@@ -277,9 +389,23 @@ public class SProgramImpl implements SProgram {
      * If it's a variable or constant, return 0.
      */
     private int deg_expr(FunctionArgument argument, Set<String> visitedFunctions) {
+        return deg_expr_template(argument, visitedFunctions, true);
+    }
+
+    private int deg_expr_template(FunctionArgument argument, Set<String> visitedFunctions, boolean isCallSite) {
         if (argument.isFunctionCall()) {
             FunctionCall call = argument.asFunctionCall();
-            return deg_expr(call.getFunctionName(), call.getArguments(), visitedFunctions);
+            // For nested function calls, we need to add +1 for intermediate variable
+            // creation
+            // even in template context, because the call will create an intermediate
+            // variable
+            int nestedDegree = deg_expr_template(call.getFunctionName(), call.getArguments(), visitedFunctions,
+                    isCallSite);
+            if (nestedDegree == UNBOUNDED) {
+                return UNBOUNDED;
+            }
+            // Don't add +1 here - it will be added in the main deg_expr_template method
+            return nestedDegree;
         } else {
             // Variable or constant
             return 0;

@@ -1015,17 +1015,15 @@ public class Header {
         var functionInstructions = functions.get(functionName);
         System.out.println("DEBUG: Found function with " + functionInstructions.size() + " instructions");
 
-        // Create a custom SProgramImpl that only considers its own instructions for
-        // degree calculation
+        // Create a custom SProgramImpl that considers its own instructions for
+        // degree calculation while keeping access to all functions
         SProgramImpl functionProgram = new SProgramImpl(functionName) {
           @Override
           public int calculateMaxDegree() {
-            // Temporarily clear functions to calculate degree only for main instructions
-            var originalFunctions = new java.util.HashMap<>(getFunctions());
-            getFunctions().clear();
-            int maxDegree = super.calculateMaxDegree();
-            getFunctions().putAll(originalFunctions);
-            return maxDegree;
+            // Don't clear functions - they are needed for nested function calls
+            // The degree calculation will work on the function's instructions
+            // while having access to all other functions for dependencies
+            return super.calculateMaxDegree();
           }
         };
 
