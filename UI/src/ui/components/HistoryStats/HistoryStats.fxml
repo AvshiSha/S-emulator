@@ -22,7 +22,7 @@
             <VBox spacing="5.0" HBox.hgrow="ALWAYS">
                <children>
                   <!-- History Table -->
-                  <TableView fx:id="historyTableView" maxHeight="120.0" maxWidth="Infinity" minHeight="30.0" minWidth="200.0" prefHeight="80.0" VBox.vgrow="NEVER">
+                  <TableView fx:id="historyTableView" maxHeight="Infinity" maxWidth="Infinity" minHeight="100.0" minWidth="200.0" prefHeight="250.0" VBox.vgrow="ALWAYS">
                      <columns>
                         <TableColumn fx:id="runNumberColumn" minWidth="60.0" prefWidth="80.0" text="Run #" />
                         <TableColumn fx:id="runLevelColumn" minWidth="60.0" prefWidth="80.0" text="Level" />
