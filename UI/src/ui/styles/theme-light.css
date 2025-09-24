@@ -1,0 +1,131 @@
+/* Light theme styles */
+
+.app-root, .root {
+    -fx-background-color: #ffffff;
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 12px;
+}
+
+/* Text colors */
+.label {
+    -fx-text-fill: #222222;
+}
+
+/* Button styles */
+.button {
+    -fx-background-color: #f2f2f2;
+    -fx-text-fill: #222222;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1;
+    -fx-background-radius: 10;
+    -fx-padding: 8 14 8 14;
+}
+
+.button:hover {
+    -fx-background-color: #e6e6e6;
+    -fx-border-color: #999999;
+}
+
+.button:pressed {
+    -fx-background-color: #d9d9d9;
+    -fx-border-color: #666666;
+}
+
+.button:disabled {
+    -fx-opacity: 0.6;
+    -fx-background-color: #f5f5f5;
+    -fx-text-fill: #999999;
+}
+
+/* Special button styles */
+.button.load-button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-border-color: #45a049;
+}
+
+.button.load-button:hover {
+    -fx-background-color: #45a049;
+}
+
+.button.load-button:pressed {
+    -fx-background-color: #3d8b40;
+}
+
+/* Text field styles */
+.text-field {
+    -fx-background-color: #FFF8DC;
+    -fx-text-fill: #222222;
+    -fx-border-color: #4169E1;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+}
+
+.text-field:focused {
+    -fx-border-color: #1e3a8a;
+    -fx-border-width: 3;
+}
+
+/* Combo box styles */
+.combo-box {
+    -fx-background-color: #FFF8DC;
+    -fx-text-fill: #222222;
+    -fx-border-color: #4169E1;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+}
+
+.combo-box:focused {
+    -fx-border-color: #1e3a8a;
+    -fx-border-width: 3;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #222222;
+    -fx-background-color: #ffffff;
+}
+
+.combo-box .list-view {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #cccccc;
+}
+
+.combo-box .list-cell:hover {
+    -fx-background-color: #e6e6e6;
+}
+
+/* Progress bar styles */
+.progress-bar {
+    -fx-accent: #4CAF50;
+    -fx-background-color: #e0e0e0;
+}
+
+/* Status label styles */
+.status-label {
+    -fx-background-color: #F0F0F0;
+    -fx-border-color: #4169E1;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8px;
+    -fx-text-fill: #222222;
+}
+
+/* Title label styles */
+.title-label {
+    -fx-text-fill: #0a03d3;
+    -fx-border-width: 2px;
+    -fx-border-color: #cccccc;
+}
+
+/* Tooltip styles */
+.tooltip {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #222222;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1;
+}

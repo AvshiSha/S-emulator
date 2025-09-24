@@ -5,6 +5,7 @@
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
@@ -26,36 +27,36 @@
                   <Font name="System Bold" size="12.0" />
                </font>
             </Label>
-            <HBox alignment="CENTER_LEFT" spacing="10.0">
+            <HBox alignment="CENTER_LEFT" spacing="10.0" HBox.hgrow="ALWAYS">
                <children>
-                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="35.0" prefWidth="150.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="New Run" textFill="WHITE">
+                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="35.0" minWidth="80.0" prefWidth="120.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="New Run" textFill="WHITE" wrapText="true">
                      <font>
-                        <Font name="System Bold" size="11.0" />
+                        <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="startDebugButton" mnemonicParsing="false" onAction="#startDebugExecution" prefHeight="35.0" prefWidth="150.0" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-background-radius: 5;" text="Debug">
+                  <Button fx:id="startDebugButton" mnemonicParsing="false" onAction="#startDebugExecution" prefHeight="35.0" minWidth="80.0" prefWidth="100.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-background-radius: 5;" text="Debug" wrapText="true">
                      <font>
-                        <Font name="System Bold" size="11.0" />
+                        <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stopButton" mnemonicParsing="false" onAction="#stopExecution" prefHeight="35.0" prefWidth="80.0" style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 5;" text="Stop">
+                  <Button fx:id="stopButton" mnemonicParsing="false" onAction="#stopExecution" prefHeight="35.0" minWidth="80.0" prefWidth="100.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 5;" text="Stop" wrapText="true">
                      <font>
-                        <Font name="System Bold" size="11.0" />
+                        <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="resumeButton" mnemonicParsing="false" onAction="#resumeExecution" prefHeight="35.0" prefWidth="80.0" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-background-radius: 5;" text="Resume">
+                  <Button fx:id="resumeButton" mnemonicParsing="false" onAction="#resumeExecution" prefHeight="35.0" minWidth="80.0" prefWidth="100.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-background-radius: 5;" text="Resume" wrapText="true">
                      <font>
-                        <Font name="System Bold" size="11.0" />
+                        <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stepOverButton" mnemonicParsing="false" onAction="#stepOver" prefHeight="35.0" prefWidth="100.0" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Over">
+                  <Button fx:id="stepOverButton" mnemonicParsing="false" onAction="#stepOver" prefHeight="35.0" minWidth="80.0" prefWidth="120.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Over" wrapText="true">
                      <font>
-                        <Font name="System Bold" size="11.0" />
+                        <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stepBackwardButton" mnemonicParsing="false" onAction="#stepBackward" prefHeight="35.0" prefWidth="120.0" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Backward">
+                  <Button fx:id="stepBackwardButton" mnemonicParsing="false" onAction="#stepBackward" prefHeight="35.0" minWidth="80.0" prefWidth="140.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Back" wrapText="true">
                      <font>
-                        <Font name="System Bold" size="11.0" />
+                        <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
                </children>
@@ -176,5 +177,6 @@
             </VBox>
          </children>
       </HBox>
+      <AnchorPane prefHeight="200.0" prefWidth="200.0" />
    </children>
 </VBox>

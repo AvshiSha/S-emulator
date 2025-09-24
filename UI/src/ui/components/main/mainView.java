@@ -12,6 +12,7 @@ import ui.components.InstructionTable.InstructionTable;
 import ui.components.HistoryChain.HistoryChain;
 import ui.components.DebuggerExecution.DebuggerExecution;
 import ui.components.HistoryStats.HistoryStats;
+import ui.ThemeManager;
 
 public class mainView extends Application {
     @FXML
@@ -34,10 +35,14 @@ public class mainView extends Application {
     private HistoryChain historyChainController;
     private DebuggerExecution debuggerExecutionController;
     private HistoryStats historyStatsController;
+    private ThemeManager themeManager;
 
     @Override
     public void start(Stage primaryStage) throws Exception {
         primaryStage.setTitle("S-Emulator");
+
+        // Initialize theme manager
+        themeManager = ThemeManager.getInstance();
 
         // Load the main FXML
         FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/ui/components/main/mainView.fxml"));
@@ -135,6 +140,9 @@ public class mainView extends Application {
 
         Scene scene = new Scene(root, 800, 800);
         primaryStage.setScene(scene);
+
+        // Apply the current theme to the scene
+        themeManager.applyCurrentTheme(scene);
 
         // Set minimum window size to ensure usability on small screens
         primaryStage.setMinWidth(600);

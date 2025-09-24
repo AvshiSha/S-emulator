@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
@@ -12,26 +14,62 @@
    <children>
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Program Run History" />
       
-      <!-- History Table -->
-      <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="NEVER" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
-         <content>
-            <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0">
-               <columns>
-                  <TableColumn fx:id="runNumberColumn" minWidth="60.0" prefWidth="80.0" text="Run #" />
-                  <TableColumn fx:id="runLevelColumn" minWidth="60.0" prefWidth="80.0" text="Level" />
-                  <TableColumn fx:id="inputsColumn" minWidth="120.0" prefWidth="150.0" text="Inputs" />
-                  <TableColumn fx:id="yValueColumn" minWidth="80.0" prefWidth="100.0" text="Y Value" />
-                  <TableColumn fx:id="cyclesColumn" minWidth="60.0" prefWidth="80.0" text="Cycles" />
-               </columns>
-            </TableView>
-         </content>
-      </ScrollPane>
-      
-      <!-- Action Buttons -->
-      <HBox spacing="10.0" style="-fx-padding: 10px;">
+      <!-- Main content area with table on left and theme controls on right -->
+      <HBox alignment="TOP_LEFT" spacing="15.0" VBox.vgrow="ALWAYS">
          <children>
-            <Button fx:id="rerunButton" disable="true" onAction="#rerunSelectedRun" prefWidth="120.0" text="Rerun Selected" />
-            <Button fx:id="clearHistoryButton" onAction="#clearHistory" prefWidth="120.0" text="Clear History" />
+            <!-- Left side: History Table and Action Buttons -->
+            <VBox spacing="10.0" HBox.hgrow="ALWAYS">
+               <children>
+                  <!-- History Table -->
+                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="NEVER" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+                     <content>
+                        <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0">
+                           <columns>
+                              <TableColumn fx:id="runNumberColumn" minWidth="60.0" prefWidth="80.0" text="Run #" />
+                              <TableColumn fx:id="runLevelColumn" minWidth="60.0" prefWidth="80.0" text="Level" />
+                              <TableColumn fx:id="inputsColumn" minWidth="120.0" prefWidth="150.0" text="Inputs" />
+                              <TableColumn fx:id="yValueColumn" minWidth="80.0" prefWidth="100.0" text="Y Value" />
+                              <TableColumn fx:id="cyclesColumn" minWidth="60.0" prefWidth="80.0" text="Cycles" />
+                           </columns>
+                        </TableView>
+                     </content>
+                  </ScrollPane>
+                  
+                  <!-- Action Buttons -->
+                  <HBox spacing="10.0" style="-fx-padding: 10px;">
+                     <children>
+                        <Button fx:id="rerunButton" disable="true" onAction="#rerunSelectedRun" prefWidth="120.0" text="Rerun Selected" />
+                        <Button fx:id="clearHistoryButton" onAction="#clearHistory" prefWidth="120.0" text="Clear History" />
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+            
+                  <!-- Right side: Theme Controls -->
+            <VBox alignment="TOP_CENTER" spacing="10.0" style="-fx-padding: 10px;">
+               <children>
+                  <Label prefHeight="1.0" prefWidth="83.0" style="-fx-font-size: 14px; -fx-font-weight: bold;" text="Appearance" />
+                  
+                        <!-- Theme Controls -->
+                  <VBox alignment="CENTER" spacing="8.0">
+                     <children>
+                        <Label text="Theme:" />
+                        <ComboBox fx:id="themeSelector" maxWidth="150.0" minWidth="120.0" onAction="#onThemeSelected" prefHeight="35.0" prefWidth="150.0" promptText="Select Theme">
+                           <tooltip>
+                              <Tooltip text="Select a color scheme for the application" />
+                           </tooltip>
+                        </ComboBox>
+                        
+                              <Label text="Font Size:" />
+                        <ComboBox fx:id="fontSizeSelector" maxWidth="150.0" minWidth="80.0" onAction="#onFontSizeSelected" prefHeight="35.0" prefWidth="150.0" promptText="Size">
+                           <tooltip>
+                              <Tooltip text="Select the font size for the application" />
+                           </tooltip>
+                        </ComboBox>
+                     </children>
+                  </VBox>
+               </children>
+            </VBox>
          </children>
       </HBox>
       

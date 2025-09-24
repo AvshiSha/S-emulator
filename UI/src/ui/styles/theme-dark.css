@@ -1,0 +1,131 @@
+/* Dark theme styles */
+
+.app-root, .root {
+    -fx-background-color: #111111;
+    -fx-font-family: "Inter", "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 12px;
+}
+
+/* Text colors */
+.label {
+    -fx-text-fill: #f2f2f2;
+}
+
+/* Button styles */
+.button {
+    -fx-background-color: #2a2a2a;
+    -fx-text-fill: #f2f2f2;
+    -fx-border-color: #444444;
+    -fx-border-width: 1;
+    -fx-background-radius: 10;
+    -fx-padding: 8 14 8 14;
+}
+
+.button:hover {
+    -fx-background-color: #3a3a3a;
+    -fx-border-color: #666666;
+}
+
+.button:pressed {
+    -fx-background-color: #1f1f1f;
+    -fx-border-color: #333333;
+}
+
+.button:disabled {
+    -fx-opacity: 0.6;
+    -fx-background-color: #1a1a1a;
+    -fx-text-fill: #666666;
+}
+
+/* Special button styles */
+.button.load-button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-border-color: #45a049;
+}
+
+.button.load-button:hover {
+    -fx-background-color: #45a049;
+}
+
+.button.load-button:pressed {
+    -fx-background-color: #3d8b40;
+}
+
+/* Text field styles */
+.text-field {
+    -fx-background-color: #2a2a2a;
+    -fx-text-fill: #f2f2f2;
+    -fx-border-color: #4169E1;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+}
+
+.text-field:focused {
+    -fx-border-color: #60a5fa;
+    -fx-border-width: 3;
+}
+
+/* Combo box styles */
+.combo-box {
+    -fx-background-color: #2a2a2a;
+    -fx-text-fill: #f2f2f2;
+    -fx-border-color: #4169E1;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+}
+
+.combo-box:focused {
+    -fx-border-color: #60a5fa;
+    -fx-border-width: 3;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #f2f2f2;
+    -fx-background-color: #2a2a2a;
+}
+
+.combo-box .list-view {
+    -fx-background-color: #2a2a2a;
+    -fx-border-color: #444444;
+}
+
+.combo-box .list-cell:hover {
+    -fx-background-color: #3a3a3a;
+}
+
+/* Progress bar styles */
+.progress-bar {
+    -fx-accent: #4CAF50;
+    -fx-background-color: #333333;
+}
+
+/* Status label styles */
+.status-label {
+    -fx-background-color: #2a2a2a;
+    -fx-border-color: #4169E1;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8px;
+    -fx-text-fill: #f2f2f2;
+}
+
+/* Title label styles */
+.title-label {
+    -fx-text-fill: #60a5fa;
+    -fx-border-width: 2px;
+    -fx-border-color: #444444;
+}
+
+/* Tooltip styles */
+.tooltip {
+    -fx-background-color: #2a2a2a;
+    -fx-text-fill: #f2f2f2;
+    -fx-border-color: #444444;
+    -fx-border-width: 1;
+}

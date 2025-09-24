@@ -8,10 +8,13 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.Stage;
 import semulator.program.SProgram;
 import semulator.variable.Variable;
 import ui.RunHistory;
 import ui.RunResult;
+import ui.Theme;
+import ui.ThemeManager;
 
 import java.net.URL;
 import java.util.List;
@@ -38,8 +41,13 @@ public class HistoryStats implements Initializable {
     private Button rerunButton;
     @FXML
     private Button clearHistoryButton;
+    @FXML
+    private ComboBox<Theme> themeSelector;
+    @FXML
+    private ComboBox<String> fontSizeSelector;
 
     private ObservableList<HistoryRow> historyData = FXCollections.observableArrayList();
+    private ThemeManager themeManager;
 
     private RunHistory runHistory;
     private SProgram currentProgram;
@@ -82,6 +90,17 @@ public class HistoryStats implements Initializable {
 
         // Initialize run history
         runHistory = new RunHistory();
+
+        // Initialize theme manager and controls
+        themeManager = ThemeManager.getInstance();
+
+        // Initialize theme selector
+        themeSelector.getItems().addAll(Theme.values());
+        themeSelector.setValue(themeManager.getCurrentTheme());
+
+        // Initialize font size selector
+        fontSizeSelector.getItems().addAll("12px", "14px", "16px", "18px");
+        fontSizeSelector.setValue(themeManager.getCurrentFontSize());
     }
 
     /**
@@ -210,6 +229,43 @@ public class HistoryStats implements Initializable {
 
         public String getCycles() {
             return cycles.get();
+        }
+    }
+
+    /**
+     * Handle theme selection
+     */
+    @FXML
+    private void onThemeSelected() {
+        Theme selectedTheme = themeSelector.getSelectionModel().getSelectedItem();
+        if (selectedTheme != null) {
+            themeManager.setTheme(selectedTheme);
+
+            // Apply the theme to the current scene
+            Stage stage = (Stage) themeSelector.getScene().getWindow();
+            if (stage != null && stage.getScene() != null) {
+                themeManager.applyCurrentTheme(stage.getScene());
+            }
+        }
+    }
+
+    /**
+     * Handle font size selection
+     */
+    @FXML
+    private void onFontSizeSelected() {
+        String selectedFontSize = fontSizeSelector.getSelectionModel().getSelectedItem();
+        if (selectedFontSize != null) {
+            themeManager.setFontSize(selectedFontSize);
+
+            // Force font size change by reapplying the entire theme
+            Stage stage = (Stage) fontSizeSelector.getScene().getWindow();
+            if (stage != null && stage.getScene() != null) {
+                // Clear all stylesheets first
+                stage.getScene().getStylesheets().clear();
+                // Reapply the current theme with new font size
+                themeManager.applyCurrentTheme(stage.getScene());
+            }
         }
     }
 
