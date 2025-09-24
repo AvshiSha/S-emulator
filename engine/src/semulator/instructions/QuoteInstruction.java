@@ -134,7 +134,9 @@ public class QuoteInstruction extends AbstractInstruction {
         int instructionIndex = 0;
         while (instructionIndex < functionInstructions.size()) {
             SInstruction instruction = functionInstructions.get(instructionIndex);
-            Label nextLabel = instruction.execute(functionContext);
+            Label nextLabel;
+
+            nextLabel = instruction.execute(functionContext);
 
             // Handle jumps within the function
             if (nextLabel == FixedLabel.EXIT) {
