@@ -104,10 +104,43 @@ public class DebuggerExecution {
     // Step-by-step execution context
     private ExecutionContext stepExecutionContext = null;
     private Map<String, Integer> labelToIndexMap = new HashMap<>();
+    
+    // Step back history - stores previous execution states
+    private java.util.Deque<ExecutionState> executionHistory = new java.util.ArrayDeque<>();
+    private static final int MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
+
+    // Execution state for step back functionality
+    private static class ExecutionState {
+        private final int instructionIndex;
+        private final Map<semulator.variable.Variable, Long> variableState;
+        private final int cycles;
+        private final StepExecutionContext executionContext;
+
+        public ExecutionState(int instructionIndex, Map<semulator.variable.Variable, Long> variableState, 
+                            int cycles, StepExecutionContext executionContext) {
+            this.instructionIndex = instructionIndex;
+            this.variableState = new HashMap<>(variableState);
+            this.cycles = cycles;
+            this.executionContext = copyExecutionContext(executionContext);
+        }
+
+        public int getInstructionIndex() { return instructionIndex; }
+        public Map<semulator.variable.Variable, Long> getVariableState() { return new HashMap<>(variableState); }
+        public int getCycles() { return cycles; }
+        public StepExecutionContext getExecutionContext() { return executionContext; }
+
+        // Deep copy the execution context to avoid reference issues
+        private StepExecutionContext copyExecutionContext(StepExecutionContext original) {
+            if (original == null) return null;
+            StepExecutionContext copy = new StepExecutionContext(original.inputs);
+            copy.variables.putAll(original.variables);
+            return copy;
+        }
+    }
 
     // Simple execution context implementation for step-by-step execution
     private static class StepExecutionContext implements ExecutionContext {
-        private final Map<semulator.variable.Variable, Long> variables = new HashMap<>();
+        final Map<semulator.variable.Variable, Long> variables = new HashMap<>();
         private final Long[] inputs;
 
         public StepExecutionContext(Long[] inputs) {
@@ -227,6 +260,9 @@ public class DebuggerExecution {
         isPaused.set(false);
         isDebugMode.set(false);
         isStepExecution = false;
+        
+        // Clear execution history when stopping
+        executionHistory.clear();
 
         if (executionService != null && executionService.isRunning()) {
             executionService.cancel();
@@ -274,10 +310,42 @@ public class DebuggerExecution {
 
     @FXML
     private void stepBackward(ActionEvent event) {
-        // Step backward functionality - this would require maintaining execution
-        // history
-        // For now, we'll show a message that this feature is not yet implemented
-        showAlert("Feature Not Available", "Step Backward functionality is not yet implemented.");
+        if (isDebugMode.get() && isPaused.get() && isStepExecution) {
+            if (executionHistory.isEmpty()) {
+                showAlert("Cannot Step Back", "No previous execution state available. Cannot step back from the initial state.");
+                return;
+            }
+
+            // Restore the previous execution state
+            ExecutionState previousState = executionHistory.pop();
+            
+            // Restore instruction index
+            currentInstructionIndex = previousState.getInstructionIndex();
+            
+            // Restore variable states
+            currentVariableState.clear();
+            currentVariableState.putAll(previousState.getVariableState());
+            
+            // Restore cycles
+            currentCycles.set(previousState.getCycles());
+            
+            // Restore execution context
+            stepExecutionContext = previousState.getExecutionContext();
+            
+            // Update displays
+            updateCyclesDisplay();
+            updateVariablesDisplay();
+            
+            // Notify instruction table to highlight current instruction
+            if (instructionTableCallback != null) {
+                instructionTableCallback.accept(currentInstructionIndex);
+            }
+            
+            updateExecutionStatus("Stepped back to instruction " + currentInstructionIndex + " of " + currentInstructions.size());
+            
+        } else {
+            showAlert("Step Back Not Available", "Step back is only available in debug mode when paused.");
+        }
     }
 
     /**
@@ -607,6 +675,9 @@ public class DebuggerExecution {
             // Initialize variable states
             previousVariableState.clear();
             currentVariableState.clear();
+            
+            // Clear execution history for new debug session
+            executionHistory.clear();
 
             // Initialize step-by-step execution context
             List<Long> inputs = getOrderedInputs();
@@ -665,6 +736,9 @@ public class DebuggerExecution {
         }
 
         try {
+            // Save current execution state to history before executing the step
+            saveCurrentExecutionState();
+            
             // Store previous variable state
             previousVariableState.clear();
             previousVariableState.putAll(currentVariableState);
@@ -767,6 +841,26 @@ public class DebuggerExecution {
             e.printStackTrace();
             updateExecutionStatus("Error executing step: " + e.getMessage());
             System.err.println("Error in step execution: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Save the current execution state to history for step back functionality
+     */
+    private void saveCurrentExecutionState() {
+        if (stepExecutionContext instanceof StepExecutionContext) {
+            ExecutionState currentState = new ExecutionState(
+                currentInstructionIndex,
+                currentVariableState,
+                currentCycles.get(),
+                (StepExecutionContext) stepExecutionContext
+            );
+            
+            // Add to history and maintain size limit
+            executionHistory.push(currentState);
+            if (executionHistory.size() > MAX_HISTORY_SIZE) {
+                executionHistory.removeLast(); // Remove oldest state
+            }
         }
     }
 
