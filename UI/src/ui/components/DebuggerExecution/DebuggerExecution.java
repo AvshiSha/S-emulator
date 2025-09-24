@@ -818,9 +818,12 @@ public class DebuggerExecution {
             for (semulator.instructions.FunctionArgument arg : quoteInstruction.getFunctionArguments()) {
                 if (arg.isFunctionCall()) {
                     // For function calls, we need to execute them first
-                    // This is a simplified approach - in practice, you'd want to expand and execute
-                    functionInputs.add(0L); // Placeholder - function calls should be expanded before execution
-                    System.out.println("DEBUG: Function call argument: " + arg + " = 0 (placeholder)");
+                    semulator.instructions.FunctionCall call = arg.asFunctionCall();
+                    System.out.println("DEBUG: Executing nested function call: " + call.getFunctionName());
+                    long nestedResult = executeNestedFunctionCall(call, stepExecutionContext, functions);
+                    functionInputs.add(nestedResult);
+                    System.out
+                            .println("DEBUG: Nested function " + call.getFunctionName() + " returned: " + nestedResult);
                 } else {
                     semulator.variable.Variable var = arg.asVariable();
                     if (var.getType() == semulator.variable.VariableType.Constant) {
@@ -972,7 +975,13 @@ public class DebuggerExecution {
             for (semulator.instructions.FunctionArgument arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
                 if (arg.isFunctionCall()) {
                     // For function calls, we need to execute them first
-                    functionInputs.add(0L); // Placeholder - function calls should be expanded before execution
+                    semulator.instructions.FunctionCall call = arg.asFunctionCall();
+                    System.out.println(
+                            "DEBUG: Executing nested function call in JumpEqualFunction: " + call.getFunctionName());
+                    long nestedResult = executeNestedFunctionCall(call, stepExecutionContext, functions);
+                    functionInputs.add(nestedResult);
+                    System.out
+                            .println("DEBUG: Nested function " + call.getFunctionName() + " returned: " + nestedResult);
                 } else {
                     semulator.variable.Variable var = arg.asVariable();
                     if (var.getType() == semulator.variable.VariableType.Constant) {
@@ -1233,6 +1242,61 @@ public class DebuggerExecution {
         public boolean isChanged() {
             return isChanged;
         }
+    }
+
+    /**
+     * Execute a nested function call and return its result
+     */
+    private long executeNestedFunctionCall(semulator.instructions.FunctionCall call, ExecutionContext parentContext,
+            Map<String, List<semulator.instructions.SInstruction>> functions) {
+        System.out.println("DEBUG: Executing nested function: " + call.getFunctionName());
+
+        // Get the function body for the nested function
+        List<semulator.instructions.SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
+        if (nestedFunctionBody == null) {
+            System.out.println("DEBUG: ERROR: Function '" + call.getFunctionName() + "' not found in functions map");
+            System.out.println("DEBUG: Available functions: " + functions.keySet());
+            throw new IllegalArgumentException("Function '" + call.getFunctionName() + "' not found");
+        }
+
+        System.out.println("DEBUG: Found function body for " + call.getFunctionName() + " with "
+                + nestedFunctionBody.size() + " instructions");
+
+        // Create execution context for the nested function
+        List<Long> nestedInputs = new ArrayList<>();
+        System.out.println("DEBUG: Processing arguments for nested function " + call.getFunctionName() + ": "
+                + call.getArguments());
+        for (semulator.instructions.FunctionArgument arg : call.getArguments()) {
+            if (arg.isFunctionCall()) {
+                // Recursively execute nested function calls
+                semulator.instructions.FunctionCall nestedCall = arg.asFunctionCall();
+                System.out.println("DEBUG: Recursively calling: " + nestedCall.getFunctionName());
+                long nestedResult = executeNestedFunctionCall(nestedCall, parentContext, functions);
+                System.out.println(
+                        "DEBUG: Recursive call " + nestedCall.getFunctionName() + " returned: " + nestedResult);
+                nestedInputs.add(nestedResult);
+            } else {
+                semulator.variable.Variable var = arg.asVariable();
+                if (var.getType() == semulator.variable.VariableType.Constant) {
+                    System.out.println("DEBUG: Constant argument: " + var.getNumber());
+                    nestedInputs.add((long) var.getNumber());
+                } else {
+                    // Get the value from the parent execution context
+                    long varValue = parentContext.getVariableValue(var);
+                    System.out.println("DEBUG: Variable argument " + var + " = " + varValue);
+                    nestedInputs.add(varValue);
+                }
+            }
+        }
+
+        System.out.println("DEBUG: Nested function " + call.getFunctionName() + " inputs: " + nestedInputs);
+        StepExecutionContext nestedContext = new StepExecutionContext(nestedInputs.toArray(new Long[0]));
+
+        // Execute the nested function body
+        long result = executeFunctionBody(nestedFunctionBody, nestedContext);
+        System.out.println(
+                "DEBUG: Nested function " + call.getFunctionName() + " execution completed, result: " + result);
+        return result;
     }
 
 }

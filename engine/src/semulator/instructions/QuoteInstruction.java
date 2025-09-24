@@ -8,15 +8,17 @@ import semulator.variable.VariableImpl;
 import semulator.variable.VariableType;
 
 import java.util.List;
+import java.util.Map;
 
 public class QuoteInstruction extends AbstractInstruction {
 
     private final String functionName;
     private final List<FunctionArgument> functionArguments;
     private final List<SInstruction> functionInstructions;
+    private final Map<String, List<SInstruction>> functions;
 
     public QuoteInstruction(Variable target, String functionName, List<FunctionArgument> functionArguments,
-            List<SInstruction> functionInstructions) {
+            List<SInstruction> functionInstructions, Map<String, List<SInstruction>> functions) {
         super(InstructionData.QUOTE, target);
         if (functionName == null || functionName.trim().isEmpty()) {
             throw new IllegalArgumentException("functionName cannot be null or empty");
@@ -31,10 +33,11 @@ public class QuoteInstruction extends AbstractInstruction {
         this.functionArguments = functionArguments;
         // we need to add in here all the instructions that are in the function body
         this.functionInstructions = functionInstructions;
+        this.functions = functions;
     }
 
     public QuoteInstruction(Variable target, String functionName, List<FunctionArgument> functionArguments,
-            List<SInstruction> functionInstructions, Label label) {
+            List<SInstruction> functionInstructions, Label label, Map<String, List<SInstruction>> functions) {
         super(InstructionData.QUOTE, target, label);
         if (functionName == null || functionName.trim().isEmpty()) {
             throw new IllegalArgumentException("functionName cannot be null or empty");
@@ -48,6 +51,7 @@ public class QuoteInstruction extends AbstractInstruction {
         this.functionName = functionName.trim();
         this.functionArguments = functionArguments;
         this.functionInstructions = functionInstructions;
+        this.functions = functions;
     }
 
     @Override
@@ -93,8 +97,9 @@ public class QuoteInstruction extends AbstractInstruction {
                     FunctionArgument arg = functionArguments.get(i);
                     if (arg.isFunctionCall()) {
                         // For function calls, we need to execute them first
-                        // This is a simplified approach - in practice, you'd want to expand and execute
-                        variables.put(inputVar, 0L); // Placeholder
+                        FunctionCall call = arg.asFunctionCall();
+                        long nestedResult = executeNestedFunctionCall(call, parentContext);
+                        variables.put(inputVar, nestedResult);
                     } else {
                         Variable var = arg.asVariable();
                         if (var.getType() == semulator.variable.VariableType.Constant) {
@@ -154,11 +159,113 @@ public class QuoteInstruction extends AbstractInstruction {
     }
 
     /**
+     * Execute a nested function call and return its result
+     */
+    private long executeNestedFunctionCall(FunctionCall call, ExecutionContext parentContext) {
+        if (functions == null) {
+            throw new IllegalStateException("Functions map not available for nested function execution");
+        }
+
+        // Get the function body for the nested function
+        List<SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
+        if (nestedFunctionBody == null) {
+            throw new IllegalArgumentException("Function '" + call.getFunctionName() + "' not found");
+        }
+
+        // Create execution context for the nested function
+        ExecutionContext nestedContext = createNestedFunctionContext(call, parentContext);
+
+        // Execute the nested function body
+        return executeFunctionBody(nestedContext, nestedFunctionBody);
+    }
+
+    /**
+     * Create execution context for a nested function call
+     */
+    private ExecutionContext createNestedFunctionContext(FunctionCall call, ExecutionContext parentContext) {
+        return new ExecutionContext() {
+            private final java.util.Map<Variable, Long> variables = new java.util.HashMap<>();
+
+            {
+                // Initialize input variables (x1, x2, ...) with nested function arguments
+                for (int i = 0; i < call.getArguments().size(); i++) {
+                    Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+                    FunctionArgument arg = call.getArguments().get(i);
+
+                    if (arg.isFunctionCall()) {
+                        // Recursively execute nested function calls
+                        FunctionCall nestedCall = arg.asFunctionCall();
+                        long nestedResult = executeNestedFunctionCall(nestedCall, parentContext);
+                        variables.put(inputVar, nestedResult);
+                    } else {
+                        Variable var = arg.asVariable();
+                        if (var.getType() == semulator.variable.VariableType.Constant) {
+                            variables.put(inputVar, (long) var.getNumber());
+                        } else {
+                            // Get the value from the parent execution context
+                            variables.put(inputVar, parentContext.getVariableValue(var));
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public long getVariableValue(Variable v) {
+                return variables.getOrDefault(v, 0L);
+            }
+
+            @Override
+            public void updateVariable(Variable v, long value) {
+                variables.put(v, value);
+            }
+        };
+    }
+
+    /**
+     * Execute function body with given context and instructions
+     */
+    private long executeFunctionBody(ExecutionContext functionContext, List<SInstruction> instructions) {
+        int instructionIndex = 0;
+        while (instructionIndex < instructions.size()) {
+            SInstruction instruction = instructions.get(instructionIndex);
+            Label nextLabel = instruction.execute(functionContext);
+
+            // Handle jumps within the function
+            if (nextLabel == FixedLabel.EXIT) {
+                break; // Exit the function
+            } else if (nextLabel != FixedLabel.EMPTY) {
+                // Find the target instruction by label
+                int targetIndex = findInstructionByLabel(nextLabel, instructions);
+                if (targetIndex != -1) {
+                    instructionIndex = targetIndex;
+                } else {
+                    // Label not found, continue to next instruction
+                    instructionIndex++;
+                }
+            } else {
+                // No jump, continue to next instruction
+                instructionIndex++;
+            }
+        }
+
+        // Return the value of the 'y' variable (the function's output)
+        return functionContext.getVariableValue(Variable.RESULT);
+    }
+
+    /**
      * Find the index of an instruction with the given label
      */
     private int findInstructionByLabel(Label targetLabel) {
-        for (int i = 0; i < functionInstructions.size(); i++) {
-            SInstruction instruction = functionInstructions.get(i);
+        return findInstructionByLabel(targetLabel, functionInstructions);
+    }
+
+    /**
+     * Find the index of an instruction with the given label in a specific
+     * instruction list
+     */
+    private int findInstructionByLabel(Label targetLabel, List<SInstruction> instructions) {
+        for (int i = 0; i < instructions.size(); i++) {
+            SInstruction instruction = instructions.get(i);
             if (instruction.getLabel() != null && instruction.getLabel().equals(targetLabel)) {
                 return i;
             }

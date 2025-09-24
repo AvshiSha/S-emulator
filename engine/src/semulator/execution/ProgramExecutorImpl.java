@@ -163,6 +163,8 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
     private Label executeQuoteInstruction(semulator.instructions.QuoteInstruction quoteInstruction,
             ExecutionContext context) {
+        System.out.println(
+                "[DEBUG] Starting executeQuoteInstruction for function: " + quoteInstruction.getFunctionName());
         try {
             // Get the function definition from the program
             if (!(program instanceof semulator.program.SProgramImpl)) {
@@ -183,29 +185,62 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
             // Get the function body
             var functionInstructions = functions.get(functionName);
+            System.out.println("[DEBUG] Main function " + functionName + " has "
+                    + (functionInstructions != null ? functionInstructions.size() : 0) + " instructions");
 
             // Create a new execution context for the function
             java.util.List<Long> functionInputs = new java.util.ArrayList<>();
-            for (semulator.instructions.FunctionArgument arg : quoteInstruction.getFunctionArguments()) {
-                if (arg.isFunctionCall()) {
-                    // For function calls, we need to execute them first
-                    // This is a simplified approach - in practice, you'd want to expand and execute
-                    functionInputs.add(0L); // Placeholder - function calls should be expanded before execution
-                } else {
-                    semulator.variable.Variable var = arg.asVariable();
-                    if (var.getType() == semulator.variable.VariableType.Constant) {
-                        functionInputs.add((long) var.getNumber());
+            System.out.println("[DEBUG] Processing function arguments for: " + functionName);
+            System.out.println("[DEBUG] Number of arguments: " + quoteInstruction.getFunctionArguments().size());
+            System.out.println("[DEBUG] Function arguments: " + quoteInstruction.getFunctionArguments());
+            try {
+                for (semulator.instructions.FunctionArgument arg : quoteInstruction.getFunctionArguments()) {
+                    System.out.println("[DEBUG] Processing argument: " + arg);
+                    if (arg.isFunctionCall()) {
+                        // For function calls, we need to execute them first
+                        semulator.instructions.FunctionCall call = arg.asFunctionCall();
+                        System.out.println(
+                                "[DEBUG] Found nested function call: " + call.getFunctionName() + " with args: "
+                                        + call.getArguments());
+                        System.out.println("[DEBUG] About to call executeNestedFunctionCall...");
+                        try {
+                            long nestedResult = executeNestedFunctionCall(call, context, functions);
+                            System.out.println(
+                                    "[DEBUG] Nested function " + call.getFunctionName() + " returned: " + nestedResult);
+                            functionInputs.add(nestedResult);
+                            System.out.println("[DEBUG] Added nested result to functionInputs, continuing...");
+                        } catch (Exception e) {
+                            System.err.println("[DEBUG] EXCEPTION in executeNestedFunctionCall: " + e.getMessage());
+                            e.printStackTrace();
+                            functionInputs.add(0L);
+                        }
                     } else {
-                        // Get the value from the current execution context
-                        functionInputs.add(context.getVariableValue(var));
+                        semulator.variable.Variable var = arg.asVariable();
+                        if (var.getType() == semulator.variable.VariableType.Constant) {
+                            functionInputs.add((long) var.getNumber());
+                        } else {
+                            // Get the value from the current execution context
+                            functionInputs.add(context.getVariableValue(var));
+                        }
                     }
                 }
+                System.out.println("[DEBUG] *** FINISHED processing all arguments successfully ***");
+            } catch (Exception e) {
+                System.err.println("[DEBUG] *** EXCEPTION during argument processing: " + e.getMessage() + " ***");
+                e.printStackTrace();
+                throw e;
             }
 
+            System.out.println("[DEBUG] Finished processing arguments for " + functionName);
+            System.out.println("[DEBUG] Function " + functionName + " inputs: " + functionInputs);
+            System.out.println("[DEBUG] Function inputs size: " + functionInputs.size());
+            System.out.println("[DEBUG] About to create execution context for " + functionName);
             LocalExecutionContext functionContext = new LocalExecutionContext(functionInputs.toArray(new Long[0]));
 
             // Execute the function body
+            System.out.println("[DEBUG] About to execute main function " + functionName);
             long functionResult = executeFunctionBody(functionInstructions, functionContext);
+            System.out.println("[DEBUG] Function " + functionName + " result: " + functionResult);
 
             // Assign the result to the target variable
             context.updateVariable(quoteInstruction.getVariable(), functionResult);
@@ -213,11 +248,67 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             return FixedLabel.EMPTY;
 
         } catch (Exception e) {
-            System.err.println("Error executing quote instruction: " + e.getMessage());
+            System.err.println("[DEBUG] EXCEPTION in executeQuoteInstruction: " + e.getMessage());
+            e.printStackTrace();
             // Fallback: assign 0 to the target variable
             context.updateVariable(quoteInstruction.getVariable(), 0L);
             return FixedLabel.EMPTY;
         }
+    }
+
+    /**
+     * Execute a nested function call and return its result
+     */
+    private long executeNestedFunctionCall(semulator.instructions.FunctionCall call, ExecutionContext parentContext,
+            java.util.Map<String, java.util.List<semulator.instructions.SInstruction>> functions) {
+        System.out.println("[DEBUG] Executing nested function: " + call.getFunctionName());
+
+        // Get the function body for the nested function
+        java.util.List<semulator.instructions.SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
+        if (nestedFunctionBody == null) {
+            System.out.println("[DEBUG] ERROR: Function '" + call.getFunctionName() + "' not found in functions map");
+            System.out.println("[DEBUG] Available functions: " + functions.keySet());
+            throw new IllegalArgumentException("Function '" + call.getFunctionName() + "' not found");
+        }
+
+        System.out.println("[DEBUG] Found function body for " + call.getFunctionName() + " with "
+                + nestedFunctionBody.size() + " instructions");
+
+        // Create execution context for the nested function
+        java.util.List<Long> nestedInputs = new java.util.ArrayList<>();
+        System.out.println("[DEBUG] Processing arguments for nested function " + call.getFunctionName() + ": "
+                + call.getArguments());
+        for (semulator.instructions.FunctionArgument arg : call.getArguments()) {
+            if (arg.isFunctionCall()) {
+                // Recursively execute nested function calls
+                semulator.instructions.FunctionCall nestedCall = arg.asFunctionCall();
+                System.out.println("[DEBUG] Recursively calling: " + nestedCall.getFunctionName());
+                long nestedResult = executeNestedFunctionCall(nestedCall, parentContext, functions);
+                System.out.println(
+                        "[DEBUG] Recursive call " + nestedCall.getFunctionName() + " returned: " + nestedResult);
+                nestedInputs.add(nestedResult);
+            } else {
+                semulator.variable.Variable var = arg.asVariable();
+                if (var.getType() == semulator.variable.VariableType.Constant) {
+                    System.out.println("[DEBUG] Constant argument: " + var.getNumber());
+                    nestedInputs.add((long) var.getNumber());
+                } else {
+                    // Get the value from the parent execution context
+                    long varValue = parentContext.getVariableValue(var);
+                    System.out.println("[DEBUG] Variable argument " + var + " = " + varValue);
+                    nestedInputs.add(varValue);
+                }
+            }
+        }
+
+        System.out.println("[DEBUG] Nested function " + call.getFunctionName() + " inputs: " + nestedInputs);
+        LocalExecutionContext nestedContext = new LocalExecutionContext(nestedInputs.toArray(new Long[0]));
+
+        // Execute the nested function body
+        long result = executeFunctionBody(nestedFunctionBody, nestedContext);
+        System.out.println(
+                "[DEBUG] Nested function " + call.getFunctionName() + " execution completed, result: " + result);
+        return result;
     }
 
     private Label executeJumpEqualFunctionInstruction(

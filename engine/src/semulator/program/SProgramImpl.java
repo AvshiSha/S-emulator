@@ -616,7 +616,7 @@ public class SProgramImpl implements SProgram {
                 // Create a QUOTE instruction for the nested function call
                 // This will be expanded in the next degree, not now
                 QuoteInstruction nestedQuote = new QuoteInstruction(resultVar, call.getFunctionName(),
-                        call.getArguments(), functions.get(call.getFunctionName()));
+                        call.getArguments(), functions.get(call.getFunctionName()), functions);
                 expanded.add(nestedQuote);
 
                 // The result of the nested function becomes an input to the parent
@@ -746,7 +746,7 @@ public class SProgramImpl implements SProgram {
 
         // Create a QUOTE instruction: z1 <- (Q, x1, ...)
         QuoteInstruction quoteInst = new QuoteInstruction(freshOutputVar, functionName, functionArguments,
-                functionBody);
+                functionBody, functions);
 
         // Create the comparison: IF V == z1 GOTO L
         JumpEqualVariableInstruction comparison = new JumpEqualVariableInstruction(compareVar, freshOutputVar,
@@ -839,7 +839,7 @@ public class SProgramImpl implements SProgram {
                     functionInstructions = new ArrayList<>(); // fallback
                 }
                 yield new QuoteInstruction(newVar, quote.getFunctionName(), quote.getFunctionArguments(),
-                        functionInstructions, newLabel);
+                        functionInstructions, newLabel, functions);
             }
             case "JUMP_EQUAL_FUNCTION" -> {
                 JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) inst;
@@ -1003,9 +1003,11 @@ public class SProgramImpl implements SProgram {
                     }
                     if (selfLabel != FixedLabel.EMPTY)
                         instructions
-                                .add(new QuoteInstruction(var, functionName, argVars, functionInstructions, selfLabel));
+                                .add(new QuoteInstruction(var, functionName, argVars, functionInstructions, selfLabel,
+                                        functions));
                     else
-                        instructions.add(new QuoteInstruction(var, functionName, argVars, functionInstructions));
+                        instructions
+                                .add(new QuoteInstruction(var, functionName, argVars, functionInstructions, functions));
                 }
 
                 case "JUMP_EQUAL_FUNCTION" -> {
@@ -1179,9 +1181,10 @@ public class SProgramImpl implements SProgram {
                     functionInstructions = new ArrayList<>(); // fallback
                 }
                 if (selfLabel != FixedLabel.EMPTY)
-                    yield new QuoteInstruction(var, functionName, parsedArguments, functionInstructions, selfLabel);
+                    yield new QuoteInstruction(var, functionName, parsedArguments, functionInstructions, selfLabel,
+                            functions);
                 else
-                    yield new QuoteInstruction(var, functionName, parsedArguments, functionInstructions);
+                    yield new QuoteInstruction(var, functionName, parsedArguments, functionInstructions, functions);
             }
             case "JUMP_EQUAL_FUNCTION" -> {
                 String functionName = args.get("functionName");
