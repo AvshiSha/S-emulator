@@ -1019,59 +1019,62 @@ public class DebuggerExecution {
                 variables = executor.variableState();
             }
 
-            if (variables != null) {
-
-                // Display variables in order: y, x1,x2,x3..., z1,z2,z3...
-                java.util.List<VariableRow> orderedRows = new java.util.ArrayList<>();
-
-                // First, add y variable (result variable)
-                for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    semulator.variable.Variable var = entry.getKey();
-                    if (var.isResult()) {
-                        boolean isChanged = isVariableChanged(var, entry.getValue());
-                        orderedRows.add(new VariableRow(var.toString(), String.valueOf(entry.getValue()), isChanged));
-                        break;
-                    }
-                }
-
-                // Then add x variables (input variables) in order
-                java.util.List<semulator.variable.Variable> xVars = new java.util.ArrayList<>();
-                for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    semulator.variable.Variable var = entry.getKey();
-                    if (var.isInput()) {
-                        xVars.add(var);
-                    }
-                }
-                // Sort x variables by number
-                xVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
-
-                for (semulator.variable.Variable xVar : xVars) {
-                    Long value = variables.get(xVar);
-                    boolean isChanged = isVariableChanged(xVar, value);
-                    orderedRows.add(new VariableRow(xVar.toString(), String.valueOf(value), isChanged));
-                }
-
-                // Finally add z variables (working variables) in order
-                java.util.List<semulator.variable.Variable> zVars = new java.util.ArrayList<>();
-                for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
-                    semulator.variable.Variable var = entry.getKey();
-                    if (var.isWork()) {
-                        zVars.add(var);
-                    }
-                }
-                // Sort z variables by number
-                zVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
-
-                for (semulator.variable.Variable zVar : zVars) {
-                    Long value = variables.get(zVar);
-                    boolean isChanged = isVariableChanged(zVar, value);
-                    orderedRows.add(new VariableRow(zVar.toString(), String.valueOf(value), isChanged));
-                }
-
-                // Add all ordered rows to the table
-                variablesData.addAll(orderedRows);
+            // Ensure we always have a variables map, even if empty
+            if (variables == null) {
+                variables = new HashMap<>();
             }
+
+            // Display variables in order: y, x1,x2,x3..., z1,z2,z3...
+            java.util.List<VariableRow> orderedRows = new java.util.ArrayList<>();
+
+            // First, always add y variable (result variable) - ensure it's always present
+            semulator.variable.Variable resultVar = semulator.variable.Variable.RESULT;
+            Long resultValue = variables.get(resultVar);
+            if (resultValue == null) {
+                // If y was never assigned, show it with value 0
+                resultValue = 0L;
+            }
+            boolean isChanged = isVariableChanged(resultVar, resultValue);
+            orderedRows.add(new VariableRow(resultVar.toString(), String.valueOf(resultValue), isChanged));
+
+            // Then add x variables (input variables) in order
+            java.util.List<semulator.variable.Variable> xVars = new java.util.ArrayList<>();
+            for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
+                semulator.variable.Variable var = entry.getKey();
+                if (var.isInput()) {
+                    xVars.add(var);
+                }
+            }
+            // Sort x variables by number
+            xVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
+
+            for (semulator.variable.Variable xVar : xVars) {
+                Long value = variables.get(xVar);
+                boolean xVarChanged = isVariableChanged(xVar, value);
+                orderedRows.add(new VariableRow(xVar.toString(), String.valueOf(value), xVarChanged));
+            }
+
+            // Finally add z variables (working variables) in order
+            java.util.List<semulator.variable.Variable> zVars = new java.util.ArrayList<>();
+            for (Map.Entry<semulator.variable.Variable, Long> entry : variables.entrySet()) {
+                semulator.variable.Variable var = entry.getKey();
+                if (var.isWork()) {
+                    zVars.add(var);
+                }
+            }
+            // Sort z variables by number
+            zVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
+
+            for (semulator.variable.Variable zVar : zVars) {
+                Long value = variables.get(zVar);
+                boolean zVarChanged = isVariableChanged(zVar, value);
+                orderedRows.add(new VariableRow(zVar.toString(), String.valueOf(value), zVarChanged));
+            }
+
+            // Add all ordered rows to the table
+            variablesData.addAll(orderedRows);
         });
+
     }
 
     private boolean isVariableChanged(semulator.variable.Variable variable, Long currentValue) {
