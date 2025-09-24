@@ -104,7 +104,7 @@ public class DebuggerExecution {
     // Step-by-step execution context
     private ExecutionContext stepExecutionContext = null;
     private Map<String, Integer> labelToIndexMap = new HashMap<>();
-    
+
     // Step back history - stores previous execution states
     private java.util.Deque<ExecutionState> executionHistory = new java.util.ArrayDeque<>();
     private static final int MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
@@ -116,22 +116,34 @@ public class DebuggerExecution {
         private final int cycles;
         private final StepExecutionContext executionContext;
 
-        public ExecutionState(int instructionIndex, Map<semulator.variable.Variable, Long> variableState, 
-                            int cycles, StepExecutionContext executionContext) {
+        public ExecutionState(int instructionIndex, Map<semulator.variable.Variable, Long> variableState,
+                int cycles, StepExecutionContext executionContext) {
             this.instructionIndex = instructionIndex;
             this.variableState = new HashMap<>(variableState);
             this.cycles = cycles;
             this.executionContext = copyExecutionContext(executionContext);
         }
 
-        public int getInstructionIndex() { return instructionIndex; }
-        public Map<semulator.variable.Variable, Long> getVariableState() { return new HashMap<>(variableState); }
-        public int getCycles() { return cycles; }
-        public StepExecutionContext getExecutionContext() { return executionContext; }
+        public int getInstructionIndex() {
+            return instructionIndex;
+        }
+
+        public Map<semulator.variable.Variable, Long> getVariableState() {
+            return new HashMap<>(variableState);
+        }
+
+        public int getCycles() {
+            return cycles;
+        }
+
+        public StepExecutionContext getExecutionContext() {
+            return executionContext;
+        }
 
         // Deep copy the execution context to avoid reference issues
         private StepExecutionContext copyExecutionContext(StepExecutionContext original) {
-            if (original == null) return null;
+            if (original == null)
+                return null;
             StepExecutionContext copy = new StepExecutionContext(original.inputs);
             copy.variables.putAll(original.variables);
             return copy;
@@ -260,7 +272,7 @@ public class DebuggerExecution {
         isPaused.set(false);
         isDebugMode.set(false);
         isStepExecution = false;
-        
+
         // Clear execution history when stopping
         executionHistory.clear();
 
@@ -312,37 +324,39 @@ public class DebuggerExecution {
     private void stepBackward(ActionEvent event) {
         if (isDebugMode.get() && isPaused.get() && isStepExecution) {
             if (executionHistory.isEmpty()) {
-                showAlert("Cannot Step Back", "No previous execution state available. Cannot step back from the initial state.");
+                showAlert("Cannot Step Back",
+                        "No previous execution state available. Cannot step back from the initial state.");
                 return;
             }
 
             // Restore the previous execution state
             ExecutionState previousState = executionHistory.pop();
-            
+
             // Restore instruction index
             currentInstructionIndex = previousState.getInstructionIndex();
-            
+
             // Restore variable states
             currentVariableState.clear();
             currentVariableState.putAll(previousState.getVariableState());
-            
+
             // Restore cycles
             currentCycles.set(previousState.getCycles());
-            
+
             // Restore execution context
             stepExecutionContext = previousState.getExecutionContext();
-            
+
             // Update displays
             updateCyclesDisplay();
             updateVariablesDisplay();
-            
+
             // Notify instruction table to highlight current instruction
             if (instructionTableCallback != null) {
                 instructionTableCallback.accept(currentInstructionIndex);
             }
-            
-            updateExecutionStatus("Stepped back to instruction " + currentInstructionIndex + " of " + currentInstructions.size());
-            
+
+            updateExecutionStatus(
+                    "Stepped back to instruction " + currentInstructionIndex + " of " + currentInstructions.size());
+
         } else {
             showAlert("Step Back Not Available", "Step back is only available in debug mode when paused.");
         }
@@ -675,7 +689,7 @@ public class DebuggerExecution {
             // Initialize variable states
             previousVariableState.clear();
             currentVariableState.clear();
-            
+
             // Clear execution history for new debug session
             executionHistory.clear();
 
@@ -738,7 +752,7 @@ public class DebuggerExecution {
         try {
             // Save current execution state to history before executing the step
             saveCurrentExecutionState();
-            
+
             // Store previous variable state
             previousVariableState.clear();
             previousVariableState.putAll(currentVariableState);
@@ -850,12 +864,11 @@ public class DebuggerExecution {
     private void saveCurrentExecutionState() {
         if (stepExecutionContext instanceof StepExecutionContext) {
             ExecutionState currentState = new ExecutionState(
-                currentInstructionIndex,
-                currentVariableState,
-                currentCycles.get(),
-                (StepExecutionContext) stepExecutionContext
-            );
-            
+                    currentInstructionIndex,
+                    currentVariableState,
+                    currentCycles.get(),
+                    (StepExecutionContext) stepExecutionContext);
+
             // Add to history and maintain size limit
             executionHistory.push(currentState);
             if (executionHistory.size() > MAX_HISTORY_SIZE) {
