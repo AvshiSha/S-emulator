@@ -13,34 +13,30 @@
 
 <VBox VBox.vgrow="ALWAYS" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.HistoryStats.HistoryStats">
    <children>
-      <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Program Run History" />
+      <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 2px;" text="Program Run History" />
       
       <!-- Main content area with table on left and theme controls on right -->
-      <HBox alignment="TOP_LEFT" spacing="15.0" VBox.vgrow="ALWAYS">
+      <HBox alignment="TOP_LEFT" spacing="5.0" VBox.vgrow="ALWAYS">
          <children>
             <!-- Left side: History Table and Action Buttons -->
-            <VBox spacing="10.0" HBox.hgrow="ALWAYS">
+            <VBox spacing="5.0" HBox.hgrow="ALWAYS">
                <children>
                   <!-- History Table -->
-                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="NEVER" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
-                     <content>
-                        <TableView fx:id="historyTableView" maxWidth="Infinity" minWidth="400.0" prefHeight="300.0" prefWidth="500.0">
-                           <columns>
-                              <TableColumn fx:id="runNumberColumn" minWidth="60.0" prefWidth="80.0" text="Run #" />
-                              <TableColumn fx:id="runLevelColumn" minWidth="60.0" prefWidth="80.0" text="Level" />
-                              <TableColumn fx:id="inputsColumn" minWidth="120.0" prefWidth="150.0" text="Inputs" />
-                              <TableColumn fx:id="yValueColumn" minWidth="80.0" prefWidth="100.0" text="Y Value" />
-                              <TableColumn fx:id="cyclesColumn" minWidth="60.0" prefWidth="80.0" text="Cycles" />
-                           </columns>
-                        </TableView>
-                     </content>
-                  </ScrollPane>
+                  <TableView fx:id="historyTableView" maxHeight="120.0" maxWidth="Infinity" minHeight="30.0" minWidth="200.0" prefHeight="80.0" VBox.vgrow="NEVER">
+                     <columns>
+                        <TableColumn fx:id="runNumberColumn" minWidth="60.0" prefWidth="80.0" text="Run #" />
+                        <TableColumn fx:id="runLevelColumn" minWidth="60.0" prefWidth="80.0" text="Level" />
+                        <TableColumn fx:id="inputsColumn" minWidth="120.0" prefWidth="150.0" text="Inputs" />
+                        <TableColumn fx:id="yValueColumn" minWidth="80.0" prefWidth="100.0" text="Y Value" />
+                        <TableColumn fx:id="cyclesColumn" minWidth="60.0" prefWidth="80.0" text="Cycles" />
+                     </columns>
+                  </TableView>
                   
                   <!-- Action Buttons -->
-                  <HBox spacing="10.0" style="-fx-padding: 10px;">
+                  <HBox spacing="5.0" style="-fx-padding: 5px;">
                      <children>
-                        <Button fx:id="rerunButton" disable="true" onAction="#rerunSelectedRun" prefWidth="120.0" text="Rerun Selected" />
-                        <Button fx:id="clearHistoryButton" onAction="#clearHistory" prefWidth="120.0" text="Clear History" />
+                        <Button fx:id="rerunButton" disable="true" onAction="#rerunSelectedRun" prefHeight="25.0" prefWidth="100.0" text="Rerun Selected" />
+                        <Button fx:id="clearHistoryButton" onAction="#clearHistory" prefHeight="25.0" prefWidth="100.0" text="Clear History" />
                      </children>
                   </HBox>
                </children>

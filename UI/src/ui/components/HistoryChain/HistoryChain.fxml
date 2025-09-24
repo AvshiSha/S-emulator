@@ -9,18 +9,14 @@
 <VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.HistoryChain.HistoryChain">
    <children>
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="History Chain" />
-      <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" minWidth="600.0" prefHeight="300.0" prefWidth="800.0" vbarPolicy="AS_NEEDED">
-         <content>
-            <TableView fx:id="historyTableView" minWidth="400.0" prefHeight="300.0" prefWidth="400.0">
-               <columns>
-                  <TableColumn fx:id="historyRowNumberColumn" prefWidth="45.0" text="Row #" />
-                  <TableColumn fx:id="historyCommandTypeColumn" prefWidth="71.5" text="B/S" />
-                  <TableColumn fx:id="historyLabelColumn" prefWidth="56.0" text="Label" />
-                  <TableColumn fx:id="historyInstructionTypeColumn" prefWidth="350.5" text="Command" />
-                  <TableColumn fx:id="historyCyclesColumn" prefWidth="52.0" text="Cycles" />
-               </columns>
-            </TableView>
-         </content>
-      </ScrollPane>
+      <TableView fx:id="historyTableView" maxHeight="Infinity" maxWidth="Infinity" minHeight="200.0" minWidth="400.0" VBox.vgrow="ALWAYS">
+         <columns>
+            <TableColumn fx:id="historyRowNumberColumn" prefWidth="45.0" text="Row #" />
+            <TableColumn fx:id="historyCommandTypeColumn" prefWidth="71.5" text="B/S" />
+            <TableColumn fx:id="historyLabelColumn" prefWidth="56.0" text="Label" />
+            <TableColumn fx:id="historyInstructionTypeColumn" prefWidth="350.5" text="Command" />
+            <TableColumn fx:id="historyCyclesColumn" prefWidth="52.0" text="Cycles" />
+         </columns>
+      </TableView>
    </children>
 </VBox>

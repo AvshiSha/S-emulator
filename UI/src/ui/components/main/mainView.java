@@ -47,7 +47,7 @@ public class mainView extends Application {
         // Load the main FXML
         FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/ui/components/main/mainView.fxml"));
         mainLoader.setController(this);
-        ScrollPane root = mainLoader.load();
+        VBox root = mainLoader.load();
 
         // Load the Header component and get its controller
         FXMLLoader headerLoader = new FXMLLoader(getClass().getResource("/ui/components/Header/Header.fxml"));
@@ -138,7 +138,7 @@ public class mainView extends Application {
         // Wire up debugger execution with header for controlling expansion buttons
         debuggerExecutionController.setHeaderController(headerController);
 
-        Scene scene = new Scene(root, 800, 800);
+        Scene scene = new Scene(root, 1000, 700);
         primaryStage.setScene(scene);
 
         // Apply the current theme to the scene
@@ -148,8 +148,8 @@ public class mainView extends Application {
         scene.getStylesheets().add(getClass().getResource("/ui/animations/animations.css").toExternalForm());
 
         // Set minimum window size to ensure usability on small screens
-        primaryStage.setMinWidth(600);
-        primaryStage.setMinHeight(400);
+        primaryStage.setMinWidth(800);
+        primaryStage.setMinHeight(600);
 
         // Ensure window is resizable
         primaryStage.setResizable(true);

@@ -10,51 +10,51 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox maxWidth="Infinity" minWidth="800.0" spacing="10.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.DebuggerExecution.DebuggerExecution">
+<VBox maxWidth="Infinity" minWidth="250.0" spacing="5.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.DebuggerExecution.DebuggerExecution">
    <children>
       <!-- Main Title -->
-      <Label maxWidth="Infinity" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-padding: 10px; -fx-background-color: #F0F0F0; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;" text="Debugger\Execution">
+      <Label maxWidth="Infinity" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 5px; -fx-background-color: #F0F0F0; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;" text="Debugger\Execution">
          <font>
-            <Font name="System Bold" size="18.0" />
+            <Font name="System Bold" size="14.0" />
          </font>
       </Label>
       
       <!-- Debugger Commands Panel (Yellow Section) -->
-      <VBox maxWidth="Infinity" style="-fx-background-color: #FFE135; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+      <VBox maxWidth="Infinity" style="-fx-background-color: #FFE135; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 5px;">
          <children>
-            <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 5px;" text="Debugger\Execution Commands:">
+            <Label style="-fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 2px;" text="Debugger\Execution Commands:">
                <font>
                   <Font name="System Bold" size="12.0" />
                </font>
             </Label>
             <HBox alignment="CENTER_LEFT" spacing="10.0" HBox.hgrow="ALWAYS">
                <children>
-                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="35.0" minWidth="80.0" prefWidth="120.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="New Run" textFill="WHITE" wrapText="true">
+                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="New Run" textFill="WHITE" wrapText="true">
                      <font>
                         <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="startDebugButton" mnemonicParsing="false" onAction="#startDebugExecution" prefHeight="35.0" minWidth="80.0" prefWidth="100.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-background-radius: 5;" text="Debug" wrapText="true">
+                  <Button fx:id="startDebugButton" mnemonicParsing="false" onAction="#startDebugExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-background-radius: 5;" text="Debug" wrapText="true">
                      <font>
                         <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stopButton" mnemonicParsing="false" onAction="#stopExecution" prefHeight="35.0" minWidth="80.0" prefWidth="100.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 5;" text="Stop" wrapText="true">
+                  <Button fx:id="stopButton" mnemonicParsing="false" onAction="#stopExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 5;" text="Stop" wrapText="true">
                      <font>
                         <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="resumeButton" mnemonicParsing="false" onAction="#resumeExecution" prefHeight="35.0" minWidth="80.0" prefWidth="100.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-background-radius: 5;" text="Resume" wrapText="true">
+                  <Button fx:id="resumeButton" mnemonicParsing="false" onAction="#resumeExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-background-radius: 5;" text="Resume" wrapText="true">
                      <font>
                         <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stepOverButton" mnemonicParsing="false" onAction="#stepOver" prefHeight="35.0" minWidth="80.0" prefWidth="120.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Over" wrapText="true">
+                  <Button fx:id="stepOverButton" mnemonicParsing="false" onAction="#stepOver" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Over" wrapText="true">
                      <font>
                         <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stepBackwardButton" mnemonicParsing="false" onAction="#stepBackward" prefHeight="35.0" minWidth="80.0" prefWidth="140.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Back" wrapText="true">
+                  <Button fx:id="stepBackwardButton" mnemonicParsing="false" onAction="#stepBackward" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Back" wrapText="true">
                      <font>
                         <Font name="System Bold" size="10.0" />
                      </font>

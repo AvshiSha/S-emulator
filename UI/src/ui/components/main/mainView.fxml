@@ -7,39 +7,45 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.text.Font?>
 
-<ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1">
-   <content>
-      <VBox alignment="CENTER" spacing="15.0" minWidth="600.0" prefWidth="1000.0" styleClass="app-root">
+<VBox xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <!-- Header at the top -->
+      <VBox fx:id="headerComponent" VBox.vgrow="NEVER" />
+      
+      <!-- Main content area with side-by-side layout -->
+      <HBox spacing="10.0" alignment="TOP_LEFT" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
          <children>
-            <Label alignment="CENTER" styleClass="title-label" text="S-Emulator" textAlignment="CENTER">
-               <font>
-                  <Font name="System Bold" size="24.0" />
-               </font>
-            </Label>
-            
-            <!-- Main content area with side-by-side layout -->
-            <HBox spacing="15.0" alignment="TOP_LEFT" maxWidth="Infinity">
+            <!-- Left side: Instruction Table and History Chain -->
+            <VBox spacing="5.0" minWidth="300.0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                <children>
-                  <!-- Left side: Header, Instruction Table and History Chain -->
-                  <VBox spacing="8.0" prefWidth="600.0" minWidth="400.0">
-                     <children>
-                        <!-- Header moved here to be directly above Instruction Table -->
-                        <VBox fx:id="headerComponent" />
+                  <!-- Instruction Table with scrollbars -->
+                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+                     <content>
                         <VBox fx:id="instructionTableComponent" />
-                        <VBox fx:id="historyChainComponent" />
-                     </children>
-                  </VBox>
+                     </content>
+                  </ScrollPane>
                   
-                  <!-- Right side: Debugger/Execution and Program Run History -->
-                  <VBox spacing="15.0" prefWidth="400.0" minWidth="300.0">
-                     <children>
-                        <VBox fx:id="debuggerExecutionComponent" />
-                        <VBox fx:id="historyStatsComponent" VBox.vgrow="ALWAYS" />
-                     </children>
-                  </VBox>
+                  <!-- History Chain with scrollbars -->
+                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+                     <content>
+                        <VBox fx:id="historyChainComponent" />
+                     </content>
+                  </ScrollPane>
                </children>
-            </HBox>
+            </VBox>
+            
+            <!-- Right side: Debugger/Execution and Program Run History -->
+            <VBox spacing="5.0" minWidth="300.0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+               <children>
+                  <VBox fx:id="debuggerExecutionComponent" VBox.vgrow="NEVER" maxHeight="400.0" />
+                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
+                     <content>
+                        <VBox fx:id="historyStatsComponent" />
+                     </content>
+                  </ScrollPane>
+               </children>
+            </VBox>
          </children>
-      </VBox>
-   </content>
-</ScrollPane>
+      </HBox>
+   </children>
+</VBox>
