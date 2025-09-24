@@ -1,0 +1,97 @@
+/* Animation styles for S-Emulator */
+
+/* Executed Row Pulse Animation */
+.exec-pulse {
+    -fx-background-color: rgba(255, 214, 102, 0.35); /* warm amber */
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 4;
+    -fx-border-color: rgba(255, 170, 0, 0.8);
+    -fx-border-radius: 4;
+    -fx-border-width: 1;
+}
+
+/* Data Flow Trace Animation */
+.flow-token {
+    -fx-fill: #4FC3F7; /* cyan packet */
+}
+
+.flow-path {
+    -fx-stroke: #81D4FA; /* light cyan */
+    -fx-stroke-width: 1.25;
+    -fx-opacity: 0.8;
+}
+
+/* Variable Blip Animation - these are applied dynamically via JavaFX animations */
+/* The blip effect is handled by ScaleTransition and FadeTransition in code */
+
+/* Animation performance optimizations */
+.animated-node {
+    -fx-cache: true;
+    -fx-cache-hint: SPEED;
+}
+
+/* Disable animations when reduced motion is preferred */
+@media (prefers-reduced-motion: reduce) {
+    .exec-pulse,
+    .flow-token,
+    .flow-path {
+        /* Disable all animation effects */
+        -fx-background-color: transparent;
+        -fx-border-color: transparent;
+        -fx-fill: transparent;
+        -fx-stroke: transparent;
+    }
+}
+
+/* Dark theme animation adjustments */
+.dark-theme .exec-pulse {
+    -fx-background-color: rgba(255, 193, 7, 0.4); /* amber for dark theme */
+    -fx-border-color: rgba(255, 152, 0, 0.9);
+}
+
+.dark-theme .flow-token {
+    -fx-fill: #29B6F6; /* slightly darker cyan for dark theme */
+}
+
+.dark-theme .flow-path {
+    -fx-stroke: #4FC3F7; /* slightly darker cyan for dark theme */
+}
+
+/* High contrast theme adjustments */
+.high-contrast .exec-pulse {
+    -fx-background-color: rgba(255, 255, 0, 0.6); /* bright yellow */
+    -fx-border-color: rgba(255, 255, 0, 1.0);
+    -fx-border-width: 2;
+}
+
+.high-contrast .flow-token {
+    -fx-fill: #00FFFF; /* bright cyan */
+}
+
+.high-contrast .flow-path {
+    -fx-stroke: #00FFFF; /* bright cyan */
+    -fx-stroke-width: 2;
+}
+
+/* Animation timing classes for different speeds */
+.animation-fast {
+    -fx-animation-duration: 0.3s;
+}
+
+.animation-normal {
+    -fx-animation-duration: 0.6s;
+}
+
+.animation-slow {
+    -fx-animation-duration: 1.2s;
+}
+
+/* Accessibility: Ensure animations don't interfere with screen readers */
+.screen-reader-friendly .exec-pulse,
+.screen-reader-friendly .flow-token,
+.screen-reader-friendly .flow-path {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-fill: transparent;
+    -fx-stroke: transparent;
+}

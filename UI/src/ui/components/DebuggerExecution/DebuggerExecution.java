@@ -22,6 +22,10 @@ import semulator.variable.Variable;
 import semulator.instructions.SInstruction;
 
 import ui.RunResult;
+import ui.animations.Animations;
+import ui.animations.RowPulseAnimation;
+import ui.animations.VariableBlipAnimation;
+import ui.animations.DataFlowTraceAnimation;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -311,12 +315,11 @@ public class DebuggerExecution {
 
     @FXML
     private void stepOver(ActionEvent event) {
+                + ", isStepExecution: " + isStepExecution);
 
         if (isDebugMode.get() && isPaused.get() && isStepExecution) {
-
             executeSingleStep();
         } else {
-
         }
     }
 
@@ -763,13 +766,14 @@ public class DebuggerExecution {
             // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially in debug mode
             semulator.label.Label nextLabel;
             if (currentInstruction instanceof semulator.instructions.QuoteInstruction quoteInstruction) {
-
+                // Trigger data flow trace animation for QUOTE instruction
+                triggerDataFlowTraceAnimation(currentInstruction);
                 nextLabel = executeQuoteInstruction(quoteInstruction);
             } else if (currentInstruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
-
+                // Trigger data flow trace animation for JUMP_EQUAL_FUNCTION instruction
+                triggerDataFlowTraceAnimation(currentInstruction);
                 nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction);
             } else {
-
                 // Execute just this one instruction using the step execution context
                 nextLabel = currentInstruction.execute(stepExecutionContext);
             }
@@ -838,6 +842,15 @@ public class DebuggerExecution {
             // Notify instruction table to highlight current instruction
             if (instructionTableCallback != null) {
                 instructionTableCallback.accept(currentInstructionIndex);
+            }
+
+            // Trigger row pulse animation for the executed instruction
+            if (instructionTableCallback != null) {
+                // The instruction table will handle the row pulse animation
+                System.out.println(
+                        "DEBUG: Triggering row pulse animation for instruction index: " + currentInstructionIndex);
+                instructionTableCallback.accept(currentInstructionIndex);
+            } else {
             }
 
             updateExecutionStatus(
@@ -1085,8 +1098,15 @@ public class DebuggerExecution {
     // Callback for instruction table highlighting
     private java.util.function.Consumer<Integer> instructionTableCallback;
 
+    // Callback for data flow trace animation
+    private java.util.function.BiConsumer<javafx.scene.Node, javafx.scene.Node> dataFlowTraceCallback;
+
     public void setInstructionTableCallback(java.util.function.Consumer<Integer> callback) {
         this.instructionTableCallback = callback;
+    }
+
+    public void setDataFlowTraceCallback(java.util.function.BiConsumer<javafx.scene.Node, javafx.scene.Node> callback) {
+        this.dataFlowTraceCallback = callback;
     }
 
     public void setHeaderController(ui.components.Header.Header headerController) {
@@ -1210,7 +1230,137 @@ public class DebuggerExecution {
 
             // Add all ordered rows to the table
             variablesData.addAll(orderedRows);
+
+            // Trigger variable blip animations for changed variables
+            triggerVariableBlipAnimations(orderedRows);
         });
+
+    }
+
+    /**
+     * Trigger blip animations for variables that have changed.
+     */
+    private void triggerVariableBlipAnimations(java.util.List<VariableRow> variableRows) {
+        if (!Animations.isEnabled()) {
+            return;
+        }
+
+        // Find the table rows that correspond to changed variables
+        for (int i = 0; i < variableRows.size(); i++) {
+            VariableRow row = variableRows.get(i);
+            if (row.isChanged()) {
+                // Use a more reliable method to get the table row
+                triggerVariableBlipAnimation(i);
+            }
+        }
+    }
+
+    /**
+     * Trigger blip animation for a specific variable row index.
+     */
+    private void triggerVariableBlipAnimation(int rowIndex) {
+        if (!Animations.isEnabled()) {
+            return;
+        }
+
+        // Try multiple approaches to find the table row
+        javafx.scene.control.TableRow<VariableRow> tableRow = null;
+
+        // Method 1: Try CSS selector approach
+        tableRow = (javafx.scene.control.TableRow<VariableRow>) variablesTableView
+                .lookup(".table-row-cell:nth-child(" + (rowIndex + 1) + ")");
+
+        // Method 2: Try generic table row lookup
+        if (tableRow == null) {
+            tableRow = (javafx.scene.control.TableRow<VariableRow>) variablesTableView
+                    .lookup(".table-row-cell");
+        }
+
+        // Method 3: Try to find any row in the table
+        if (tableRow == null) {
+            for (javafx.scene.Node node : variablesTableView.lookupAll(".table-row-cell")) {
+                if (node instanceof javafx.scene.control.TableRow) {
+                    tableRow = (javafx.scene.control.TableRow<VariableRow>) node;
+                    break;
+                }
+            }
+        }
+
+        // If we found a row, animate it
+        if (tableRow != null) {
+            VariableBlipAnimation.blipCell(tableRow);
+        } else {
+            // Fallback: try to animate the table itself as a last resort
+            VariableBlipAnimation.blipCell(variablesTableView);
+        }
+    }
+
+    /**
+     * Trigger data flow trace animation for function-related instructions.
+     */
+    private void triggerDataFlowTraceAnimation(semulator.instructions.SInstruction instruction) {
+        if (!Animations.isEnabled()) {
+            return;
+        }
+
+        // For QUOTE and JUMP_EQUAL_FUNCTION instructions, we can trace from input
+        // variables to the instruction
+        if (instruction instanceof semulator.instructions.QuoteInstruction ||
+                instruction instanceof semulator.instructions.JumpEqualFunctionInstruction) {
+
+            // Create a simple data flow trace animation
+            // We'll trace from the input area to the instruction table
+            createSimpleDataFlowTrace();
+        }
+    }
+
+    /**
+     * Create a simple data flow trace animation.
+     * This traces from the input area to the instruction table.
+     */
+    private void createSimpleDataFlowTrace() {
+        if (!Animations.isEnabled()) {
+            return;
+        }
+
+        // Get the scene to find the overlay layer
+        javafx.scene.Scene scene = variablesTableView.getScene();
+        if (scene == null) {
+            return;
+        }
+
+        // Find the root pane that can serve as an overlay layer
+        javafx.scene.layout.Pane overlayLayer = null;
+        javafx.scene.Node root = scene.getRoot();
+        if (root instanceof javafx.scene.layout.Pane) {
+            overlayLayer = (javafx.scene.layout.Pane) root;
+        } else if (root instanceof javafx.scene.layout.BorderPane) {
+            overlayLayer = (javafx.scene.layout.Pane) root;
+        }
+
+        if (overlayLayer != null) {
+            // Create a simple path from input area to instruction area
+            javafx.geometry.Point2D startPoint = new javafx.geometry.Point2D(50, 200); // Input area
+            javafx.geometry.Point2D endPoint = new javafx.geometry.Point2D(400, 100); // Instruction area
+
+            // Use the DataFlowTraceAnimation to create the trace
+            ui.animations.DataFlowTraceAnimation.traceFlow(startPoint, endPoint, overlayLayer);
+        }
+    }
+
+    /**
+     * Test method to manually trigger all animations for debugging.
+     * This can be called from the UI to test if animations are working.
+     */
+    public void testAnimations() {
+
+        // Test variable blip animation
+        if (variablesTableView != null) {
+            triggerVariableBlipAnimation(0); // Test with first row
+        }
+
+        // Test data flow trace animation
+        createSimpleDataFlowTrace();
 
     }
 

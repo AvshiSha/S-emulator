@@ -393,7 +393,6 @@ public class Header {
 
   @FXML
   public void onLevelSelected(ActionEvent event) {
-    // System.out.println("DEBUG: onLevelSelected called,
     // isProgrammaticallySettingLevelSelection: "
     // + isProgrammaticallySettingLevelSelection);
 

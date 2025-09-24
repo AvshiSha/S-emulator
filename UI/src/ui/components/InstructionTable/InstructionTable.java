@@ -12,6 +12,8 @@ import semulator.label.Label;
 import semulator.label.FixedLabel;
 import semulator.program.SProgram;
 import semulator.variable.Variable;
+import ui.animations.Animations;
+import ui.animations.RowPulseAnimation;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -40,6 +42,9 @@ public class InstructionTable {
     // For highlighting functionality
     private String currentHighlightTerm = null;
     private int currentExecutingInstructionIndex = -1; // -1 means no instruction is executing
+
+    // Store references to table rows for animation
+    private java.util.Map<Integer, TableRow<InstructionRow>> rowCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     // Store current program to access functions
     private SProgram currentProgram;
@@ -78,6 +83,7 @@ public class InstructionTable {
 
     public void displayProgram(SProgram program) {
         instructionData.clear();
+        rowCache.clear(); // Clear the row cache when displaying a new program
         currentInstructions.clear();
         currentHighlightTerm = null; // Clear any existing highlighting
         currentExecutingInstructionIndex = -1; // Clear current instruction highlighting
@@ -115,6 +121,7 @@ public class InstructionTable {
 
     public void clearTable() {
         instructionData.clear();
+        rowCache.clear(); // Clear the row cache when clearing the table
     }
 
     public void setHistoryChainCallback(Consumer<SInstruction> callback) {
@@ -355,12 +362,71 @@ public class InstructionTable {
     public void highlightCurrentInstruction(int instructionIndex) {
         currentExecutingInstructionIndex = instructionIndex;
         instructionTableView.refresh();
+
+        // Trigger row pulse animation for the executed instruction
+        if (Animations.isEnabled() && instructionIndex >= 0 && instructionIndex < instructionData.size()) {
+            // Use a more reliable method to get the table row
+            triggerRowPulseAnimation(instructionIndex);
+        }
     }
 
     // Method to clear current instruction highlighting
     public void clearCurrentInstructionHighlighting() {
         currentExecutingInstructionIndex = -1;
+        rowCache.clear(); // Clear the row cache when refreshing
         instructionTableView.refresh();
+    }
+
+    /**
+     * Trigger row pulse animation for a specific instruction index.
+     */
+    private void triggerRowPulseAnimation(int instructionIndex) {
+
+        if (!Animations.isEnabled()) {
+            return;
+        }
+
+        // First try to get the row from our cache
+        TableRow<InstructionRow> tableRow = rowCache.get(instructionIndex);
+
+        if (tableRow != null) {
+            // We have a cached reference to the row, animate it directly
+            RowPulseAnimation.pulseRow(tableRow);
+            return;
+        }
+
+        // Debug: Print cache info if row not found
+        System.out.println(
+                "DEBUG: Row not found in cache for index " + instructionIndex + ". Cache size: " + rowCache.size());
+
+        // If not in cache, try the old lookup methods as fallback
+        // Method 1: Try CSS selector approach with specific index
+        tableRow = (TableRow<InstructionRow>) instructionTableView
+                .lookup(".table-row-cell:nth-child(" + (instructionIndex + 1) + ")");
+
+        // Method 2: Try generic table row lookup
+        if (tableRow == null) {
+            tableRow = (TableRow<InstructionRow>) instructionTableView
+                    .lookup(".table-row-cell");
+        }
+
+        // Method 3: Try to find any row in the table
+        if (tableRow == null) {
+            for (javafx.scene.Node node : instructionTableView.lookupAll(".table-row-cell")) {
+                if (node instanceof TableRow) {
+                    tableRow = (TableRow<InstructionRow>) node;
+                    break;
+                }
+            }
+        }
+
+        // If we found a row, animate it
+        if (tableRow != null) {
+            RowPulseAnimation.pulseRow(tableRow);
+        } else {
+            // Fallback: try to animate the table itself as a last resort
+            RowPulseAnimation.pulseRow(instructionTableView);
+        }
     }
 
     // Set up row highlighting using row factory
@@ -373,8 +439,22 @@ public class InstructionTable {
 
                     if (empty || item == null) {
                         setStyle("");
+                        // Remove from cache when row becomes empty
+                        int rowIndex = getIndex();
+                        if (rowIndex >= 1) {
+                            int instructionIndex = rowIndex - 1;
+                            rowCache.remove(instructionIndex);
+                        }
                     } else {
                         int rowIndex = getIndex();
+
+                        // Store this row in cache for animation access
+                        // Convert from 1-based row index to 0-based instruction index
+                        if (rowIndex >= 1) {
+                            int instructionIndex = rowIndex - 1;
+                            rowCache.put(instructionIndex, this);
+                        }
+
                         String style = "";
 
                         // Check if this is the currently executing instruction

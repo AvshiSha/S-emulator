@@ -144,6 +144,9 @@ public class mainView extends Application {
         // Apply the current theme to the scene
         themeManager.applyCurrentTheme(scene);
 
+        // Add animations CSS
+        scene.getStylesheets().add(getClass().getResource("/ui/animations/animations.css").toExternalForm());
+
         // Set minimum window size to ensure usability on small screens
         primaryStage.setMinWidth(600);
         primaryStage.setMinHeight(400);

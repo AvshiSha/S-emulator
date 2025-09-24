@@ -15,6 +15,7 @@ import ui.RunHistory;
 import ui.RunResult;
 import ui.Theme;
 import ui.ThemeManager;
+import ui.animations.Animations;
 
 import java.net.URL;
 import java.util.List;
@@ -45,6 +46,8 @@ public class HistoryStats implements Initializable {
     private ComboBox<Theme> themeSelector;
     @FXML
     private ComboBox<String> fontSizeSelector;
+    @FXML
+    private CheckBox animationsCheckBox;
 
     private ObservableList<HistoryRow> historyData = FXCollections.observableArrayList();
     private ThemeManager themeManager;
@@ -101,6 +104,9 @@ public class HistoryStats implements Initializable {
         // Initialize font size selector
         fontSizeSelector.getItems().addAll("12px", "14px", "16px", "18px");
         fontSizeSelector.setValue(themeManager.getCurrentFontSize());
+
+        // Initialize animations checkbox with current state
+        animationsCheckBox.setSelected(Animations.isEnabled());
     }
 
     /**
@@ -267,6 +273,18 @@ public class HistoryStats implements Initializable {
                 themeManager.applyCurrentTheme(stage.getScene());
             }
         }
+    }
+
+    /**
+     * Handle animations toggle
+     */
+    @FXML
+    private void onAnimationsToggled() {
+        boolean enabled = animationsCheckBox.isSelected();
+        Animations.setEnabled(enabled);
+
+        // Update the checkbox text to reflect current state
+        animationsCheckBox.setText(enabled ? "Animations" : "Animations (Off)");
     }
 
 }
