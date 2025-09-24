@@ -475,8 +475,12 @@ public class DebuggerExecution {
                         varName = jumpZero.getVariable().toString();
                     } else if (instruction instanceof semulator.instructions.QuoteInstruction quote) {
                         varName = quote.getVariable().toString();
+                        // Extract input variables from function arguments
+                        extractInputVariablesFromFunctionArguments(quote.getFunctionArguments(), inputNumbers);
                     } else if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunc) {
                         varName = jumpEqualFunc.getVariable().toString();
+                        // Extract input variables from function arguments
+                        extractInputVariablesFromFunctionArguments(jumpEqualFunc.getFunctionArguments(), inputNumbers);
                     }
 
                     // Check if it's a valid input variable (x1, x2, x3, etc.)
@@ -525,6 +529,32 @@ public class DebuggerExecution {
                 System.err.println("Error extracting required inputs: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Recursively extract input variables from function arguments
+     */
+    private void extractInputVariablesFromFunctionArguments(
+            List<semulator.instructions.FunctionArgument> functionArguments, java.util.Set<Integer> inputNumbers) {
+        for (semulator.instructions.FunctionArgument arg : functionArguments) {
+            if (arg.isFunctionCall()) {
+                // For nested function calls, recursively extract input variables
+                semulator.instructions.FunctionCall call = arg.asFunctionCall();
+                extractInputVariablesFromFunctionArguments(call.getArguments(), inputNumbers);
+            } else {
+                // For simple variable arguments, check if it's an input variable
+                semulator.variable.Variable var = arg.asVariable();
+                String varName = var.toString();
+                if (varName.startsWith("x") && varName.length() > 1) {
+                    try {
+                        int inputNumber = Integer.parseInt(varName.substring(1));
+                        inputNumbers.add(inputNumber);
+                    } catch (NumberFormatException e) {
+                        // Invalid input variable format
+                    }
+                }
+            }
+        }
     }
 
     /**

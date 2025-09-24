@@ -168,8 +168,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
     private Label executeQuoteInstruction(semulator.instructions.QuoteInstruction quoteInstruction,
             ExecutionContext context) {
-        System.out.println(
-                "[DEBUG] Starting executeQuoteInstruction for function: " + quoteInstruction.getFunctionName());
         try {
             // Get the function definition from the program
             if (!(program instanceof semulator.program.SProgramImpl)) {
