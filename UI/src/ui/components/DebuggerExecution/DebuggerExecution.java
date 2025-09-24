@@ -315,8 +315,6 @@ public class DebuggerExecution {
 
     @FXML
     private void stepOver(ActionEvent event) {
-                + ", isStepExecution: " + isStepExecution);
-
         if (isDebugMode.get() && isPaused.get() && isStepExecution) {
             executeSingleStep();
         } else {
