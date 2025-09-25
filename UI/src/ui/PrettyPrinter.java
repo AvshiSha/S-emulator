@@ -317,6 +317,10 @@ public final class PrettyPrinter {
     // Format: #5 (S) [ ] y <- 0 (1) >>> #3 (S) [ ] y <- 5 (2) >>> #1 (S) [ L4 ] IF
     // y = 5 GOTO L5 (2)
     public static String showCreationChains(ExpansionResult r, SProgram originalProgram) {
+        return showCreationChains(r, originalProgram, false);
+    }
+
+    public static String showCreationChains(ExpansionResult r, SProgram originalProgram, boolean isFunctionExpansion) {
         StringBuilder sb = new StringBuilder();
 
         List<SInstruction> prog = r.instructions(); // final snapshot program order
@@ -364,22 +368,30 @@ public final class PrettyPrinter {
             maxDepth = Math.max(maxDepth, depthFn.apply(ins));
         }
 
-        // Only print instructions from the highest degree (maxDepth)
-        List<SInstruction> highestDegreeInstructions = new ArrayList<>();
-        for (SInstruction instruction : prog) {
-            int depth = depthFn.apply(instruction);
-            if (depth == maxDepth) {
-                highestDegreeInstructions.add(instruction);
+        // For function expansions, show all instructions. For main program expansions,
+        // show only highest degree
+        List<SInstruction> instructionsToShow = new ArrayList<>();
+
+        if (isFunctionExpansion) {
+            // Function expansion: show all instructions
+            instructionsToShow.addAll(prog);
+        } else {
+            // Main program expansion: show only highest degree instructions
+            for (SInstruction instruction : prog) {
+                int depth = depthFn.apply(instruction);
+                if (depth == maxDepth) {
+                    instructionsToShow.add(instruction);
+                }
             }
         }
 
         // Sort instructions by their final line number for consistent ordering
-        highestDegreeInstructions.sort((a, b) -> Integer.compare(
+        instructionsToShow.sort((a, b) -> Integer.compare(
                 lineNo.getOrDefault(a, 0),
                 lineNo.getOrDefault(b, 0)));
 
-        // Print only the highest degree instructions with their creation chains
-        for (SInstruction ins : highestDegreeInstructions) {
+        // Print the selected instructions with their creation chains
+        for (SInstruction ins : instructionsToShow) {
             // Build the complete creation chain for this instruction
             List<SInstruction> chain = new ArrayList<>();
             SInstruction current = ins;

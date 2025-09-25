@@ -423,24 +423,21 @@ public class Header {
 
       // Determine which program to expand based on current selection
       SProgram programToExpand;
+      semulator.program.ExpansionResult result;
+
       if (isShowingFunction && currentFunctionName != null) {
-        // Expand the currently selected function
-        programToExpand = getCurrentFunctionProgram();
-        if (programToExpand == null) {
-          programToExpand = sProgram;
-        } else {
-          // nothing
-        }
+        // Expand the currently selected function using the function expansion method
+        String internalFunctionName = getInternalFunctionName(currentFunctionName);
+        result = sProgram.expandFunctionToDegree(internalFunctionName, degree);
+        programToExpand = sProgram; // Use main program for UI updates
       } else {
         // Expand the main program
         programToExpand = sProgram;
+        result = programToExpand.expandToDegree(degree);
       }
 
       // Store reference to the program being expanded for later use
       SProgram activeProgram = programToExpand;
-
-      // Perform expansion directly
-      semulator.program.ExpansionResult result = programToExpand.expandToDegree(degree);
 
       // Update UI directly (no Platform.runLater needed)
       try {
@@ -502,7 +499,14 @@ public class Header {
 
         // Update current degree and max degree for the active program
         currentDegree = degree;
-        maxDegree = activeProgram.calculateMaxDegree();
+        if (isShowingFunction && currentFunctionName != null) {
+          // For function expansions, calculate max degree for the specific function
+          String internalFunctionName = getInternalFunctionName(currentFunctionName);
+          maxDegree = sProgram.calculateFunctionTemplateDegree(internalFunctionName);
+        } else {
+          // For main program expansions, use the main program's max degree
+          maxDegree = activeProgram.calculateMaxDegree();
+        }
 
         // Update level selector options with new max degree
         populateLevelSelector();
@@ -879,7 +883,10 @@ public class Header {
           // Show function instructions
           isShowingFunction = true;
           currentFunctionName = selectedItem;
-          displayFunctionInstructions(selectedItem);
+
+          // Convert user-friendly name back to internal function name
+          String internalFunctionName = getInternalFunctionName(selectedItem);
+          displayFunctionInstructions(internalFunctionName);
         }
       }
     }
@@ -1147,6 +1154,25 @@ public class Header {
         instructionTable.clearHighlighting();
       }
     }
+  }
+
+  // Helper method to convert user-friendly function name back to internal
+  // function name
+  private String getInternalFunctionName(String displayName) {
+    if (sProgram instanceof SProgramImpl) {
+      SProgramImpl programImpl = (SProgramImpl) sProgram;
+      Map<String, String> functionUserStrings = programImpl.getFunctionUserStrings();
+
+      // Look for the internal function name that has this display name
+      for (Map.Entry<String, String> entry : functionUserStrings.entrySet()) {
+        if (entry.getValue().equals(displayName)) {
+          return entry.getKey(); // Return the internal function name
+        }
+      }
+    }
+
+    // If no user-string mapping found, assume it's already an internal name
+    return displayName;
   }
 
 }

@@ -23,9 +23,23 @@ public interface SProgram {
 
     int calculateMaxDegree();
 
+    /**
+     * Calculate the template degree of a function (no +1 for call-site expansion).
+     * This is used when we want to know the internal complexity of a function
+     * without the call-site expansion layer.
+     */
+    int calculateFunctionTemplateDegree(String functionName);
+
     int calculateCycles();
 
     public ExpansionResult expandToDegree(int degree);
+
+    /**
+     * Expand a specific function to a given degree.
+     * This allows expanding individual functions instead of the entire main
+     * program.
+     */
+    public ExpansionResult expandFunctionToDegree(String functionName, int degree);
 
     Map<String, String> getFunctionUserStrings();
 

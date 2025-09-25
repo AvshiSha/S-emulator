@@ -485,6 +485,65 @@ public class SProgramImpl implements SProgram {
         return new ExpansionResult(finalProgram, parentMap, lineNo, rowOf);
     }
 
+    @Override
+    public ExpansionResult expandFunctionToDegree(String functionName, int degree) {
+        if (!functions.containsKey(functionName)) {
+            throw new IllegalArgumentException("Function '" + functionName + "' not found");
+        }
+
+        // Get the function body
+        List<SInstruction> functionBody = functions.get(functionName);
+
+        // Create a temporary program with just the function body
+        List<SInstruction> tempInstructions = new ArrayList<>(functionBody);
+
+        // Start from the function body as generation 0
+        List<InstrNode> cur = new ArrayList<>(tempInstructions.size());
+        for (int i = 0; i < tempInstructions.size(); i++) {
+            cur.add(new InstrNode(tempInstructions.get(i), i + 1)); // Row numbers start from 1
+        }
+
+        // We'll accumulate lineage across steps
+        Map<SInstruction, SInstruction> parentMap = new IdentityHashMap<>();
+        Map<SInstruction, Integer> rowOf = new IdentityHashMap<>();
+
+        NameSession names = new NameSession(baseUsedLabelNames, baseUsedVarNames);
+
+        for (int step = 0; step < degree; step++) {
+            // Expand once
+            List<InstrNode> next = new ArrayList<>(cur.size() * 2);
+            int rowCounter = 1; // Fresh row numbering for this degree
+
+            for (InstrNode node : cur) {
+                SInstruction in = node.ins;
+                if (isBasic(in)) {
+                    // Basic instructions stay as-is
+                    next.add(new InstrNode(in, rowCounter++));
+                } else {
+                    // Expand synthetic instructions
+                    List<SInstruction> children = expandOne(in, names);
+                    for (SInstruction ch : children) {
+                        parentMap.put(ch, in); // Track parent-child relationship
+                        next.add(new InstrNode(ch, rowCounter++)); // Assign fresh row number
+                    }
+                }
+            }
+            cur = next;
+        }
+
+        // Build the final flattened snapshot in order
+        List<SInstruction> finalProgram = new ArrayList<>(cur.size());
+        Map<SInstruction, Integer> lineNo = new IdentityHashMap<>();
+        for (int i = 0; i < cur.size(); i++) {
+            SInstruction ins = cur.get(i).ins;
+            finalProgram.add(ins);
+            lineNo.put(ins, cur.get(i).rowNumber); // Use the row number from current degree
+            rowOf.put(ins, i); // Store original position for lineage
+        }
+
+        return new ExpansionResult(finalProgram, parentMap, lineNo, rowOf);
+    }
+
     private boolean isBasic(SInstruction in) {
         String name = in.getName();
         // You already keep BASIC/SYNTHETIC sets in this class:
