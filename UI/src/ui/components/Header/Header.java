@@ -454,13 +454,19 @@ public class Header {
           expandedProgram.addInstruction(instruction);
         }
 
-        // Copy functions from original program to expanded program
+        // Copy functions and user-strings from original program to expanded program
         if (sProgram instanceof SProgramImpl) {
           SProgramImpl originalProgram = (SProgramImpl) sProgram;
           var originalFunctions = originalProgram.getFunctions();
           for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
               .entrySet()) {
             expandedProgram.getFunctions().put(entry.getKey(), entry.getValue());
+          }
+
+          // Copy user-string mappings
+          var originalUserStrings = originalProgram.getFunctionUserStrings();
+          for (Map.Entry<String, String> entry : originalUserStrings.entrySet()) {
+            expandedProgram.getFunctionUserStrings().put(entry.getKey(), entry.getValue());
           }
         }
 
@@ -682,13 +688,19 @@ public class Header {
           expandedProgram.addInstruction(instruction);
         }
 
-        // Copy functions from original program to expanded program
+        // Copy functions and user-strings from original program to expanded program
         if (sProgram instanceof SProgramImpl) {
           SProgramImpl originalProgram = (SProgramImpl) sProgram;
           var originalFunctions = originalProgram.getFunctions();
           for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
               .entrySet()) {
             expandedProgram.getFunctions().put(entry.getKey(), entry.getValue());
+          }
+
+          // Copy user-string mappings
+          var originalUserStrings = originalProgram.getFunctionUserStrings();
+          for (Map.Entry<String, String> entry : originalUserStrings.entrySet()) {
+            expandedProgram.getFunctionUserStrings().put(entry.getKey(), entry.getValue());
           }
         }
         programToUse = expandedProgram;
@@ -882,13 +894,19 @@ public class Header {
         expandedProgram.addInstruction(instruction);
       }
 
-      // Copy functions from original program to expanded program
+      // Copy functions and user-strings from original program to expanded program
       if (sProgram instanceof SProgramImpl) {
         SProgramImpl originalProgram = (SProgramImpl) sProgram;
         var originalFunctions = originalProgram.getFunctions();
         for (Map.Entry<String, java.util.List<semulator.instructions.SInstruction>> entry : originalFunctions
             .entrySet()) {
           expandedProgram.getFunctions().put(entry.getKey(), entry.getValue());
+        }
+
+        // Copy user-string mappings
+        var originalUserStrings = originalProgram.getFunctionUserStrings();
+        for (Map.Entry<String, String> entry : originalUserStrings.entrySet()) {
+          expandedProgram.getFunctionUserStrings().put(entry.getKey(), entry.getValue());
         }
       }
 
@@ -1015,10 +1033,20 @@ public class Header {
       Set<String> allReferencedFunctions = discoverAllReferencedFunctions(programImpl);
 
       if (!allReferencedFunctions.isEmpty()) {
+        // Get user-strings for display
+        Map<String, String> functionUserStrings = programImpl.getFunctionUserStrings();
+
         // Sort function names alphabetically for better user experience
         List<String> sortedFunctionNames = new ArrayList<>(allReferencedFunctions);
         Collections.sort(sortedFunctionNames);
-        items.addAll(sortedFunctionNames);
+
+        // Add display names (user-strings if available, otherwise function names)
+        for (String functionName : sortedFunctionNames) {
+          String displayName = functionUserStrings.containsKey(functionName)
+              ? functionUserStrings.get(functionName)
+              : functionName;
+          items.add(displayName);
+        }
       }
     } else {
     }

@@ -103,7 +103,16 @@ public class mainView extends Application {
                 // Get the real history chain from the Header controller
                 java.util.List<semulator.instructions.SInstruction> chain = headerController
                         .getHistoryChain(selectedInstruction);
-                historyChainController.displayHistoryChain(chain);
+
+                // Get user-strings if available
+                java.util.Map<String, String> functionUserStrings = null;
+                semulator.program.SProgram program = headerController.getSProgram();
+                if (program instanceof semulator.program.SProgramImpl) {
+                    semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) program;
+                    functionUserStrings = programImpl.getFunctionUserStrings();
+                }
+
+                historyChainController.displayHistoryChain(chain, functionUserStrings);
             } else {
                 historyChainController.clearHistory();
             }

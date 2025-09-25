@@ -16,6 +16,7 @@ import ui.animations.Animations;
 import ui.animations.RowPulseAnimation;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class InstructionTable {
@@ -96,6 +97,13 @@ public class InstructionTable {
         List<SInstruction> instructions = program.getInstructions();
         currentInstructions.addAll(instructions); // Store for selection handling
 
+        // Get user-strings if available
+        Map<String, String> functionUserStrings = null;
+        if (program instanceof semulator.program.SProgramImpl) {
+            semulator.program.SProgramImpl programImpl = (semulator.program.SProgramImpl) program;
+            functionUserStrings = programImpl.getFunctionUserStrings();
+        }
+
         for (int i = 0; i < instructions.size(); i++) {
             SInstruction instruction = instructions.get(i);
             String variable = "";
@@ -109,7 +117,7 @@ public class InstructionTable {
                     i + 1, // Row number (1-based)
                     getCommandType(instruction), // B or S
                     getLabelText(instruction.getLabel()), // Label text
-                    getInstructionText(instruction), // Instruction description
+                    getInstructionText(instruction, functionUserStrings), // Instruction description
                     instruction.cycles(), // Cycles
                     variable);
             instructionData.add(row);
@@ -175,6 +183,10 @@ public class InstructionTable {
     }
 
     private String getInstructionText(SInstruction instruction) {
+        return getInstructionText(instruction, null);
+    }
+
+    private String getInstructionText(SInstruction instruction, Map<String, String> functionUserStrings) {
         if (instruction instanceof IncreaseInstruction) {
             return instruction.getVariable() + " <- " + instruction.getVariable() + " + 1";
         } else if (instruction instanceof DecreaseInstruction) {
@@ -204,12 +216,13 @@ public class InstructionTable {
                 arguments += ",";
             }
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).toString();
+                arguments += formatFunctionArgument(args.get(i), functionUserStrings);
                 if (i < args.size() - 1) { // Not the last element
                     arguments += ",";
                 }
             }
-            return q.getVariable() + " <- (" + q.getFunctionName() + arguments + ")";
+            String functionName = getDisplayFunctionName(q.getFunctionName(), functionUserStrings);
+            return q.getVariable() + " <- (" + functionName + arguments + ")";
         } else if (instruction instanceof JumpEqualFunctionInstruction jef) {
             String arguments = "";
             List<FunctionArgument> args = jef.getFunctionArguments();
@@ -217,15 +230,40 @@ public class InstructionTable {
                 arguments += ",";
             }
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).toString();
+                arguments += formatFunctionArgument(args.get(i), functionUserStrings);
                 if (i < args.size() - 1) { // Not the last element
                     arguments += ",";
                 }
             }
-            return "IF " + jef.getVariable() + " == (" + jef.getFunctionName() + arguments + ") GOTO "
+            String functionName = getDisplayFunctionName(jef.getFunctionName(), functionUserStrings);
+            return "IF " + jef.getVariable() + " == (" + functionName + arguments + ") GOTO "
                     + jef.getTarget();
         }
         return instruction.getName();
+    }
+
+    private String getDisplayFunctionName(String functionName, Map<String, String> functionUserStrings) {
+        if (functionUserStrings != null && functionUserStrings.containsKey(functionName)) {
+            return functionUserStrings.get(functionName);
+        }
+        return functionName;
+    }
+
+    private String formatFunctionArgument(FunctionArgument arg, Map<String, String> functionUserStrings) {
+        if (arg.isFunctionCall()) {
+            FunctionCall call = arg.asFunctionCall();
+            String functionName = getDisplayFunctionName(call.getFunctionName(), functionUserStrings);
+            StringBuilder sb = new StringBuilder();
+            sb.append("(").append(functionName);
+            for (FunctionArgument nestedArg : call.getArguments()) {
+                sb.append(",").append(formatFunctionArgument(nestedArg, functionUserStrings));
+            }
+            sb.append(")");
+            return sb.toString();
+        } else {
+            // Simple variable argument
+            return arg.toString();
+        }
     }
 
     private void printFunctionBody(String functionName) {
@@ -394,10 +432,6 @@ public class InstructionTable {
             RowPulseAnimation.pulseRow(tableRow);
             return;
         }
-
-        // Debug: Print cache info if row not found
-        System.out.println(
-                "DEBUG: Row not found in cache for index " + instructionIndex + ". Cache size: " + rowCache.size());
 
         // If not in cache, try the old lookup methods as fallback
         // Method 1: Try CSS selector approach with specific index

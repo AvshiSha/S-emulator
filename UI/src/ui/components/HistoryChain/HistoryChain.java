@@ -12,6 +12,7 @@ import semulator.variable.Variable;
 import ui.components.InstructionTable.InstructionTable.InstructionRow;
 
 import java.util.List;
+import java.util.Map;
 
 public class HistoryChain {
     @FXML
@@ -64,6 +65,10 @@ public class HistoryChain {
     }
 
     public void displayHistoryChain(List<SInstruction> chain) {
+        displayHistoryChain(chain, null);
+    }
+
+    public void displayHistoryChain(List<SInstruction> chain, Map<String, String> functionUserStrings) {
         historyData.clear();
 
         if (chain == null || chain.isEmpty()) {
@@ -84,7 +89,7 @@ public class HistoryChain {
                     i + 1, // Row number in the chain
                     getCommandType(instruction), // B or S
                     getLabelText(instruction.getLabel()), // Label text
-                    getInstructionText(instruction), // Instruction description
+                    getInstructionText(instruction, functionUserStrings), // Instruction description
                     instruction.cycles(), // Cycles
                     variable);
             historyData.add(row);
@@ -116,6 +121,10 @@ public class HistoryChain {
     }
 
     private String getInstructionText(SInstruction instruction) {
+        return getInstructionText(instruction, null);
+    }
+
+    private String getInstructionText(SInstruction instruction, Map<String, String> functionUserStrings) {
         if (instruction instanceof IncreaseInstruction) {
             return instruction.getVariable() + " <- " + instruction.getVariable() + " + 1";
         } else if (instruction instanceof DecreaseInstruction) {
@@ -145,12 +154,13 @@ public class HistoryChain {
                 arguments += ",";
             }
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).toString();
+                arguments += formatFunctionArgument(args.get(i), functionUserStrings);
                 if (i < args.size() - 1) { // Not the last element
                     arguments += ",";
                 }
             }
-            return q.getVariable() + " <- (" + q.getFunctionName() + arguments + ")";
+            String functionName = getDisplayFunctionName(q.getFunctionName(), functionUserStrings);
+            return q.getVariable() + " <- (" + functionName + arguments + ")";
         } else if (instruction instanceof JumpEqualFunctionInstruction jef) {
             String arguments = "";
             List<FunctionArgument> args = jef.getFunctionArguments();
@@ -158,14 +168,39 @@ public class HistoryChain {
                 arguments += ",";
             }
             for (int i = 0; i < args.size(); i++) {
-                arguments += args.get(i).toString();
+                arguments += formatFunctionArgument(args.get(i), functionUserStrings);
                 if (i < args.size() - 1) { // Not the last element
                     arguments += ",";
                 }
             }
-            return "IF " + jef.getVariable() + " == (" + jef.getFunctionName() + arguments + ") GOTO "
+            String functionName = getDisplayFunctionName(jef.getFunctionName(), functionUserStrings);
+            return "IF " + jef.getVariable() + " == (" + functionName + arguments + ") GOTO "
                     + jef.getTarget();
         }
         return instruction.getName();
+    }
+
+    private String getDisplayFunctionName(String functionName, Map<String, String> functionUserStrings) {
+        if (functionUserStrings != null && functionUserStrings.containsKey(functionName)) {
+            return functionUserStrings.get(functionName);
+        }
+        return functionName;
+    }
+
+    private String formatFunctionArgument(FunctionArgument arg, Map<String, String> functionUserStrings) {
+        if (arg.isFunctionCall()) {
+            FunctionCall call = arg.asFunctionCall();
+            String functionName = getDisplayFunctionName(call.getFunctionName(), functionUserStrings);
+            StringBuilder sb = new StringBuilder();
+            sb.append("(").append(functionName);
+            for (FunctionArgument nestedArg : call.getArguments()) {
+                sb.append(",").append(formatFunctionArgument(nestedArg, functionUserStrings));
+            }
+            sb.append(")");
+            return sb.toString();
+        } else {
+            // Simple variable argument
+            return arg.toString();
+        }
     }
 }

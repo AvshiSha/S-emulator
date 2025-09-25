@@ -26,6 +26,13 @@ public class DataFlowTraceAnimation {
     private static final double PATH_WIDTH = 1.25;
     private static final double PATH_OPACITY = 0.8;
 
+    // Track active animations to prevent overlapping
+    private static final java.util.concurrent.ConcurrentHashMap<Pane, Boolean> activeOverlays = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // Cooldown mechanism to prevent too frequent animations
+    private static final long ANIMATION_COOLDOWN_MS = 2000; // 2 seconds
+    private static long lastAnimationTime = 0;
+
     /**
      * Create and play a data flow trace animation between two points.
      * 
@@ -37,6 +44,16 @@ public class DataFlowTraceAnimation {
         if (!Animations.isEnabled() || overlayLayer == null || startPoint == null || endPoint == null) {
             return;
         }
+
+        // Check cooldown to prevent too frequent animations
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastAnimationTime < ANIMATION_COOLDOWN_MS) {
+            return; // Skip animation if too soon since last one
+        }
+        lastAnimationTime = currentTime;
+
+        // Clean up any existing animations on this overlay
+        cleanupExistingAnimations(overlayLayer);
 
         // Create the path
         Path path = createPath(startPoint, endPoint);
@@ -56,10 +73,23 @@ public class DataFlowTraceAnimation {
         PathTransition pathTransition = new PathTransition(TRACE_DURATION, path, token);
         pathTransition.setInterpolator(Interpolator.EASE_BOTH);
 
-        // Clean up when animation finishes
+        // Clean up when animation finishes - ensure both elements are removed
         pathTransition.setOnFinished(e -> {
-            overlayLayer.getChildren().removeAll(path, token);
+            try {
+                if (overlayLayer.getChildren().contains(path)) {
+                    overlayLayer.getChildren().remove(path);
+                }
+                if (overlayLayer.getChildren().contains(token)) {
+                    overlayLayer.getChildren().remove(token);
+                }
+                activeOverlays.remove(overlayLayer);
+            } catch (Exception ex) {
+                // Ignore cleanup errors
+            }
         });
+
+        // Track this overlay as having an active animation
+        activeOverlays.put(overlayLayer, true);
 
         // Play the animation
         Animations.playIfEnabled(pathTransition);
@@ -93,9 +123,18 @@ public class DataFlowTraceAnimation {
         PathTransition pathTransition = new PathTransition(TRACE_DURATION, path, token);
         pathTransition.setInterpolator(Interpolator.EASE_BOTH);
 
-        // Clean up when animation finishes
+        // Clean up when animation finishes - ensure both elements are removed
         pathTransition.setOnFinished(e -> {
-            overlayLayer.getChildren().removeAll(path, token);
+            try {
+                if (overlayLayer.getChildren().contains(path)) {
+                    overlayLayer.getChildren().remove(path);
+                }
+                if (overlayLayer.getChildren().contains(token)) {
+                    overlayLayer.getChildren().remove(token);
+                }
+            } catch (Exception ex) {
+                // Ignore cleanup errors
+            }
         });
 
         // Play the animation
@@ -202,5 +241,36 @@ public class DataFlowTraceAnimation {
 
         Path curvedPath = createCurvedPath(startPoint, endPoint);
         traceFlow(curvedPath, overlayLayer);
+    }
+
+    /**
+     * Clean up any existing flow trace animations on the given overlay.
+     * This prevents overlapping animations and ensures proper cleanup.
+     * 
+     * @param overlayLayer the overlay layer to clean up
+     */
+    private static void cleanupExistingAnimations(Pane overlayLayer) {
+        if (overlayLayer == null) {
+            return;
+        }
+
+        try {
+            // Remove any existing flow-path or flow-token elements
+            overlayLayer.getChildren().removeIf(node -> node.getStyleClass().contains("flow-path") ||
+                    node.getStyleClass().contains("flow-token"));
+        } catch (Exception e) {
+            // Ignore cleanup errors
+        }
+    }
+
+    /**
+     * Force cleanup of all active animations.
+     * This can be called to ensure no lingering animation elements remain.
+     */
+    public static void cleanupAllAnimations() {
+        for (Pane overlay : activeOverlays.keySet()) {
+            cleanupExistingAnimations(overlay);
+        }
+        activeOverlays.clear();
     }
 }

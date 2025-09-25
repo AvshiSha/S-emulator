@@ -105,6 +105,9 @@ public class DebuggerExecution {
     private Map<semulator.variable.Variable, Long> currentVariableState = new HashMap<>();
     private boolean isStepExecution = false;
 
+    // Track if data flow animation has been shown for this execution session
+    private boolean dataFlowAnimationShown = false;
+
     // Step-by-step execution context
     private ExecutionContext stepExecutionContext = null;
     private Map<String, Integer> labelToIndexMap = new HashMap<>();
@@ -250,7 +253,7 @@ public class DebuggerExecution {
         isStepExecution = true;
 
         // Initialize debugger state
-
+        dataFlowAnimationShown = false; // Reset animation flag for new session
         initializeDebuggerState();
 
         updateButtonStates();
@@ -279,6 +282,9 @@ public class DebuggerExecution {
 
         // Clear execution history when stopping
         executionHistory.clear();
+
+        // Clean up any lingering animations
+        ui.animations.DataFlowTraceAnimation.cleanupAllAnimations();
 
         if (executionService != null && executionService.isRunning()) {
             executionService.cancel();
@@ -764,12 +770,20 @@ public class DebuggerExecution {
             // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially in debug mode
             semulator.label.Label nextLabel;
             if (currentInstruction instanceof semulator.instructions.QuoteInstruction quoteInstruction) {
-                // Trigger data flow trace animation for QUOTE instruction
-                triggerDataFlowTraceAnimation(currentInstruction);
+                // Trigger data flow trace animation for QUOTE instruction (only once per
+                // session)
+                if (!dataFlowAnimationShown) {
+                    triggerDataFlowTraceAnimation(currentInstruction);
+                    dataFlowAnimationShown = true;
+                }
                 nextLabel = executeQuoteInstruction(quoteInstruction);
             } else if (currentInstruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
-                // Trigger data flow trace animation for JUMP_EQUAL_FUNCTION instruction
-                triggerDataFlowTraceAnimation(currentInstruction);
+                // Trigger data flow trace animation for JUMP_EQUAL_FUNCTION instruction (only
+                // once per session)
+                if (!dataFlowAnimationShown) {
+                    triggerDataFlowTraceAnimation(currentInstruction);
+                    dataFlowAnimationShown = true;
+                }
                 nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction);
             } else {
                 // Execute just this one instruction using the step execution context
@@ -845,8 +859,6 @@ public class DebuggerExecution {
             // Trigger row pulse animation for the executed instruction
             if (instructionTableCallback != null) {
                 // The instruction table will handle the row pulse animation
-                System.out.println(
-                        "DEBUG: Triggering row pulse animation for instruction index: " + currentInstructionIndex);
                 instructionTableCallback.accept(currentInstructionIndex);
             } else {
             }

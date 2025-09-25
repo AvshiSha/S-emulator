@@ -38,6 +38,7 @@ public class SProgramImpl implements SProgram {
     private final List<SInstruction> instructions;
     private Path xmlPath;
     private final Map<String, List<SInstruction>> functions = new HashMap<>();
+    private final Map<String, String> functionUserStrings = new HashMap<>();
 
     private final Set<String> baseUsedLabelNames = new HashSet<>();
     private final Set<String> baseUsedVarNames = new HashSet<>();
@@ -113,6 +114,10 @@ public class SProgramImpl implements SProgram {
 
     public Map<String, List<SInstruction>> getFunctions() {
         return functions;
+    }
+
+    public Map<String, String> getFunctionUserStrings() {
+        return functionUserStrings;
     }
 
     @Override
@@ -718,6 +723,8 @@ public class SProgramImpl implements SProgram {
             }
         }
 
+        // Use basic instructions to assign the result instead of synthetic ASSIGN
+        // instruction
         expanded.add(new AssignVariableInstruction(target, freshOutputVar, endLabel));
 
         return expanded;
@@ -1053,6 +1060,12 @@ public class SProgramImpl implements SProgram {
             if (functionName.isEmpty()) {
                 System.out.println("S-Function missing name attribute");
                 continue;
+            }
+
+            // Parse user-string attribute
+            String userString = functionEl.getAttribute("user-string").trim();
+            if (!userString.isEmpty()) {
+                functionUserStrings.put(functionName, userString);
             }
 
             Element functionInstructions = getSingleChild(functionEl, "S-Instructions");
