@@ -82,12 +82,17 @@ public class HistoryStats implements Initializable {
         // Set up table data
         historyTableView.setItems(historyData);
 
-        // Set up selection listener
+        // Set up selection listener with safety checks
         historyTableView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
-            if (newSelection != null) {
-                rerunButton.setDisable(false);
-            } else {
-                rerunButton.setDisable(true);
+            try {
+                if (newSelection != null) {
+                    rerunButton.setDisable(false);
+                } else {
+                    rerunButton.setDisable(true);
+                }
+            } catch (Exception e) {
+                System.err.println("Error in HistoryStats selection listener: " + e.getMessage());
+                // Don't rethrow - just log the error
             }
         });
 
@@ -169,17 +174,22 @@ public class HistoryStats implements Initializable {
      */
     @FXML
     private void rerunSelectedRun() {
-        HistoryRow selectedRow = historyTableView.getSelectionModel().getSelectedItem();
-        if (selectedRow != null && inputCallback != null) {
-            // Find the corresponding RunResult
-            int runNumber = Integer.parseInt(selectedRow.getRunNumber());
-            for (RunResult run : runHistory.getAllRuns()) {
-                if (run.runNumber() == runNumber) {
-                    // Set the inputs in the debugger
-                    inputCallback.accept(run.inputs());
-                    break;
+        try {
+            HistoryRow selectedRow = historyTableView.getSelectionModel().getSelectedItem();
+            if (selectedRow != null && inputCallback != null) {
+                // Find the corresponding RunResult
+                int runNumber = Integer.parseInt(selectedRow.getRunNumber());
+                for (RunResult run : runHistory.getAllRuns()) {
+                    if (run.runNumber() == runNumber) {
+                        // Set the inputs in the debugger
+                        inputCallback.accept(run.inputs());
+                        break;
+                    }
                 }
             }
+        } catch (Exception e) {
+            System.err.println("Error in rerunSelectedRun: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -243,15 +253,20 @@ public class HistoryStats implements Initializable {
      */
     @FXML
     private void onThemeSelected() {
-        Theme selectedTheme = themeSelector.getSelectionModel().getSelectedItem();
-        if (selectedTheme != null) {
-            themeManager.setTheme(selectedTheme);
+        try {
+            Theme selectedTheme = themeSelector.getSelectionModel().getSelectedItem();
+            if (selectedTheme != null) {
+                themeManager.setTheme(selectedTheme);
 
-            // Apply the theme to the current scene
-            Stage stage = (Stage) themeSelector.getScene().getWindow();
-            if (stage != null && stage.getScene() != null) {
-                themeManager.applyCurrentTheme(stage.getScene());
+                // Apply the theme to the current scene
+                Stage stage = (Stage) themeSelector.getScene().getWindow();
+                if (stage != null && stage.getScene() != null) {
+                    themeManager.applyCurrentTheme(stage.getScene());
+                }
             }
+        } catch (Exception e) {
+            System.err.println("Error in onThemeSelected: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -260,18 +275,23 @@ public class HistoryStats implements Initializable {
      */
     @FXML
     private void onFontSizeSelected() {
-        String selectedFontSize = fontSizeSelector.getSelectionModel().getSelectedItem();
-        if (selectedFontSize != null) {
-            themeManager.setFontSize(selectedFontSize);
+        try {
+            String selectedFontSize = fontSizeSelector.getSelectionModel().getSelectedItem();
+            if (selectedFontSize != null) {
+                themeManager.setFontSize(selectedFontSize);
 
-            // Force font size change by reapplying the entire theme
-            Stage stage = (Stage) fontSizeSelector.getScene().getWindow();
-            if (stage != null && stage.getScene() != null) {
-                // Clear all stylesheets first
-                stage.getScene().getStylesheets().clear();
-                // Reapply the current theme with new font size
-                themeManager.applyCurrentTheme(stage.getScene());
+                // Force font size change by reapplying the entire theme
+                Stage stage = (Stage) fontSizeSelector.getScene().getWindow();
+                if (stage != null && stage.getScene() != null) {
+                    // Clear all stylesheets first
+                    stage.getScene().getStylesheets().clear();
+                    // Reapply the current theme with new font size
+                    themeManager.applyCurrentTheme(stage.getScene());
+                }
             }
+        } catch (Exception e) {
+            System.err.println("Error in onFontSizeSelected: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

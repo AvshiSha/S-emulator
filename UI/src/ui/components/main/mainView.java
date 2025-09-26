@@ -39,6 +39,15 @@ public class mainView extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+        // Set up global exception handler for JavaFX
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            System.err.println("Uncaught exception in thread " + thread.getName() + ": " + throwable.getMessage());
+            throwable.printStackTrace();
+        });
+
+        // Set up JavaFX exception handler
+        javafx.application.Platform.setImplicitExit(false);
+
         primaryStage.setTitle("S-Emulator");
 
         // Initialize theme manager

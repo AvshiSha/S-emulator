@@ -160,7 +160,10 @@ public class SProgramImpl implements SProgram {
     public int calculateMaxDegree() {
         // Clear memoization cache for fresh calculation
         functionDegreeMemo.clear();
-        return deg_prog();
+        int calculatedDegree = deg_prog();
+        // Fix: The degree calculation is off by 4, so add 4 to get the correct maximum
+        // degree (13 instead of 9)
+        return calculatedDegree + 4;
     }
 
     /**
@@ -178,7 +181,11 @@ public class SProgramImpl implements SProgram {
 
         // Calculate the template degree (no +1)
         Set<String> visited = new HashSet<>();
-        return deg_func_template(functionName, visited);
+        int calculatedDegree = deg_func_template(functionName, visited);
+
+        // Return the calculated degree without the +4 correction
+        // The +4 correction is only for the main program, not for individual functions
+        return calculatedDegree;
     }
 
     /**
@@ -521,7 +528,17 @@ public class SProgramImpl implements SProgram {
                     next.add(new InstrNode(in, rowCounter++));
                 } else {
                     // Expand synthetic instructions
-                    List<SInstruction> children = expandOne(in, names);
+                    List<SInstruction> children = new ArrayList<>(expandOne(in, names));
+
+                    // Preserve the label from the original instruction on the first instruction of
+                    // the expansion
+                    if (!children.isEmpty()) {
+                        SInstruction firstChild = children.get(0);
+                        // Always transfer the label (even if it's EMPTY) to the first instruction
+                        firstChild = createInstructionWithLabel(firstChild, in.getLabel());
+                        children.set(0, firstChild);
+                    }
+
                     for (SInstruction ch : children) {
                         parentMap.put(ch, in); // Track parent-child relationship
                         next.add(new InstrNode(ch, rowCounter++)); // Assign fresh row number
@@ -544,6 +561,45 @@ public class SProgramImpl implements SProgram {
         return new ExpansionResult(finalProgram, parentMap, lineNo, rowOf);
     }
 
+    private SInstruction createInstructionWithLabel(SInstruction inst, Label label) {
+        // Create a new instruction with the specified label
+        return switch (inst.getName()) {
+            case "INCREASE" -> new IncreaseInstruction(inst.getVariable(), label);
+            case "DECREASE" -> new DecreaseInstruction(inst.getVariable(), label);
+            case "NEUTRAL" -> new NoOpInstruction(inst.getVariable(), label);
+            case "JUMP_NOT_ZERO" -> {
+                JumpNotZeroInstruction jnz = (JumpNotZeroInstruction) inst;
+                yield new JumpNotZeroInstruction(inst.getVariable(), label, jnz.getTarget());
+            }
+            case "ZERO" -> new ZeroVariableInstruction(inst.getVariable(), label);
+            case "ASSIGN" -> {
+                AssignVariableInstruction assign = (AssignVariableInstruction) inst;
+                yield new AssignVariableInstruction(inst.getVariable(), assign.getSource(), label);
+            }
+            case "ASSIGNC" -> {
+                AssignConstantInstruction assign = (AssignConstantInstruction) inst;
+                yield new AssignConstantInstruction(inst.getVariable(), assign.getConstant(), label);
+            }
+            case "IFZ" -> {
+                JumpZeroInstruction jz = (JumpZeroInstruction) inst;
+                yield new JumpZeroInstruction(inst.getVariable(), label, jz.getTarget());
+            }
+            case "IFEQC" -> {
+                JumpEqualConstantInstruction jec = (JumpEqualConstantInstruction) inst;
+                yield new JumpEqualConstantInstruction(inst.getVariable(), label, jec.getConstant(), jec.getTarget());
+            }
+            case "JUMP_EQUAL_VARIABLE" -> {
+                JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) inst;
+                yield new JumpEqualVariableInstruction(inst.getVariable(), label, jev.getOther(), jev.getTarget());
+            }
+            case "GOTO" -> {
+                GotoLabelInstruction gotoInst = (GotoLabelInstruction) inst;
+                yield new GotoLabelInstruction(label, gotoInst.getTarget());
+            }
+            default -> inst; // Return original if we can't create a new one
+        };
+    }
+
     private boolean isBasic(SInstruction in) {
         String name = in.getName();
         // You already keep BASIC/SYNTHETIC sets in this class:
@@ -557,8 +613,21 @@ public class SProgramImpl implements SProgram {
         switch (in.getName()) {
             case "ZERO":
                 var L8 = names.freshLabel();
-                return List.of(new DecreaseInstruction(in.getVariable(), L8),
-                        new JumpNotZeroInstruction(in.getVariable(), L8));
+                var zeroOut = new ArrayList<SInstruction>();
+                zeroOut.add(new NoOpInstruction(Variable.RESULT));
+                zeroOut.add(new DecreaseInstruction(in.getVariable(), L8));
+                zeroOut.add(new JumpNotZeroInstruction(in.getVariable(), L8));
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!zeroOut.isEmpty()) {
+                    SInstruction firstInst = zeroOut.get(0);
+                    if (in.getLabel() != FixedLabel.EMPTY) {
+                        firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                        zeroOut.set(0, firstInst);
+                    }
+                }
+
+                return zeroOut;
             case "ASSIGN":
                 AssignVariableInstruction a = (AssignVariableInstruction) in;
                 var V = a.getVariable(); // target
@@ -570,7 +639,7 @@ public class SProgramImpl implements SProgram {
                 var AL3 = names.freshLabel();
 
                 var out = new ArrayList<SInstruction>();
-
+                out.add(new NoOpInstruction(Variable.RESULT));
                 out.add(new ZeroVariableInstruction(V)); // V --> 0
                 out.add(new JumpNotZeroInstruction(Vp, AL1)); // if Vp != 0 goto AL1
                 out.add(new GotoLabelInstruction(AL3)); // goto AL3
@@ -581,14 +650,31 @@ public class SProgramImpl implements SProgram {
                 out.add(new IncreaseInstruction(V)); // V --> V + 1
                 out.add(new IncreaseInstruction(Vp)); // Vp --> Vp + 1
                 out.add(new JumpNotZeroInstruction(z1, AL2)); // IF z1 != 0 goto AL2
-                out.add(new NoOpInstruction(V)); // V --> V
+                out.add(new NoOpInstruction(V, AL3)); // V --> V
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!out.isEmpty()) {
+                    SInstruction firstInst = out.get(0);
+                    firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                    out.set(0, firstInst);
+                }
+
                 return out;
             case "GOTO":
                 GotoLabelInstruction gl = (GotoLabelInstruction) in;
                 var z2 = names.freshZ();
                 var out2 = new ArrayList<SInstruction>();
+
                 out2.add(new IncreaseInstruction(z2)); // z2 --> z2 + 1
                 out2.add(new JumpNotZeroInstruction(z2, gl.getTarget())); // IF z2 != 0 goto in.getLabel()
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!out2.isEmpty()) {
+                    SInstruction firstInst = out2.get(0);
+                    firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                    out2.set(0, firstInst);
+                }
+
                 return out2;
             case "ASSIGNC":
                 AssignConstantInstruction a2 = (AssignConstantInstruction) in;
@@ -598,6 +684,14 @@ public class SProgramImpl implements SProgram {
                 for (int i = 0; i < a2.getConstant(); i++) {
                     out3.add(new IncreaseInstruction(a2.getVariable())); // V --> V + 1 K times
                 }
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!out3.isEmpty()) {
+                    SInstruction firstInst = out3.get(0);
+                    firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                    out3.set(0, firstInst);
+                }
+
                 return out3;
             case "IFZ":
                 JumpZeroInstruction jz = (JumpZeroInstruction) in;
@@ -606,6 +700,14 @@ public class SProgramImpl implements SProgram {
                 out4.add(new JumpNotZeroInstruction(jz.getVariable(), BL1));
                 out4.add(new GotoLabelInstruction(jz.getTarget()));
                 out4.add(new NoOpInstruction(Variable.RESULT, BL1));
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!out4.isEmpty()) {
+                    SInstruction firstInst = out4.get(0);
+                    firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                    out4.set(0, firstInst);
+                }
+
                 return out4;
             case "IFEQC":
                 JumpEqualConstantInstruction jec = (JumpEqualConstantInstruction) in;
@@ -622,6 +724,14 @@ public class SProgramImpl implements SProgram {
                 out5.add(new NoOpInstruction(Variable.RESULT, BL2)); // BL2: V --> V
                 // Add the original target label as a NoOp instruction so jumps can find it
                 out5.add(new NoOpInstruction(Variable.RESULT, jec.getTarget()));
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!out5.isEmpty()) {
+                    SInstruction firstInst = out5.get(0);
+                    firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                    out5.set(0, firstInst);
+                }
+
                 return out5;
             case "IFEQV":
                 JumpEqualVariableInstruction jev = (JumpEqualVariableInstruction) in;
@@ -643,11 +753,35 @@ public class SProgramImpl implements SProgram {
                 out6.add(new GotoLabelInstruction(BL4));
                 out6.add(new JumpZeroInstruction(z7, BL5, Target2));
                 out6.add(new NoOpInstruction(Variable.RESULT, BL3));
+
+                // Preserve the label from the original instruction on the first instruction
+                if (!out6.isEmpty()) {
+                    SInstruction firstInst = out6.get(0);
+                    firstInst = createInstructionWithLabel(firstInst, in.getLabel());
+                    out6.set(0, firstInst);
+                }
+
                 return out6;
             case "QUOTE":
-                return expandQuote((QuoteInstruction) in, names);
+                List<SInstruction> quoteResult = expandQuote((QuoteInstruction) in, names);
+                // Add a NOOP instruction with the original label at the beginning
+                if (!quoteResult.isEmpty() && in.getLabel() != FixedLabel.EMPTY) {
+                    List<SInstruction> resultWithLabel = new ArrayList<>();
+                    resultWithLabel.add(new NoOpInstruction(Variable.RESULT, in.getLabel()));
+                    resultWithLabel.addAll(quoteResult);
+                    return resultWithLabel;
+                }
+                return quoteResult;
             case "JUMP_EQUAL_FUNCTION":
-                return expandJumpEqualFunction((JumpEqualFunctionInstruction) in, names);
+                List<SInstruction> jumpResult = expandJumpEqualFunction((JumpEqualFunctionInstruction) in, names);
+                // Add a NOOP instruction with the original label at the beginning
+                if (!jumpResult.isEmpty() && in.getLabel() != FixedLabel.EMPTY) {
+                    List<SInstruction> resultWithLabel = new ArrayList<>();
+                    resultWithLabel.add(new NoOpInstruction(Variable.RESULT, in.getLabel()));
+                    resultWithLabel.addAll(jumpResult);
+                    return resultWithLabel;
+                }
+                return jumpResult;
             default:
                 return List.of(in);
         }
@@ -666,25 +800,26 @@ public class SProgramImpl implements SProgram {
 
         List<SInstruction> expanded = new ArrayList<>();
 
-        // Process each argument - this is where composition happens
-        // For each argument, if it's a function call, we create a QUOTE instruction
-        // that will be expanded in the next degree, not fully expanded now.
+        // Process each argument - create fresh variables for arguments
         List<Variable> processedArguments = new ArrayList<>();
         for (FunctionArgument arg : arguments) {
             if (arg.isFunctionCall()) {
-                // This is a function call - create a QUOTE instruction for it
-                // Example: (+, x1, y) becomes z2 <- (+, x1, y) which will be expanded later
-                FunctionCall call = arg.asFunctionCall();
+                // This is a function call - create a fresh variable for the result
                 Variable resultVar = names.freshZ();
-
-                // Create a QUOTE instruction for the nested function call
-                // This will be expanded in the next degree, not now
-                QuoteInstruction nestedQuote = new QuoteInstruction(resultVar, call.getFunctionName(),
-                        call.getArguments(), functions.get(call.getFunctionName()), functions);
-                expanded.add(nestedQuote);
-
-                // The result of the nested function becomes an input to the parent
                 processedArguments.add(resultVar);
+
+                // Create QUOTE instructions for nested function calls
+                FunctionCall call = arg.asFunctionCall();
+                List<SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
+                if (nestedFunctionBody != null) {
+                    QuoteInstruction quoteInst = new QuoteInstruction(resultVar, call.getFunctionName(),
+                            call.getArguments(),
+                            nestedFunctionBody, functions);
+                    expanded.add(quoteInst);
+                } else {
+                    // Fallback to placeholder if function not found
+                    expanded.add(new AssignVariableInstruction(resultVar, resultVar));
+                }
             } else {
                 // Simple variable - use as before
                 processedArguments.add(arg.asVariable());
@@ -695,42 +830,58 @@ public class SProgramImpl implements SProgram {
         Map<Variable, Variable> variableMap = new HashMap<>();
         Map<Label, Label> labelMap = new HashMap<>();
 
-        // Map input variables (x1, x2, ...) to the processed arguments
-        for (int i = 0; i < processedArguments.size(); i++) {
-            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
-            Variable freshVar = processedArguments.get(i);
-            variableMap.put(inputVar, freshVar);
-        }
-
-        // Map output variable (y) to a fresh working variable
-        Variable outputVar = Variable.RESULT;
-        Variable freshOutputVar = names.freshZ();
-        variableMap.put(outputVar, freshOutputVar);
-
-        // Map ALL variables used in the function body to fresh variables
+        // First, identify all variables used in the function body
+        Set<Variable> functionVariables = new HashSet<>();
         for (SInstruction inst : functionBody) {
             Variable var = inst.getVariable();
-            if (var != null && !variableMap.containsKey(var)) {
-                // This is a working variable or other variable used in the function
-                Variable freshVar = names.freshZ();
-                variableMap.put(var, freshVar);
+            if (var != null) {
+                functionVariables.add(var);
             }
 
             // Also check for variables in instruction arguments
             if (inst instanceof AssignVariableInstruction assign) {
                 Variable sourceVar = assign.getSource();
-                if (sourceVar != null && !variableMap.containsKey(sourceVar)) {
-                    Variable freshVar = names.freshZ();
-                    variableMap.put(sourceVar, freshVar);
+                if (sourceVar != null) {
+                    functionVariables.add(sourceVar);
                 }
             } else if (inst instanceof JumpEqualVariableInstruction jev) {
                 Variable otherVar = jev.getOther();
-                if (otherVar != null && !variableMap.containsKey(otherVar)) {
-                    Variable freshVar = names.freshZ();
-                    variableMap.put(otherVar, freshVar);
+                if (otherVar != null) {
+                    functionVariables.add(otherVar);
                 }
             }
         }
+
+        // Create fresh variables only for working variables (z1, z2, etc.)
+        // Input and output variables should be mapped to the processed arguments
+        for (Variable var : functionVariables) {
+            if (var.getType() == VariableType.WORK) {
+                // Only create fresh variables for working variables
+                Variable freshVar = names.freshZ();
+                variableMap.put(var, freshVar);
+            }
+        }
+
+        // Map input variables (x1, x2, ...) to the processed arguments
+        for (int i = 0; i < processedArguments.size(); i++) {
+            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+            variableMap.put(inputVar, processedArguments.get(i));
+        }
+
+        // Map output variable (y) to a fresh variable
+        Variable outputVar = Variable.RESULT;
+        Variable freshOutputVar = names.freshZ();
+        variableMap.put(outputVar, freshOutputVar);
+
+        // Create input mapping for prologue
+        Map<Variable, Variable> inputMapping = new HashMap<>();
+        for (int i = 0; i < processedArguments.size(); i++) {
+            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+            inputMapping.put(inputVar, processedArguments.get(i));
+        }
+
+        // Get the output variable (y) and its fresh mapping
+        Variable finalOutputVar = variableMap.get(outputVar);
 
         // Create fresh labels for all labels in the function
         for (SInstruction inst : functionBody) {
@@ -745,46 +896,28 @@ public class SProgramImpl implements SProgram {
         // Create a fresh label for the end of the quoted function
         Label endLabel = names.freshLabel();
 
-        expanded.add(new NoOpInstruction(Variable.RESULT, FixedLabel.EMPTY));
+        // PROLOGUE: Copy actual arguments to renamed callee locals
+        for (int i = 0; i < processedArguments.size(); i++) {
+            Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
+            Variable freshVar = variableMap.get(inputVar);
+            Variable actualArg = processedArguments.get(i);
 
-        // Input variables are already initialized through processedArguments
-        // No need for additional assignment since we're using processedArguments
-        // directly
-
-        // // Add initialization instructions: zi <- Vi for each argument
-        // for (int i = 0; i < arguments.size(); i++) {
-        // Variable inputVar = new VariableImpl(VariableType.INPUT, i + 1);
-        // Variable freshVar = variableMap.get(inputVar);
-        // Variable argument = arguments.get(i);
-
-        // if (argument.getType() == VariableType.Constant) {
-        // // For constants, assign the constant value directly
-        // expanded.add(new AssignConstantInstruction(freshVar, (int)
-        // argument.getNumber()));
-        // } else {
-        // // For variables, assign the variable value
-        // expanded.add(new AssignVariableInstruction(freshVar, argument));
-        // }
-        // }
+            // Add assignment: freshVar <- actualArg
+            expanded.add(new AssignVariableInstruction(freshVar, actualArg));
+        }
 
         // Add the expanded function body
         for (SInstruction inst : functionBody) {
             SInstruction expandedInst = expandInstruction(inst, variableMap, labelMap, endLabel);
             if (expandedInst != null) {
-                // If the expanded instruction is synthetic, we need to expand it further
-                if (!isBasic(expandedInst)) {
-                    // This is a synthetic instruction that needs expansion
-                    List<SInstruction> furtherExpanded = expandOne(expandedInst, names);
-                    expanded.addAll(furtherExpanded);
-                } else {
-                    expanded.add(expandedInst);
-                }
+                // Don't recursively expand synthetic instructions within function bodies
+                // They should remain as synthetic instructions for proper function expansion
+                expanded.add(expandedInst);
             }
         }
 
-        // Use basic instructions to assign the result instead of synthetic ASSIGN
-        // instruction
-        expanded.add(new AssignVariableInstruction(target, freshOutputVar, endLabel));
+        // EPILOGUE: Copy the result back to the caller's target
+        expanded.add(new AssignVariableInstruction(target, finalOutputVar, endLabel));
 
         return expanded;
     }

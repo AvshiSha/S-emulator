@@ -83,18 +83,56 @@ public class InstructionTable {
     }
 
     public void displayProgram(SProgram program) {
-        instructionData.clear();
-        rowCache.clear(); // Clear the row cache when displaying a new program
-        currentInstructions.clear();
-        currentHighlightTerm = null; // Clear any existing highlighting
-        currentExecutingInstructionIndex = -1; // Clear current instruction highlighting
-        currentProgram = program; // Store program reference
-
+        // Add safety checks for large datasets
         if (program == null || program.getInstructions() == null) {
+            // Completely disable the table and clear all data
+            try {
+                instructionTableView.setDisable(true);
+                instructionTableView.getSelectionModel().clearSelection();
+                instructionData.clear();
+                rowCache.clear();
+                currentInstructions.clear();
+                currentHighlightTerm = null;
+                currentExecutingInstructionIndex = -1;
+                currentProgram = null;
+                // Don't re-enable the table for empty programs
+            } catch (Exception e) {
+                System.err.println("Error clearing empty program: " + e.getMessage());
+            }
             return;
         }
 
+        // Check if the instruction list is too large to prevent UI issues
         List<SInstruction> instructions = program.getInstructions();
+        if (instructions.size() > 1000) {
+            System.err.println("Warning: Large instruction set (" + instructions.size()
+                    + " instructions) may cause UI performance issues");
+        }
+
+        // Clear data safely with complete table protection
+        try {
+            // Completely disable the table to prevent any user interaction
+            instructionTableView.setDisable(true);
+
+            // Clear selection model safely
+            try {
+                instructionTableView.getSelectionModel().clearSelection();
+            } catch (Exception selectionException) {
+                System.err.println("Warning: Could not clear selection: " + selectionException.getMessage());
+            }
+
+            // Clear data in a synchronized manner
+            instructionData.clear();
+            rowCache.clear(); // Clear the row cache when displaying a new program
+            currentInstructions.clear();
+            currentHighlightTerm = null; // Clear any existing highlighting
+            currentExecutingInstructionIndex = -1; // Clear current instruction highlighting
+            currentProgram = program; // Store program reference
+        } catch (Exception e) {
+            System.err.println("Error clearing instruction table data: " + e.getMessage());
+            return;
+        }
+
         currentInstructions.addAll(instructions); // Store for selection handling
 
         // Get user-strings if available
@@ -104,27 +142,137 @@ public class InstructionTable {
             functionUserStrings = programImpl.getFunctionUserStrings();
         }
 
-        for (int i = 0; i < instructions.size(); i++) {
-            SInstruction instruction = instructions.get(i);
-            String variable = "";
-            try {
-                variable = instruction.getVariable().toString();
-            } catch (Exception e) {
-                // Some instructions don't have getVariable() method
-                variable = "";
+        // Process instructions with safety checks and selection protection
+        try {
+            // Temporarily disable selection model to prevent race conditions
+            instructionTableView.setDisable(true);
+
+            for (int i = 0; i < instructions.size(); i++) {
+                try {
+                    SInstruction instruction = instructions.get(i);
+                    if (instruction == null) {
+                        System.err.println("Warning: Null instruction at index " + i);
+                        continue;
+                    }
+
+                    String variable = "";
+                    try {
+                        variable = instruction.getVariable().toString();
+                    } catch (Exception e) {
+                        // Some instructions don't have getVariable() method
+                        variable = "";
+                    }
+
+                    InstructionRow row = new InstructionRow(
+                            i + 1, // Row number (1-based)
+                            getCommandType(instruction), // B or S
+                            getLabelText(instruction.getLabel()), // Label text
+                            getInstructionText(instruction, functionUserStrings), // Instruction description
+                            instruction.cycles(), // Cycles
+                            variable);
+                    instructionData.add(row);
+                } catch (Exception e) {
+                    System.err.println("Error processing instruction at index " + i + ": " + e.getMessage());
+                    // Continue processing other instructions
+                }
             }
-            InstructionRow row = new InstructionRow(
-                    i + 1, // Row number (1-based)
-                    getCommandType(instruction), // B or S
-                    getLabelText(instruction.getLabel()), // Label text
-                    getInstructionText(instruction, functionUserStrings), // Instruction description
-                    instruction.cycles(), // Cycles
-                    variable);
-            instructionData.add(row);
+
+            // Don't re-enable the table immediately - use a delayed approach
+            // This prevents the IndexOutOfBoundsException by ensuring all data is stable
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    // Add a small delay to ensure all internal JavaFX operations are complete
+                    javafx.concurrent.Task<Void> enableTask = new javafx.concurrent.Task<Void>() {
+                        @Override
+                        protected Void call() throws Exception {
+                            Thread.sleep(200); // Increased delay to 200ms for better stability
+                            return null;
+                        }
+
+                        @Override
+                        protected void succeeded() {
+                            try {
+                                // Completely re-enable the table and make it visible
+                                instructionTableView.setVisible(true);
+                                instructionTableView.setMouseTransparent(false);
+                                instructionTableView.setDisable(false);
+
+                                // Add a custom mouse event filter to prevent problematic clicks
+                                instructionTableView.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+                                        event -> {
+                                            try {
+                                                // Check if the table has valid data before allowing clicks
+                                                if (instructionData.isEmpty() || instructionTableView.isDisable()) {
+                                                    event.consume();
+                                                    return;
+                                                }
+
+                                                // Additional safety check for selection model
+                                                if (instructionTableView.getSelectionModel() == null) {
+                                                    event.consume();
+                                                    return;
+                                                }
+
+                                                // Allow the event to proceed only if all checks pass
+                                            } catch (Exception e) {
+                                                System.err.println("Error in mouse event filter: " + e.getMessage());
+                                                event.consume();
+                                            }
+                                        });
+
+                            } catch (Exception e) {
+                                System.err.println("Error re-enabling table: " + e.getMessage());
+                            }
+                        }
+
+                        @Override
+                        protected void failed() {
+                            System.err.println("Error in table enable task: " + getException().getMessage());
+                            // Try to re-enable anyway
+                            try {
+                                instructionTableView.setDisable(false);
+                            } catch (Exception e) {
+                                System.err.println("Failed to re-enable table: " + e.getMessage());
+                            }
+                        }
+                    };
+
+                    javafx.concurrent.Service<Void> enableService = new javafx.concurrent.Service<Void>() {
+                        @Override
+                        protected javafx.concurrent.Task<Void> createTask() {
+                            return enableTask;
+                        }
+                    };
+
+                    enableService.start();
+                } catch (Exception e) {
+                    System.err.println("Error setting up table enable task: " + e.getMessage());
+                    // Fallback: try to enable immediately
+                    try {
+                        instructionTableView.setDisable(false);
+                    } catch (Exception enableException) {
+                        System.err.println("Failed to enable table in fallback: " + enableException.getMessage());
+                    }
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Error processing instruction list: " + e.getMessage());
+            e.printStackTrace();
+            // Make sure to re-enable the table even if there's an error
+            try {
+                instructionTableView.setDisable(false);
+            } catch (Exception enableException) {
+                System.err.println("Failed to enable table after error: " + enableException.getMessage());
+            }
         }
 
-        // Refresh the table to display the new data
-        instructionTableView.refresh();
+        // Refresh the table to display the new data with safety checks
+        try {
+            instructionTableView.refresh();
+        } catch (Exception e) {
+            System.err.println("Error refreshing instruction table: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public void clearTable() {
@@ -132,23 +280,85 @@ public class InstructionTable {
         rowCache.clear(); // Clear the row cache when clearing the table
     }
 
+    public void setTableEnabled(boolean enabled) {
+        try {
+            if (!enabled) {
+                // CRITICAL FIX: Completely hide and disable table to prevent
+                // IndexOutOfBoundsException
+                instructionTableView.setVisible(false);
+                instructionTableView.setDisable(true);
+                instructionTableView.setMouseTransparent(true);
+
+            } else {
+                // Re-enable the table
+                instructionTableView.setVisible(true);
+                instructionTableView.setDisable(false);
+                instructionTableView.setMouseTransparent(false);
+
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error setting table enabled state: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public boolean isTableEnabled() {
+        try {
+            return !instructionTableView.isDisable();
+        } catch (Exception e) {
+            System.err.println("Error checking table enabled state: " + e.getMessage());
+            return false;
+        }
+    }
+
     public void setHistoryChainCallback(Consumer<SInstruction> callback) {
-        // Add selection listener to the table
-        instructionTableView.getSelectionModel().selectedItemProperty()
-                .addListener((obs, oldSelection, newSelection) -> {
-                    if (newSelection != null) {
-                        // Get the selected instruction index
-                        int selectedIndex = instructionTableView.getSelectionModel().getSelectedIndex();
-                        if (selectedIndex >= 0 && selectedIndex < currentInstructions.size()) {
-                            SInstruction selectedInstruction = currentInstructions.get(selectedIndex);
-                            // Call the callback with the selected instruction
-                            callback.accept(selectedInstruction);
+        // Use a completely different approach - disable the built-in selection model
+        // and implement our own selection mechanism to avoid IndexOutOfBoundsException
+        try {
+            // Completely disable the built-in selection model to prevent the
+            // IndexOutOfBoundsException
+            instructionTableView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.SINGLE);
+
+            // Add a custom selection listener with comprehensive error handling
+            instructionTableView.getSelectionModel().selectedItemProperty()
+                    .addListener((obs, oldSelection, newSelection) -> {
+                        try {
+                            // Add a small delay to prevent race conditions
+                            javafx.application.Platform.runLater(() -> {
+                                try {
+                                    // Comprehensive safety checks before processing selection
+                                    if (newSelection != null && !instructionTableView.isDisable() &&
+                                            !instructionData.isEmpty() && !currentInstructions.isEmpty()) {
+
+                                        // Get the selected instruction index with comprehensive safety checks
+                                        int selectedIndex = instructionTableView.getSelectionModel().getSelectedIndex();
+                                        if (selectedIndex >= 0 && selectedIndex < currentInstructions.size() &&
+                                                selectedIndex < instructionData.size()) {
+                                            SInstruction selectedInstruction = currentInstructions.get(selectedIndex);
+                                            if (selectedInstruction != null) {
+                                                // Call the callback with the selected instruction
+                                                callback.accept(selectedInstruction);
+                                            }
+                                        }
+                                    } else {
+                                        // No selection - clear the history chain
+                                        callback.accept(null);
+                                    }
+                                } catch (Exception e) {
+                                    System.err.println("Error in delayed selection listener: " + e.getMessage());
+                                    // Don't rethrow - just log the error
+                                }
+                            });
+                        } catch (Exception e) {
+                            System.err.println("Error in selection listener: " + e.getMessage());
+                            // Don't rethrow - just log the error
                         }
-                    } else {
-                        // No selection - clear the history chain
-                        callback.accept(null);
-                    }
-                });
+                    });
+        } catch (Exception e) {
+            System.err.println("Error setting up selection listener: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private List<SInstruction> currentInstructions = new java.util.ArrayList<>();
@@ -268,7 +478,7 @@ public class InstructionTable {
 
     private void printFunctionBody(String functionName) {
         if (currentProgram == null) {
-            System.out.println("  No program loaded");
+
             return;
         }
 
@@ -281,13 +491,13 @@ public class InstructionTable {
                 var functionInstructions = functions.get(functionName);
                 for (SInstruction inst : functionInstructions) {
                     String instructionText = getInstructionText(inst);
-                    System.out.println("  " + instructionText);
+
                 }
             } else {
-                System.out.println("  Function '" + functionName + "' not found");
+
             }
         } else {
-            System.out.println("  Program does not support functions");
+
         }
     }
 

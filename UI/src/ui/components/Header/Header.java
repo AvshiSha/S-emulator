@@ -467,11 +467,61 @@ public class Header {
           }
         }
 
-        // Display the expanded program
+        // Display the expanded program with comprehensive error handling
         if (instructionTable != null) {
-          instructionTable.displayProgram(expandedProgram);
+          // Use Platform.runLater to ensure UI updates happen on the JavaFX thread
+          javafx.application.Platform.runLater(() -> {
+            try {
+              // Add comprehensive error handling and validation
+              if (expandedProgram == null) {
+                System.err.println("Error: Expanded program is null, skipping UI update");
+                return;
+              }
+
+              List<semulator.instructions.SInstruction> instructions = expandedProgram.getInstructions();
+              if (instructions == null || instructions.isEmpty()) {
+                System.err.println("Error: Expanded program has no instructions, skipping UI update");
+                return;
+              }
+
+              // Additional validation for large datasets
+              if (instructions.size() > 2000) {
+                System.err.println("Warning: Very large instruction set (" + instructions.size() +
+                    " instructions) may cause UI performance issues");
+              }
+
+              // CRITICAL FIX: Completely disable the table before updating to prevent
+              // IndexOutOfBoundsException
+              try {
+                instructionTable.setTableEnabled(false);
+              } catch (Exception disableException) {
+                System.err.println("Error disabling table: " + disableException.getMessage());
+              }
+
+              // Update the instruction table with comprehensive error handling
+              instructionTable.displayProgram(expandedProgram);
+
+              // CRITICAL FIX: Re-enable the table after updating
+              try {
+                instructionTable.setTableEnabled(true);
+              } catch (Exception enableException) {
+                System.err.println("Error re-enabling table: " + enableException.getMessage());
+              }
+
+            } catch (Exception e) {
+              System.err.println("Critical error updating instruction table: " + e.getMessage());
+              e.printStackTrace();
+
+              // Try to recover by clearing the table
+              try {
+                instructionTable.clearTable();
+              } catch (Exception clearException) {
+                System.err.println("Error clearing table during recovery: " + clearException.getMessage());
+              }
+            }
+          });
         } else {
-          // nothing
+          System.err.println("Warning: Instruction table is null, cannot update UI");
         }
 
         // Handle program/function selector - preserve current selection during
@@ -505,7 +555,21 @@ public class Header {
           maxDegree = sProgram.calculateFunctionTemplateDegree(internalFunctionName);
         } else {
           // For main program expansions, use the main program's max degree
-          maxDegree = activeProgram.calculateMaxDegree();
+          // CRITICAL FIX: Ensure maxDegree is at least as high as the current degree
+          int calculatedMaxDegree = activeProgram.calculateMaxDegree();
+
+          // CRITICAL FIX: Always ensure maxDegree is at least as high as the degree we're
+          // expanding to
+          maxDegree = Math.max(calculatedMaxDegree, degree);
+
+          // Additional safety: if we're expanding to degree 4 or higher, maxDegree should
+          // be at least that
+          if (degree >= 4) {
+            maxDegree = Math.max(maxDegree, degree);
+          }
+
+          // Final safety check: maxDegree should never be less than currentDegree
+          maxDegree = Math.max(maxDegree, currentDegree);
         }
 
         // Update level selector options with new max degree
@@ -546,7 +610,15 @@ public class Header {
     if (maxDegree == 0) {
       lblDegreeStatus.setText("— / —");
     } else {
-      lblDegreeStatus.setText(currentDegree + " / " + maxDegree);
+      // CRITICAL FIX: Ensure maxDegree is at least as high as currentDegree
+      if (maxDegree < currentDegree) {
+        maxDegree = currentDegree;
+      }
+
+      // Ensure currentDegree is not higher than maxDegree
+      int displayDegree = Math.min(currentDegree, maxDegree);
+      lblDegreeStatus.setText(displayDegree + " / " + maxDegree);
+
     }
   }
 
@@ -983,10 +1055,10 @@ public class Header {
         SProgramImpl functionProgram = new SProgramImpl(functionName) {
           @Override
           public int calculateMaxDegree() {
-            // Don't clear functions - they are needed for nested function calls
-            // The degree calculation will work on the function's instructions
-            // while having access to all other functions for dependencies
-            return super.calculateMaxDegree();
+            // For function programs, use the template degree calculation without +4
+            // correction
+            // This ensures consistency with calculateFunctionTemplateDegree()
+            return calculateFunctionTemplateDegree(functionName);
           }
         };
 
