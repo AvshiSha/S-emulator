@@ -811,56 +811,8 @@ public class SProgramImpl implements SProgram {
                 FunctionCall call = arg.asFunctionCall();
                 List<SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
                 if (nestedFunctionBody != null) {
-                    // CRITICAL FIX: Map the actual arguments from the parent function call
-                    // to the nested function call instead of using the original function definition
-                    // arguments
-                    List<FunctionArgument> mappedArguments = new ArrayList<>();
-                    for (FunctionArgument nestedArg : call.getArguments()) {
-                        if (nestedArg.isFunctionCall()) {
-                            // For nested function calls, recursively map the arguments
-                            // Create a new FunctionCall with mapped arguments
-                            FunctionCall nestedCall = nestedArg.asFunctionCall();
-                            List<FunctionArgument> recursivelyMappedArgs = new ArrayList<>();
-                            for (FunctionArgument deepArg : nestedCall.getArguments()) {
-                                if (deepArg.isFunctionCall()) {
-                                    recursivelyMappedArgs.add(deepArg);
-                                } else {
-                                    Variable deepVar = deepArg.asVariable();
-                                    if (deepVar.getType() == VariableType.INPUT) {
-                                        int inputIndex = deepVar.getNumber() - 1;
-                                        if (inputIndex >= 0 && inputIndex < arguments.size()) {
-                                            recursivelyMappedArgs.add(arguments.get(inputIndex));
-                                        } else {
-                                            recursivelyMappedArgs.add(deepArg);
-                                        }
-                                    } else {
-                                        recursivelyMappedArgs.add(deepArg);
-                                    }
-                                }
-                            }
-                            FunctionCall mappedCall = new FunctionCall(nestedCall.getFunctionName(),
-                                    recursivelyMappedArgs);
-                            mappedArguments.add(new FunctionCallArgument(mappedCall));
-                        } else {
-                            // For variables, map them to the actual arguments from the parent call
-                            Variable originalVar = nestedArg.asVariable();
-                            if (originalVar.getType() == VariableType.INPUT) {
-                                // Map input variables (x1, x2, ...) to the actual arguments
-                                int inputIndex = originalVar.getNumber() - 1; // x1 -> index 0, x2 -> index 1, etc.
-                                if (inputIndex >= 0 && inputIndex < arguments.size()) {
-                                    FunctionArgument actualArg = arguments.get(inputIndex);
-                                    mappedArguments.add(actualArg);
-                                } else {
-                                    mappedArguments.add(nestedArg); // fallback
-                                }
-                            } else {
-                                mappedArguments.add(nestedArg); // keep as is for non-input variables
-                            }
-                        }
-                    }
-
                     QuoteInstruction quoteInst = new QuoteInstruction(resultVar, call.getFunctionName(),
-                            mappedArguments,
+                            call.getArguments(),
                             nestedFunctionBody, functions);
                     expanded.add(quoteInst);
                 } else {
@@ -962,101 +914,101 @@ public class SProgramImpl implements SProgram {
         // Add the expanded function body
         for (SInstruction inst : functionBody) {
             if (inst instanceof QuoteInstruction nestedQuote) {
-                // CRITICAL FIX: Handle nested QUOTE instructions with proper argument mapping
-                // Only map arguments if the nested function actually uses input variables from
-                // the parent function
-
-                // Check if any of the nested function arguments reference parent function input
-                // variables
-                boolean needsMapping = false;
-                for (FunctionArgument nestedArg : nestedQuote.getFunctionArguments()) {
-                    if (nestedArg.isFunctionCall()) {
-                        // Check if any nested function call arguments reference parent inputs
-                        FunctionCall nestedCall = nestedArg.asFunctionCall();
-                        for (FunctionArgument deepArg : nestedCall.getArguments()) {
-                            if (!deepArg.isFunctionCall()) {
-                                Variable deepVar = deepArg.asVariable();
-                                if (deepVar.getType() == VariableType.INPUT) {
-                                    needsMapping = true;
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        // Check if any direct variable arguments reference parent inputs
-                        Variable originalVar = nestedArg.asVariable();
-                        if (originalVar.getType() == VariableType.INPUT) {
-                            needsMapping = true;
-                            break;
-                        }
-                    }
-                    if (needsMapping)
-                        break;
-                }
-
-                if (needsMapping) {
-                    // Map the nested function arguments to the actual parent function arguments
-                    List<FunctionArgument> mappedNestedArgs = new ArrayList<>();
-                    for (FunctionArgument nestedArg : nestedQuote.getFunctionArguments()) {
-                        if (nestedArg.isFunctionCall()) {
-                            // For nested function calls, recursively map the arguments
-                            FunctionCall nestedCall = nestedArg.asFunctionCall();
-                            List<FunctionArgument> recursivelyMappedArgs = new ArrayList<>();
-                            for (FunctionArgument deepArg : nestedCall.getArguments()) {
-                                if (deepArg.isFunctionCall()) {
-                                    recursivelyMappedArgs.add(deepArg);
-                                } else {
-                                    Variable deepVar = deepArg.asVariable();
-                                    if (deepVar.getType() == VariableType.INPUT) {
-                                        int inputIndex = deepVar.getNumber() - 1;
-                                        if (inputIndex >= 0 && inputIndex < arguments.size()) {
-                                            recursivelyMappedArgs.add(arguments.get(inputIndex));
+                // Map input variables in nested QUOTE to parent function's actual arguments
+                List<FunctionArgument> mappedArgs = new ArrayList<>();
+                for (FunctionArgument arg : nestedQuote.getFunctionArguments()) {
+                    if (arg.isFunctionCall()) {
+                        // For function calls, recursively map input variables
+                        FunctionCall call = arg.asFunctionCall();
+                        List<FunctionArgument> mappedCallArgs = new ArrayList<>();
+                        for (FunctionArgument callArg : call.getArguments()) {
+                            if (callArg.isFunctionCall()) {
+                                // Recursively map nested function calls too
+                                FunctionCall nestedCall = callArg.asFunctionCall();
+                                List<FunctionArgument> recursivelyMappedArgs = new ArrayList<>();
+                                for (FunctionArgument deepArg : nestedCall.getArguments()) {
+                                    if (deepArg.isFunctionCall()) {
+                                        // For even deeper nesting, recursively map again
+                                        FunctionCall deepCall = deepArg.asFunctionCall();
+                                        List<FunctionArgument> deepMappedArgs = new ArrayList<>();
+                                        for (FunctionArgument deepestArg : deepCall.getArguments()) {
+                                            if (deepestArg.isFunctionCall()) {
+                                                deepMappedArgs.add(deepestArg); // Stop recursion at this level
+                                            } else {
+                                                Variable var = deepestArg.asVariable();
+                                                if (var.getType() == VariableType.INPUT) {
+                                                    int inputIndex = var.getNumber() - 1;
+                                                    if (inputIndex >= 0 && inputIndex < arguments.size()) {
+                                                        deepMappedArgs.add(arguments.get(inputIndex));
+                                                    } else {
+                                                        deepMappedArgs.add(deepestArg);
+                                                    }
+                                                } else {
+                                                    deepMappedArgs.add(deepestArg);
+                                                }
+                                            }
+                                        }
+                                        recursivelyMappedArgs.add(new FunctionCallArgument(
+                                                new FunctionCall(deepCall.getFunctionName(), deepMappedArgs)));
+                                    } else {
+                                        Variable var = deepArg.asVariable();
+                                        if (var.getType() == VariableType.INPUT) {
+                                            int inputIndex = var.getNumber() - 1;
+                                            if (inputIndex >= 0 && inputIndex < arguments.size()) {
+                                                recursivelyMappedArgs.add(arguments.get(inputIndex));
+                                            } else {
+                                                recursivelyMappedArgs.add(deepArg);
+                                            }
                                         } else {
                                             recursivelyMappedArgs.add(deepArg);
                                         }
-                                    } else {
-                                        recursivelyMappedArgs.add(deepArg);
                                     }
                                 }
-                            }
-                            FunctionCall mappedCall = new FunctionCall(nestedCall.getFunctionName(),
-                                    recursivelyMappedArgs);
-                            mappedNestedArgs.add(new FunctionCallArgument(mappedCall));
-                        } else {
-                            // For variables, map them to the actual arguments from the parent call
-                            Variable originalVar = nestedArg.asVariable();
-                            if (originalVar.getType() == VariableType.INPUT) {
-                                // Map input variables (x1, x2, ...) to the actual arguments
-                                int inputIndex = originalVar.getNumber() - 1; // x1 -> index 0, x2 -> index 1, etc.
-                                if (inputIndex >= 0 && inputIndex < arguments.size()) {
-                                    FunctionArgument actualArg = arguments.get(inputIndex);
-                                    mappedNestedArgs.add(actualArg);
-                                } else {
-                                    mappedNestedArgs.add(nestedArg); // fallback
-                                }
+                                mappedCallArgs.add(new FunctionCallArgument(
+                                        new FunctionCall(nestedCall.getFunctionName(), recursivelyMappedArgs)));
                             } else {
-                                mappedNestedArgs.add(nestedArg); // keep as is for non-input variables
+                                Variable var = callArg.asVariable();
+                                if (var.getType() == VariableType.INPUT) {
+                                    // Map x1, x2, ... to parent function's actual arguments
+                                    int inputIndex = var.getNumber() - 1; // x1 -> 0, x2 -> 1, etc.
+                                    if (inputIndex >= 0 && inputIndex < arguments.size()) {
+                                        mappedCallArgs.add(arguments.get(inputIndex));
+                                    } else {
+                                        mappedCallArgs.add(callArg);
+                                    }
+                                } else {
+                                    mappedCallArgs.add(callArg);
+                                }
                             }
                         }
+                        mappedArgs.add(
+                                new FunctionCallArgument(new FunctionCall(call.getFunctionName(), mappedCallArgs)));
+                    } else {
+                        // For direct variables, map input variables to parent function's actual
+                        // arguments
+                        Variable var = arg.asVariable();
+                        if (var.getType() == VariableType.INPUT) {
+                            int inputIndex = var.getNumber() - 1; // x1 -> 0, x2 -> 1, etc.
+                            if (inputIndex >= 0 && inputIndex < arguments.size()) {
+                                mappedArgs.add(arguments.get(inputIndex));
+                            } else {
+                                mappedArgs.add(arg);
+                            }
+                        } else {
+                            mappedArgs.add(arg);
+                        }
                     }
+                }
 
-                    // Create the mapped QUOTE instruction
-                    Variable mappedVar = variableMap.get(nestedQuote.getVariable());
-                    Label mappedLabel = labelMap.getOrDefault(nestedQuote.getLabel(), nestedQuote.getLabel());
-                    if (nestedQuote.getLabel() == FixedLabel.EXIT) {
-                        mappedLabel = endLabel;
-                    }
+                // Create new QUOTE instruction with mapped arguments
+                QuoteInstruction mappedQuote = new QuoteInstruction(nestedQuote.getVariable(),
+                        nestedQuote.getFunctionName(),
+                        mappedArgs, functions.get(nestedQuote.getFunctionName()), functions);
 
-                    QuoteInstruction mappedQuote = new QuoteInstruction(mappedVar, nestedQuote.getFunctionName(),
-                            mappedNestedArgs, functions.get(nestedQuote.getFunctionName()), functions);
-                    expanded.add(mappedQuote);
-                } else {
-                    // No mapping needed - use the original nested QUOTE instruction with variable
-                    // mapping only
-                    SInstruction expandedInst = expandInstruction(inst, variableMap, labelMap, endLabel);
-                    if (expandedInst != null) {
-                        expanded.add(expandedInst);
-                    }
+                // Now expand the mapped instruction
+                SInstruction expandedInst = expandInstruction(mappedQuote, variableMap, labelMap, endLabel);
+                if (expandedInst != null) {
+                    expanded.add(expandedInst);
                 }
             } else {
                 SInstruction expandedInst = expandInstruction(inst, variableMap, labelMap, endLabel);
