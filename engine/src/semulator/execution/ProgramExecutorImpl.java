@@ -39,10 +39,14 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
         // Start with the first instruction
         int currentIndex = 0;
-
+        int count = 0;
         while (currentIndex < instructions.size()) {
             SInstruction currentInstruction = instructions.get(currentIndex);
             totalCycles += currentInstruction.cycles();
+            count++;
+            // Print instruction execution to console with readable format
+            String instructionText = formatInstruction(currentInstruction);
+            System.out.println("Executing instruction #" + (currentIndex + 1) + ": " + instructionText);
 
             // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially
             Label nextLabel;
@@ -74,11 +78,14 @@ public class ProgramExecutorImpl implements ProgramExecutor {
                 }
             }
 
-            // Safety check to prevent infinite loops
-            if (totalCycles > 1000) {
+            // // Safety check to prevent infinite loops
+            if (totalCycles > 10000) {
                 break;
             }
         }
+
+        System.out.println("Total cycles: " + totalCycles);
+        System.out.println("Count: " + count);
 
         return context.getVariableValue(Variable.RESULT);
     }
@@ -381,5 +388,55 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
         // Return the value of the 'y' variable (the function's output)
         return functionContext.getVariableValue(semulator.variable.Variable.RESULT);
+    }
+
+    /**
+     * Format an instruction for readable console output
+     */
+    private String formatInstruction(SInstruction instruction) {
+        if (instruction instanceof semulator.instructions.IncreaseInstruction) {
+            return instruction.getVariable() + " <- " + instruction.getVariable() + " + 1";
+        } else if (instruction instanceof semulator.instructions.DecreaseInstruction) {
+            return instruction.getVariable() + " <- " + instruction.getVariable() + " - 1";
+        } else if (instruction instanceof semulator.instructions.NoOpInstruction) {
+            return instruction.getVariable() + " <- " + instruction.getVariable();
+        } else if (instruction instanceof semulator.instructions.ZeroVariableInstruction) {
+            return instruction.getVariable() + " <- 0";
+        } else if (instruction instanceof semulator.instructions.AssignVariableInstruction a) {
+            return instruction.getVariable() + " <- " + a.getSource();
+        } else if (instruction instanceof semulator.instructions.AssignConstantInstruction c) {
+            return instruction.getVariable() + " <- " + c.getConstant();
+        } else if (instruction instanceof semulator.instructions.GotoLabelInstruction g) {
+            return "GOTO " + g.getTarget();
+        } else if (instruction instanceof semulator.instructions.JumpNotZeroInstruction j) {
+            return "IF " + j.getVariable() + " != 0 GOTO " + j.getTarget();
+        } else if (instruction instanceof semulator.instructions.JumpZeroInstruction j) {
+            return "IF " + j.getVariable() + " == 0 GOTO " + j.getTarget();
+        } else if (instruction instanceof semulator.instructions.JumpEqualConstantInstruction j) {
+            return "IF " + j.getVariable() + " == " + j.getConstant() + " GOTO " + j.getTarget();
+        } else if (instruction instanceof semulator.instructions.JumpEqualVariableInstruction j) {
+            return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
+        } else if (instruction instanceof semulator.instructions.QuoteInstruction q) {
+            String arguments = "";
+            java.util.List<semulator.instructions.FunctionArgument> args = q.getFunctionArguments();
+            for (int i = 0; i < args.size(); i++) {
+                if (i > 0)
+                    arguments += ",";
+                arguments += args.get(i).toString();
+            }
+            return instruction.getVariable() + " <- (" + q.getFunctionName() + "," + arguments + ")";
+        } else if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction j) {
+            String arguments = "";
+            java.util.List<semulator.instructions.FunctionArgument> args = j.getFunctionArguments();
+            for (int i = 0; i < args.size(); i++) {
+                if (i > 0)
+                    arguments += ",";
+                arguments += args.get(i).toString();
+            }
+            return "IF " + j.getVariable() + " == (" + j.getFunctionName() + "," + arguments + ") GOTO "
+                    + j.getTarget();
+        } else {
+            return instruction.getClass().getSimpleName() + " " + instruction.toString();
+        }
     }
 }
