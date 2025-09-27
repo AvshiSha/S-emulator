@@ -78,10 +78,10 @@ public class ProgramExecutorImpl implements ProgramExecutor {
                 }
             }
 
-            // // Safety check to prevent infinite loops
-            if (totalCycles > 10000) {
-                break;
-            }
+            // // // Safety check to prevent infinite loops
+            // if (totalCycles > 10000) {
+            // break;
+            // }
         }
 
         System.out.println("Total cycles: " + totalCycles);

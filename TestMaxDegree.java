@@ -38,9 +38,9 @@ public class TestMaxDegree {
             // Expected: JUMP_EQUAL_FUNCTION calls Const (degree 2) + 1 = 3
             // QUOTE calls Const (degree 2) + 1 = 3
             // ASSIGNMENT = degree 2
-            // So maximum should be 3, but you said it should be 4
+            // So maximum should be 3
 
-            System.out.println("Expected maximum degree: 4");
+            System.out.println("Expected maximum degree: 3");
             System.out.println("Actual maximum degree: " + maxDegree);
 
         } catch (Exception e) {

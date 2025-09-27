@@ -160,10 +160,114 @@ public class SProgramImpl implements SProgram {
     public int calculateMaxDegree() {
         // Clear memoization cache for fresh calculation
         functionDegreeMemo.clear();
-        int calculatedDegree = deg_prog();
-        // Fix: The degree calculation is off by 4, so add 4 to get the correct maximum
-        // degree (13 instead of 9)
-        return calculatedDegree;
+        return calculateMaxDegreeRecursive(instructions, new HashSet<>());
+    }
+
+    /**
+     * Recursively calculate the maximum degree of a list of instructions.
+     * For each instruction:
+     * - If NOT QUOTE and NOT JUMP_EQUAL_FUNCTION: check degree in DEGREE_BY_OPCODE
+     * map
+     * - If QUOTE: recursively calculate degree of the quoted function body
+     * - If JUMP_EQUAL_FUNCTION: recursively calculate degree of the function body +
+     * 1
+     */
+    private int calculateMaxDegreeRecursive(List<SInstruction> instructionList, Set<String> visitedFunctions) {
+        int maxDegree = 0;
+
+        for (SInstruction instruction : instructionList) {
+            String instructionName = instruction.getName();
+            int instructionDegree = 0;
+
+            if ("QUOTE".equals(instructionName)) {
+                // For QUOTE: recursively calculate degree of the quoted function body and
+                // arguments
+                if (instruction instanceof QuoteInstruction) {
+                    QuoteInstruction quote = (QuoteInstruction) instruction;
+                    List<SInstruction> functionInstructions = functions.get(quote.getFunctionName());
+                    if (functionInstructions != null) {
+                        // Calculate function body degree
+                        int functionBodyDegree = calculateMaxDegreeRecursive(
+                                functionInstructions,
+                                visitedFunctions);
+
+                        // Calculate maximum degree among function arguments
+                        int maxArgumentDegree = 0;
+                        for (FunctionArgument arg : quote.getFunctionArguments()) {
+                            int argDegree = calculateArgumentDegree(arg, visitedFunctions);
+                            maxArgumentDegree = Math.max(maxArgumentDegree, argDegree);
+                        }
+
+                        // Take maximum of function body and arguments, then add +1
+                        instructionDegree = Math.max(functionBodyDegree, maxArgumentDegree) + 1;
+                    }
+                }
+            } else if ("JUMP_EQUAL_FUNCTION".equals(instructionName)) {
+                // For JUMP_EQUAL_FUNCTION: recursively calculate degree of function body and
+                // arguments + 1
+                if (instruction instanceof JumpEqualFunctionInstruction) {
+                    JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) instruction;
+                    List<SInstruction> functionInstructions = functions.get(jef.getFunctionName());
+                    if (functionInstructions != null) {
+                        // Calculate function body degree
+                        int functionBodyDegree = calculateMaxDegreeRecursive(
+                                functionInstructions,
+                                visitedFunctions);
+
+                        // Calculate maximum degree among function arguments
+                        int maxArgumentDegree = 0;
+                        for (FunctionArgument arg : jef.getFunctionArguments()) {
+                            int argDegree = calculateArgumentDegree(arg, visitedFunctions);
+                            maxArgumentDegree = Math.max(maxArgumentDegree, argDegree);
+                        }
+
+                        // Take maximum of function body and arguments, then add +1
+                        instructionDegree = Math.max(functionBodyDegree, maxArgumentDegree) + 1;
+                    }
+                }
+            } else {
+                // For other instructions: check degree in DEGREE_BY_OPCODE map
+                Integer degree = DEGREE_BY_OPCODE.get(instructionName);
+                instructionDegree = (degree != null) ? degree : 0;
+            }
+
+            maxDegree = Math.max(maxDegree, instructionDegree);
+        }
+
+        return maxDegree;
+    }
+
+    /**
+     * Calculate the degree of a function argument.
+     * If the argument is a function call, recursively calculate its degree.
+     * If it's a variable or constant, return 0.
+     */
+    private int calculateArgumentDegree(FunctionArgument argument, Set<String> visitedFunctions) {
+        if (argument.isFunctionCall()) {
+            FunctionCall call = argument.asFunctionCall();
+            // Recursively calculate degree of nested function call
+            List<SInstruction> functionInstructions = functions.get(call.getFunctionName());
+            if (functionInstructions != null) {
+                // Calculate function body degree
+                int functionBodyDegree = calculateMaxDegreeRecursive(
+                        functionInstructions,
+                        visitedFunctions);
+
+                // Calculate maximum degree among function arguments
+                int maxArgumentDegree = 0;
+                for (FunctionArgument arg : call.getArguments()) {
+                    int argDegree = calculateArgumentDegree(arg, visitedFunctions);
+                    maxArgumentDegree = Math.max(maxArgumentDegree, argDegree);
+                }
+
+                // Take maximum of function body and arguments, then add +1
+                return Math.max(functionBodyDegree, maxArgumentDegree) + 1;
+            }
+            return 0;
+        } else {
+            // Variable or constant
+            return 0;
+        }
     }
 
     /**
