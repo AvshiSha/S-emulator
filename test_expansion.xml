@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<program name="TestExpansion">
-    <instruction type="ZERO" variable="x" label="L1"/>
-    <instruction type="ASSIGN" variable="y" source="x" label="L2"/>
-    <instruction type="INCREASE" variable="z" label="L3"/>
-    <instruction type="GOTO" target="L1" label="L4"/>
-</program>

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<S-Program name="InvalidTest">
-    <S-Instructions>
-        <S-Instruction type="invalid" name="INVALID_INSTRUCTION">
-            <S-Variable>y</S-Variable>
-        </S-Instruction>
-    </S-Instructions>
-</S-Program>

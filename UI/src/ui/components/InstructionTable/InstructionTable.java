@@ -102,12 +102,12 @@ public class InstructionTable {
             return;
         }
 
-        // Check if the instruction list is too large to prevent UI issues
+//        // Check if the instruction list is too large to prevent UI issues
         List<SInstruction> instructions = program.getInstructions();
-        if (instructions.size() > 1000) {
-            System.err.println("Warning: Large instruction set (" + instructions.size()
-                    + " instructions) may cause UI performance issues");
-        }
+//        if (instructions.size() > 1000) {
+//            System.err.println("Warning: Large instruction set (" + instructions.size()
+//                    + " instructions) may cause UI performance issues");
+//        }
 
         // Clear data safely with complete table protection
         try {

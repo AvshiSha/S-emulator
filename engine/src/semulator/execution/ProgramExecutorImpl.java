@@ -46,7 +46,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             count++;
             // Print instruction execution to console with readable format
             String instructionText = formatInstruction(currentInstruction);
-            System.out.println("Executing instruction #" + (currentIndex + 1) + ": " + instructionText);
 
             // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially
             Label nextLabel;
@@ -83,9 +82,6 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             // break;
             // }
         }
-
-        System.out.println("Total cycles: " + totalCycles);
-        System.out.println("Count: " + count);
 
         return context.getVariableValue(Variable.RESULT);
     }
