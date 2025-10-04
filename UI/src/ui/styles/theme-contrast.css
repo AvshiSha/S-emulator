@@ -1,0 +1,138 @@
+/* High contrast theme styles */
+
+.app-root, .root {
+    -fx-background-color: #000000;
+    -fx-font-family: "Arial", "Helvetica", sans-serif;
+    -fx-font-size: 12px;
+}
+
+/* Text colors */
+.label {
+    -fx-text-fill: #ffffff;
+}
+
+/* Button styles */
+.button {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #000000;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 2;
+    -fx-background-radius: 10;
+    -fx-padding: 8 14 8 14;
+}
+
+.button:hover {
+    -fx-background-color: #ffff00;
+    -fx-text-fill: #000000;
+    -fx-border-color: #ffff00;
+}
+
+.button:pressed {
+    -fx-background-color: #00ff00;
+    -fx-text-fill: #000000;
+    -fx-border-color: #00ff00;
+}
+
+.button:disabled {
+    -fx-opacity: 0.5;
+    -fx-background-color: #666666;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: #666666;
+}
+
+/* Special button styles */
+.button.load-button {
+    -fx-background-color: #00ff00;
+    -fx-text-fill: #000000;
+    -fx-border-color: #00ff00;
+}
+
+.button.load-button:hover {
+    -fx-background-color: #ffff00;
+    -fx-text-fill: #000000;
+}
+
+.button.load-button:pressed {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #000000;
+}
+
+/* Text field styles */
+.text-field {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #000000;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 3;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+}
+
+.text-field:focused {
+    -fx-border-color: #ffff00;
+    -fx-border-width: 4;
+}
+
+/* Combo box styles */
+.combo-box {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #000000;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 3;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+}
+
+.combo-box:focused {
+    -fx-border-color: #ffff00;
+    -fx-border-width: 4;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #000000;
+    -fx-background-color: #ffffff;
+}
+
+.combo-box .list-view {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 2;
+}
+
+.combo-box .list-cell:hover {
+    -fx-background-color: #ffff00;
+    -fx-text-fill: #000000;
+}
+
+/* Progress bar styles */
+.progress-bar {
+    -fx-accent: #00ff00;
+    -fx-background-color: #333333;
+}
+
+/* Status label styles */
+.status-label {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 3;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 8px;
+    -fx-text-fill: #000000;
+}
+
+/* Title label styles */
+.title-label {
+    -fx-text-fill: #ffff00;
+    -fx-border-width: 3px;
+    -fx-border-color: #ffffff;
+}
+
+/* Tooltip styles */
+.tooltip {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #000000;
+    -fx-border-color: #ffffff;
+    -fx-border-width: 2;
+}

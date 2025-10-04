@@ -1,0 +1,63 @@
+/* Base styles shared across all themes */
+
+/* Root container styling */
+.app-root, .root {
+    -fx-font-family: "Segoe UI", "Arial", sans-serif;
+    -fx-font-size: 12px;
+}
+
+/* Font size variables - these will be overridden by inline styles */
+.app-root {
+    -fx-font-size: 12px;
+}
+
+/* Common button styles */
+.button {
+    -fx-background-radius: 10;
+    -fx-padding: 8 14 8 14;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+
+/* Common text field styles */
+.text-field {
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+    -fx-border-width: 2;
+    -fx-padding: 8 12 8 12;
+}
+
+/* Common combo box styles */
+.combo-box {
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+    -fx-border-width: 2;
+    -fx-padding: 8 12 8 12;
+}
+
+/* Common label styles */
+.label {
+    -fx-font-weight: normal;
+}
+
+/* Progress bar styles */
+.progress-bar {
+    -fx-background-radius: 5;
+}
+
+/* Scroll pane styles */
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+
+/* Tooltip styles */
+.tooltip {
+    -fx-background-radius: 5;
+    -fx-padding: 8 12 8 12;
+    -fx-font-size: 12px;
+}
+

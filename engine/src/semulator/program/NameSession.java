@@ -38,21 +38,29 @@ public final class NameSession {
         Set<String> vars = new HashSet<>();
         for (SInstruction in : ins) {
             collectLabel(labels, in.getLabel());
-            if (in instanceof GotoLabelInstruction g) collectLabel(labels, g.getTarget());
-            if (in instanceof JumpNotZeroInstruction j) collectLabel(labels, j.getTarget());
-            if (in instanceof JumpZeroInstruction j) collectLabel(labels, j.getTarget());
-            if (in instanceof JumpEqualConstantInstruction j) collectLabel(labels, j.getTarget());
-            if (in instanceof JumpEqualVariableInstruction j) collectLabel(labels, j.getTarget());
+            if (in instanceof GotoLabelInstruction g)
+                collectLabel(labels, g.getTarget());
+            if (in instanceof JumpNotZeroInstruction j)
+                collectLabel(labels, j.getTarget());
+            if (in instanceof JumpZeroInstruction j)
+                collectLabel(labels, j.getTarget());
+            if (in instanceof JumpEqualConstantInstruction j)
+                collectLabel(labels, j.getTarget());
+            if (in instanceof JumpEqualVariableInstruction j)
+                collectLabel(labels, j.getTarget());
 
             collectVar(vars, in.getVariable());
-            if (in instanceof AssignVariableInstruction a) collectVar(vars, a.getSource());
-            if (in instanceof JumpEqualVariableInstruction j) collectVar(vars, j.getOther());
+            if (in instanceof AssignVariableInstruction a)
+                collectVar(vars, a.getSource());
+            if (in instanceof JumpEqualVariableInstruction j)
+                collectVar(vars, j.getOther());
         }
         return new NameSession(labels, vars);
     }
 
     private static void collectLabel(Set<String> set, Label lbl) {
-        if (lbl == null || lbl.isExit()) return;
+        if (lbl == null || lbl.isExit())
+            return;
         String s = lbl.getLabel();
         if (s != null && !s.isBlank() && s.charAt(0) == 'L') {
             set.add(s);
@@ -60,7 +68,8 @@ public final class NameSession {
     }
 
     private static void collectVar(Set<String> set, Variable v) {
-        if (v == null) return;
+        if (v == null)
+            return;
         String s = v.toString();
         if (s != null && !s.isBlank() && s.charAt(0) == 'z') {
             set.add(s);
@@ -84,10 +93,11 @@ public final class NameSession {
      */
     public Variable freshZ() {
         while (true) {
-            String candidate = "z" + zCursor++;
+            String candidate = "z" + zCursor;
             if (usedVarNames.add(candidate)) {
-                return new VariableImpl(VariableType.WORK,zCursor);
+                return new VariableImpl(VariableType.WORK, zCursor++);
             }
+            zCursor++; // Increment cursor even if name is already used
         }
     }
 }

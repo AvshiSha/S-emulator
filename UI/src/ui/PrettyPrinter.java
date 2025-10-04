@@ -14,6 +14,10 @@ public final class PrettyPrinter {
     }
 
     public static String show(SProgram p) {
+        return show(p, null);
+    }
+
+    public static String show(SProgram p, Map<String, String> functionUserStrings) {
         StringBuilder sb = new StringBuilder();
 
         List<SInstruction> ins = p.getInstructions();
@@ -22,7 +26,7 @@ public final class PrettyPrinter {
             SInstruction in = ins.get(i);
             String kind = kindLetter(in);
             String labelBox = labelBox(in.getLabel());
-            String text = renderInstruction(in);
+            String text = renderInstruction(in, functionUserStrings);
             int cycles = in.cycles();
 
             sb.append(String.format("#%-3d (%s) %s %s (%d)%n",
@@ -119,6 +123,10 @@ public final class PrettyPrinter {
     }
 
     private static String renderInstruction(SInstruction in) {
+        return renderInstruction(in, null);
+    }
+
+    private static String renderInstruction(SInstruction in, Map<String, String> functionUserStrings) {
         if (in instanceof IncreaseInstruction) {
             return in.getVariable() + " <- " + in.getVariable() + " + 1";
         } else if (in instanceof DecreaseInstruction) {
@@ -141,8 +149,55 @@ public final class PrettyPrinter {
             return "IF " + j.getVariable() + " == " + j.getConstant() + " GOTO " + j.getTarget();
         } else if (in instanceof JumpEqualVariableInstruction j) {
             return "IF " + j.getVariable() + " == " + j.getOther() + " GOTO " + j.getTarget();
+        } else if (in instanceof QuoteInstruction q) {
+            String arguments = "";
+            List<FunctionArgument> args = q.getFunctionArguments();
+            for (int i = 0; i < args.size(); i++) {
+                arguments += formatFunctionArgument(args.get(i), functionUserStrings);
+                if (i < args.size() - 1) {
+                    arguments += ",";
+                }
+            }
+            String functionName = getDisplayFunctionName(q.getFunctionName(), functionUserStrings);
+            return q.getVariable() + " <- (" + functionName + ", " + arguments + ")";
+        } else if (in instanceof JumpEqualFunctionInstruction jef) {
+            String arguments = "";
+            List<FunctionArgument> args = jef.getFunctionArguments();
+            for (int i = 0; i < args.size(); i++) {
+                arguments += formatFunctionArgument(args.get(i), functionUserStrings);
+                if (i < args.size() - 1) {
+                    arguments += ",";
+                }
+            }
+            String functionName = getDisplayFunctionName(jef.getFunctionName(), functionUserStrings);
+            return "IF " + jef.getVariable() + " == (" + functionName + ", " + arguments + ") GOTO "
+                    + jef.getTarget();
         }
         return in.getName();
+    }
+
+    private static String getDisplayFunctionName(String functionName, Map<String, String> functionUserStrings) {
+        if (functionUserStrings != null && functionUserStrings.containsKey(functionName)) {
+            return functionUserStrings.get(functionName);
+        }
+        return functionName;
+    }
+
+    private static String formatFunctionArgument(FunctionArgument arg, Map<String, String> functionUserStrings) {
+        if (arg.isFunctionCall()) {
+            FunctionCall call = arg.asFunctionCall();
+            String functionName = getDisplayFunctionName(call.getFunctionName(), functionUserStrings);
+            StringBuilder sb = new StringBuilder();
+            sb.append("(").append(functionName);
+            for (FunctionArgument nestedArg : call.getArguments()) {
+                sb.append(",").append(formatFunctionArgument(nestedArg, functionUserStrings));
+            }
+            sb.append(")");
+            return sb.toString();
+        } else {
+            // Simple variable argument
+            return arg.toString();
+        }
     }
 
     // לייבלים לכותרת — ייחודיים, לא ריקים, ואם EXIT הופיע איפשהו — הוא יופיע פעם
@@ -262,6 +317,10 @@ public final class PrettyPrinter {
     // Format: #5 (S) [ ] y <- 0 (1) >>> #3 (S) [ ] y <- 5 (2) >>> #1 (S) [ L4 ] IF
     // y = 5 GOTO L5 (2)
     public static String showCreationChains(ExpansionResult r, SProgram originalProgram) {
+        return showCreationChains(r, originalProgram, false);
+    }
+
+    public static String showCreationChains(ExpansionResult r, SProgram originalProgram, boolean isFunctionExpansion) {
         StringBuilder sb = new StringBuilder();
 
         List<SInstruction> prog = r.instructions(); // final snapshot program order
@@ -309,22 +368,30 @@ public final class PrettyPrinter {
             maxDepth = Math.max(maxDepth, depthFn.apply(ins));
         }
 
-        // Only print instructions from the highest degree (maxDepth)
-        List<SInstruction> highestDegreeInstructions = new ArrayList<>();
-        for (SInstruction instruction : prog) {
-            int depth = depthFn.apply(instruction);
-            if (depth == maxDepth) {
-                highestDegreeInstructions.add(instruction);
+        // For function expansions, show all instructions. For main program expansions,
+        // show only highest degree
+        List<SInstruction> instructionsToShow = new ArrayList<>();
+
+        if (isFunctionExpansion) {
+            // Function expansion: show all instructions
+            instructionsToShow.addAll(prog);
+        } else {
+            // Main program expansion: show only highest degree instructions
+            for (SInstruction instruction : prog) {
+                int depth = depthFn.apply(instruction);
+                if (depth == maxDepth) {
+                    instructionsToShow.add(instruction);
+                }
             }
         }
 
         // Sort instructions by their final line number for consistent ordering
-        highestDegreeInstructions.sort((a, b) -> Integer.compare(
+        instructionsToShow.sort((a, b) -> Integer.compare(
                 lineNo.getOrDefault(a, 0),
                 lineNo.getOrDefault(b, 0)));
 
-        // Print only the highest degree instructions with their creation chains
-        for (SInstruction ins : highestDegreeInstructions) {
+        // Print the selected instructions with their creation chains
+        for (SInstruction ins : instructionsToShow) {
             // Build the complete creation chain for this instruction
             List<SInstruction> chain = new ArrayList<>();
             SInstruction current = ins;

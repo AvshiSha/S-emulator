@@ -124,6 +124,23 @@ public class ConsoleUI {
             return;
         }
 
+        // Ask user what to expand
+        System.out.println("What would you like to expand?");
+        System.out.println("1) Main program");
+        System.out.println("2) Individual function");
+        System.out.print("Choose [1-2]: ");
+        String choice = sc.nextLine().trim();
+
+        if ("1".equals(choice)) {
+            expandMainProgram();
+        } else if ("2".equals(choice)) {
+            expandIndividualFunction();
+        } else {
+            System.out.println("Invalid choice. Please choose 1 or 2.");
+        }
+    }
+
+    private void expandMainProgram() {
         int maxDegree = gw.calculateMaxDegree();
         System.out.printf("Max degree: %d%n", maxDegree);
 
@@ -144,6 +161,50 @@ public class ConsoleUI {
         System.out.println("Program after expanding to degree " + chosen + ":");
         // System.out.println(PrettyPrinter.showWithCreators(snapshot));
         System.out.println(PrettyPrinter.showCreationChains(snapshot, gw));
+    }
+
+    private void expandIndividualFunction() {
+        // Get available functions
+        Map<String, String> functionUserStrings = gw.getFunctionUserStrings();
+        if (functionUserStrings.isEmpty()) {
+            System.out.println("No functions available to expand.");
+            return;
+        }
+
+        // Show available functions
+        System.out.println("Available functions:");
+        List<String> functionNames = new ArrayList<>(functionUserStrings.keySet());
+        for (int i = 0; i < functionNames.size(); i++) {
+            String functionName = functionNames.get(i);
+            String userString = functionUserStrings.get(functionName);
+            System.out.println((i + 1) + ") " + functionName + " (" + userString + ")");
+        }
+
+        // Ask user to choose function
+        int functionIndex = askIntInRange("Choose function [1.." + functionNames.size() + "]: ", 1,
+                functionNames.size());
+        String selectedFunction = functionNames.get(functionIndex - 1);
+
+        // Calculate max degree for the selected function
+        int maxDegree = gw.calculateFunctionTemplateDegree(selectedFunction);
+        System.out.printf("Max degree for function '%s': %d%n", selectedFunction, maxDegree);
+
+        final int chosen;
+        if (maxDegree == 0) {
+            // Nothing to expand, but still show the snapshot (degree 0)
+            chosen = 0;
+            System.out.println("This function is already fully basic (degree 0). Showing as-is:");
+        } else {
+            chosen = askIntInRange("Choose expansion degree [0.." + maxDegree + "]: ", 0, maxDegree);
+        }
+
+        // Engine: expand the function to the requested degree
+        ExpansionResult snapshot = gw.expandFunctionToDegree(selectedFunction, chosen);
+
+        // UI: print including creator chain with ">>>"
+        System.out.println();
+        System.out.println("Function '" + selectedFunction + "' after expanding to degree " + chosen + ":");
+        System.out.println(PrettyPrinter.showCreationChains(snapshot, gw, true));
     }
 
     private void onRun() {

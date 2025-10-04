@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox maxWidth="Infinity" minWidth="250.0" spacing="5.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ui.components.DebuggerExecution.DebuggerExecution">
+   <children>
+      <!-- Main Title -->
+      <Label maxWidth="Infinity" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 5px; -fx-background-color: #F0F0F0; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;" text="Debugger\Execution">
+         <font>
+            <Font name="System Bold" size="14.0" />
+         </font>
+      </Label>
+      
+      <!-- Debugger Commands Panel (Yellow Section) -->
+      <VBox maxWidth="Infinity" style="-fx-background-color: #FFE135; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 5px;">
+         <children>
+            <Label style="-fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 2px;" text="Debugger\Execution Commands:">
+               <font>
+                  <Font name="System Bold" size="12.0" />
+               </font>
+            </Label>
+            <HBox alignment="CENTER_LEFT" spacing="10.0" HBox.hgrow="ALWAYS">
+               <children>
+                  <Button fx:id="startRegularButton" mnemonicParsing="false" onAction="#startRegularExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 5;" text="New Run" textFill="WHITE" wrapText="true">
+                     <font>
+                        <Font name="System Bold" size="10.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="startDebugButton" mnemonicParsing="false" onAction="#startDebugExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-background-radius: 5;" text="Debug" wrapText="true">
+                     <font>
+                        <Font name="System Bold" size="10.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="stopButton" mnemonicParsing="false" onAction="#stopExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 5;" text="Stop" wrapText="true">
+                     <font>
+                        <Font name="System Bold" size="10.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="resumeButton" mnemonicParsing="false" onAction="#resumeExecution" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #FF9800; -fx-text-fill: white; -fx-background-radius: 5;" text="Resume" wrapText="true">
+                     <font>
+                        <Font name="System Bold" size="10.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="stepOverButton" mnemonicParsing="false" onAction="#stepOver" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Over" wrapText="true">
+                     <font>
+                        <Font name="System Bold" size="10.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="stepBackwardButton" mnemonicParsing="false" onAction="#stepBackward" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Back" wrapText="true">
+                     <font>
+                        <Font name="System Bold" size="10.0" />
+                     </font>
+                  </Button>
+               </children>
+            </HBox>
+         </children>
+      </VBox>
+      
+      <!-- Main Content Area with Variables, Cycles, and Execution Inputs -->
+      <HBox maxWidth="Infinity" spacing="10.0">
+         <children>
+            <!-- Left Column: Variables and Cycles -->
+            <VBox minWidth="300.0" prefWidth="400.0" spacing="10.0">
+               <children>
+                  <!-- Variables Panel (Pink Section) -->
+                  <VBox maxWidth="Infinity" prefHeight="400.0" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 10px;">
+                     <children>
+                        <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Variables">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Label>
+                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="350.0" prefWidth="380.0" vbarPolicy="AS_NEEDED">
+                           <content>
+                              <TableView fx:id="variablesTableView" maxWidth="Infinity" prefHeight="350.0">
+                                 <columns>
+                                    <TableColumn fx:id="variableNameColumn" minWidth="100.0" prefWidth="150.0" text="Variable Name" />
+                                    <TableColumn fx:id="variableValueColumn" minWidth="80.0" prefWidth="100.0" text="Value" />
+                                 </columns>
+                              </TableView>
+                           </content>
+                        </ScrollPane>
+                     </children>
+                  </VBox>
+                  
+                  <!-- Cycles Panel (Small Pink Section) -->
+                  <VBox maxWidth="Infinity" prefHeight="60.0" style="-fx-background-color: #E91E63; -fx-border-width: 2; -fx-border-radius: 5; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+                     <children>
+                        <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Cycles">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Label>
+                        <HBox alignment="CENTER" spacing="10.0">
+                           <children>
+                              <Label style="-fx-font-size: 12px; -fx-text-fill: white;" text="Current Cycles:">
+                                 <font>
+                                    <Font name="System Bold" size="11.0" />
+                                 </font>
+                              </Label>
+                              <Label fx:id="currentCyclesLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #E91E63; -fx-padding: 5px; -fx-border-radius: 3; -fx-background-radius: 3;" text="0" textFill="WHITE">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font>
+                              </Label>
+                           </children>
+                        </HBox>
+                     </children>
+                  </VBox>
+               </children>
+            </VBox>
+            
+            <!-- Right Column: Execution Inputs -->
+            <VBox maxWidth="Infinity" minWidth="300.0" prefWidth="400.0" style="-fx-background-color: #87CEEB; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+               <children>
+                  <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #000000; -fx-padding: 5px;" text="Execution Inputs">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Label>
+                  
+                  <!-- Input Variables Section -->
+                  <VBox spacing="5.0">
+                     <children>
+                        <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="Input Variables:">
+                           <font>
+                              <Font name="System Bold" size="11.0" />
+                           </font>
+                        </Label>
+                        
+                        <!-- Dynamic Input Fields Container -->
+                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="200.0" vbarPolicy="AS_NEEDED">
+                           <content>
+                              <VBox fx:id="inputFieldsContainer" spacing="5.0" style="-fx-padding: 5;">
+                                 <!-- Dynamic input fields will be added here -->
+                              </VBox>
+                           </content>
+                        </ScrollPane>
+                        
+                        <!-- Add Input Button -->
+                        <HBox alignment="CENTER" spacing="10.0">
+                           <children>
+                              <Button fx:id="addInputButton" mnemonicParsing="false" onAction="#addInputVariable" prefHeight="30.0" prefWidth="120.0" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 3;" text="Add Input">
+                                 <font>
+                                    <Font name="System Bold" size="10.0" />
+                                 </font>
+                              </Button>
+                           </children>
+                        </HBox>
+                        
+                        <!-- Execution Status -->
+                        <HBox alignment="CENTER" spacing="10.0">
+                           <children>
+                              <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="Status:">
+                                 <font>
+                                    <Font name="System Bold" size="11.0" />
+                                 </font>
+                              </Label>
+                              <Label fx:id="executionStatusLabel" style="-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #4CAF50;" text="Ready">
+                                 <font>
+                                    <Font name="System Bold" size="11.0" />
+                                 </font>
+                              </Label>
+                           </children>
+                        </HBox>
+                     </children>
+                  </VBox>
+               </children>
+            </VBox>
+         </children>
+      </HBox>
+      <AnchorPane prefHeight="200.0" prefWidth="200.0" />
+   </children>
+</VBox>
