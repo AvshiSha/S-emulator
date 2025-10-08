@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/S-emulator.iml" filepath="$PROJECT_DIR$/S-emulator.iml" />
       <module fileurl="file://$PROJECT_DIR$/UI/UI.iml" filepath="$PROJECT_DIR$/UI/UI.iml" />
       <module fileurl="file://$PROJECT_DIR$/engine/engine.iml" filepath="$PROJECT_DIR$/engine/engine.iml" />
+      <module fileurl="file://$PROJECT_DIR$/new_web/new_web.iml" filepath="$PROJECT_DIR$/new_web/new_web.iml" />
     </modules>
   </component>
 </project>
