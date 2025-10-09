@@ -1,51 +1,185 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.ScrollPane?>
-<?import javafx.scene.layout.Pane?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.text.Font?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.geometry.Insets?>
 
-<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.semulator.client.ui.DashboardController">
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+      fx:controller="com.semulator.client.ui.DashboardController"
+      style="-fx-background-color: #f5f5f5; -fx-padding: 10;">
+   
    <children>
-      <!-- Header at the top -->
-      <VBox fx:id="headerComponent" VBox.vgrow="NEVER" />
+      <!-- Main Title -->
+      <Label text="S-Emulator - Dashboard" 
+             style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333; -fx-padding: 10;">
+         <VBox.margin><Insets bottom="20.0"/></VBox.margin>
+      </Label>
       
-      <!-- Main content area with side-by-side layout -->
-      <HBox spacing="10.0" alignment="TOP_LEFT" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+      <!-- Header Bar -->
+      <HBox fx:id="headerBar" 
+            style="-fx-background-color: #e0e0e0; -fx-padding: 10; -fx-spacing: 15;"
+            alignment="CENTER_LEFT">
          <children>
-            <!-- Left side: Instruction Table and History Chain -->
-            <VBox spacing="5.0" minWidth="300.0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-               <children>
-                  <!-- Instruction Table with scrollbars -->
-                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
-                     <content>
-                        <VBox fx:id="instructionTableComponent" />
-                     </content>
-                  </ScrollPane>
-                  
-                  <!-- History Chain with scrollbars -->
-                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
-                     <content>
-                        <VBox fx:id="historyChainComponent" />
-                     </content>
-                  </ScrollPane>
-               </children>
-            </VBox>
+            <!-- User Name -->
+            <Label text="User Name:" style="-fx-font-weight: bold;"/>
+            <Label fx:id="currentUserName" text="[Current User]" style="-fx-text-fill: #0066cc;"/>
             
-            <!-- Right side: Debugger/Execution and Program Run History -->
-            <VBox spacing="5.0" minWidth="300.0" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
-               <children>
-                  <VBox fx:id="debuggerExecutionComponent" VBox.vgrow="NEVER" maxHeight="400.0" />
-                  <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
-                     <content>
-                        <VBox fx:id="historyStatsComponent" />
-                     </content>
-                  </ScrollPane>
-               </children>
-            </VBox>
+            <!-- Load File Button -->
+            <Button fx:id="loadFileButton" text="Load File" 
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            
+            <!-- Currently Loaded File Path -->
+            <Label text="Currently Loaded File path:" style="-fx-font-weight: bold;"/>
+            <TextField fx:id="loadedFilePath" editable="false" 
+                       style="-fx-background-color: #fff; -fx-min-width: 300px;"/>
+            
+            <!-- Available Credits -->
+            <Label text="Available Credits:" style="-fx-font-weight: bold;"/>
+            <Label fx:id="availableCredits" text="0" style="-fx-text-fill: #ff6600; -fx-font-weight: bold;"/>
+            
+            <!-- Charge Credits Button -->
+            <Button fx:id="chargeCreditsButton" text="Charge Credits" 
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            
+            <!-- Credits Input Field -->
+            <Label text="Amount:"/>
+            <TextField fx:id="creditsInput" promptText="credits" 
+                       style="-fx-background-color: #fff; -fx-max-width: 80px;"/>
+            
+            <!-- Logout Button -->
+            <Button fx:id="logoutButton" text="Logout" 
+                    style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold;"/>
          </children>
+         <VBox.margin><Insets bottom="20.0"/></VBox.margin>
       </HBox>
+      
+      <!-- Main Components Grid (2x2) -->
+      <GridPane hgap="10" vgap="10" VBox.vgrow="ALWAYS">
+         <columnConstraints>
+            <ColumnConstraints hgrow="SOMETIMES" minWidth="300"/>
+            <ColumnConstraints hgrow="SOMETIMES" minWidth="300"/>
+         </columnConstraints>
+         <rowConstraints>
+            <RowConstraints vgrow="SOMETIMES" minHeight="200"/>
+            <RowConstraints vgrow="SOMETIMES" minHeight="200"/>
+         </rowConstraints>
+         
+         <!-- Top-Left: Available Users -->
+         <VBox GridPane.columnIndex="0" GridPane.rowIndex="0" 
+               style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
+            <children>
+               <Label text="Available Users" 
+                      style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;">
+                  <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+               </Label>
+               <TableView fx:id="usersTable" VBox.vgrow="ALWAYS">
+                  <columns>
+                     <TableColumn fx:id="userNameColumn" text="User Name" prefWidth="120"/>
+                     <TableColumn fx:id="mainProgramsColumn" text="Main Programs" prefWidth="100"/>
+                     <TableColumn fx:id="subfunctionsColumn" text="Subfunctions" prefWidth="100"/>
+                     <TableColumn fx:id="userCreditsColumn" text="Credits" prefWidth="80"/>
+                     <TableColumn fx:id="creditsUsedColumn" text="Used" prefWidth="70"/>
+                     <TableColumn fx:id="runsColumn" text="Runs" prefWidth="60"/>
+                  </columns>
+               </TableView>
+               <HBox alignment="CENTER" spacing="10">
+                  <children>
+                     <Button fx:id="unselectUserButton" text="Unselect User" 
+                             style="-fx-background-color: #ff9800; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                  </children>
+                  <VBox.margin><Insets top="10.0"/></VBox.margin>
+               </HBox>
+            </children>
+         </VBox>
+         
+         <!-- Top-Right: Available Programs -->
+         <VBox GridPane.columnIndex="1" GridPane.rowIndex="0" 
+               style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
+            <children>
+               <Label text="Available Programs" 
+                      style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;">
+                  <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+               </Label>
+               <TableView fx:id="programsTable" VBox.vgrow="ALWAYS">
+                  <columns>
+                     <TableColumn fx:id="programNameColumn" text="Program Name" prefWidth="120"/>
+                     <TableColumn fx:id="uploadedByColumn" text="Uploaded By" prefWidth="100"/>
+                     <TableColumn fx:id="instructionCountColumn" text="Instructions" prefWidth="80"/>
+                     <TableColumn fx:id="maxLevelColumn" text="Max Level" prefWidth="70"/>
+                     <TableColumn fx:id="programRunsColumn" text="Runs" prefWidth="60"/>
+                     <TableColumn fx:id="avgCostColumn" text="Avg Cost" prefWidth="70"/>
+                  </columns>
+               </TableView>
+               <HBox alignment="CENTER_RIGHT" spacing="10">
+                  <children>
+                     <Button fx:id="executeProgramButton" text="Execute Program" 
+                             style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                  </children>
+                  <VBox.margin><Insets top="10.0"/></VBox.margin>
+               </HBox>
+            </children>
+         </VBox>
+         
+         <!-- Bottom-Left: Users History / Statistics Table -->
+         <VBox GridPane.columnIndex="0" GridPane.rowIndex="1" 
+               style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
+            <children>
+               <Label fx:id="historyTableTitle" text="Users History / Statistics Table" 
+                      style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;">
+                  <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+               </Label>
+               <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
+                  <columns>
+                     <TableColumn fx:id="runNumberColumn" text="Run #" prefWidth="50"/>
+                     <TableColumn fx:id="typeColumn" text="Type" prefWidth="80"/>
+                     <TableColumn fx:id="nameColumn" text="Program/Function" prefWidth="120"/>
+                     <TableColumn fx:id="architectureColumn" text="Architecture" prefWidth="80"/>
+                     <TableColumn fx:id="levelColumn" text="Level" prefWidth="50"/>
+                     <TableColumn fx:id="yValueColumn" text="y Value" prefWidth="70"/>
+                     <TableColumn fx:id="cyclesColumn" text="Cycles" prefWidth="60"/>
+                  </columns>
+               </TableView>
+               <HBox alignment="CENTER" spacing="10">
+                  <children>
+                     <Button fx:id="showStatusButton" text="Show Status" 
+                             style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                     <Button fx:id="reRunButton" text="Re-Run" 
+                             style="-fx-background-color: #ff9800; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                  </children>
+                  <VBox.margin><Insets top="10.0"/></VBox.margin>
+               </HBox>
+            </children>
+         </VBox>
+         
+         <!-- Bottom-Right: Available Functions -->
+         <VBox GridPane.columnIndex="1" GridPane.rowIndex="1" 
+               style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
+            <children>
+               <Label text="Available Functions" 
+                      style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;">
+                  <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+               </Label>
+               <TableView fx:id="functionsTable" VBox.vgrow="ALWAYS">
+                  <columns>
+                     <TableColumn fx:id="functionNameColumn" text="Function Name" prefWidth="120"/>
+                     <TableColumn fx:id="parentProgramColumn" text="Parent Program" prefWidth="100"/>
+                     <TableColumn fx:id="functionUploadedByColumn" text="Uploaded By" prefWidth="90"/>
+                     <TableColumn fx:id="functionInstructionCountColumn" text="Instructions" prefWidth="80"/>
+                     <TableColumn fx:id="functionMaxLevelColumn" text="Max Level" prefWidth="70"/>
+                  </columns>
+               </TableView>
+               <HBox alignment="CENTER_RIGHT" spacing="10">
+                  <children>
+                     <Button fx:id="executeFunctionButton" text="Execute Program" 
+                             style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                  </children>
+                  <VBox.margin><Insets top="10.0"/></VBox.margin>
+               </HBox>
+            </children>
+         </VBox>
+         
+      </GridPane>
+      
    </children>
 </VBox>

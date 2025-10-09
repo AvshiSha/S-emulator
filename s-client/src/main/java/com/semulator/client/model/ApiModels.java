@@ -15,10 +15,10 @@ public class ApiModels {
         public record LoginResponse(String token, String username) {
         }
 
-        public record User(String username, int credits, int totalRuns) {
+        public record UserInfo(String username, int credits, int totalRuns, long lastActive) {
         }
 
-        public record UsersResponse(List<User> users, String version, boolean full) {
+        public record UsersResponse(List<UserInfo> users, long version, boolean full) {
         }
 
         public record TopupRequest(int amount) {

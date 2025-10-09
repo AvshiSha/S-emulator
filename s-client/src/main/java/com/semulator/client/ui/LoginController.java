@@ -107,7 +107,17 @@ public class LoginController implements Initializable {
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        showError("Login failed: " + throwable.getMessage());
+                        String errorMessage = throwable.getMessage();
+                        
+                        // Handle specific error cases
+                        if (errorMessage != null && errorMessage.contains("USER_ALREADY_LOGGED_IN")) {
+                            showError("This username is already logged in. Please use a different username or wait for the other session to logout.");
+                        } else if (errorMessage != null && errorMessage.contains("CONFLICT")) {
+                            showError("Username conflict. Please try a different username.");
+                        } else {
+                            showError("Login failed: " + errorMessage);
+                        }
+                        
                         loginButton.setDisable(false);
                         loginButton.setText("Login");
                     });

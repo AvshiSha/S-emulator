@@ -92,9 +92,15 @@ public class ServerState {
     }
 
     public List<ApiModels.UserInfo> getAllUsers() {
+        // Only return users who have active tokens (are currently connected)
         return users.values().stream()
+                .filter(u -> hasActiveToken(u.username))
                 .map(u -> new ApiModels.UserInfo(u.username, u.credits, u.totalRuns, u.lastActive))
                 .toList();
+    }
+
+    public boolean hasActiveToken(String username) {
+        return tokens.values().stream().anyMatch(username::equals);
     }
 
     // Token management
@@ -106,6 +112,10 @@ public class ServerState {
 
     public String getUsernameFromToken(String token) {
         return tokens.get(token);
+    }
+
+    public boolean removeToken(String token) {
+        return tokens.remove(token) != null;
     }
 
     // Program management

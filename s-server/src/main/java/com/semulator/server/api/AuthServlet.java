@@ -27,6 +27,19 @@ public class AuthServlet extends HttpServlet {
 
         if (pathInfo != null && pathInfo.equals("/login")) {
             handleLogin(req, resp);
+        } else if (pathInfo != null && pathInfo.equals("/logout")) {
+            handleLogout(req, resp);
+        } else {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Endpoint not found");
+        }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String pathInfo = req.getPathInfo();
+
+        if (pathInfo != null && pathInfo.equals("/users")) {
+            handleGetUsers(req, resp);
         } else {
             ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Endpoint not found");
         }
@@ -48,6 +61,14 @@ public class AuthServlet extends HttpServlet {
             }
 
             String username = request.username.trim();
+            
+            // Check if user is already logged in (has active token)
+            if (serverState.hasActiveToken(username)) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_CONFLICT, "USER_ALREADY_LOGGED_IN",
+                        "User '" + username + "' is already logged in. Please logout first or use a different username.");
+                return;
+            }
+
             ServerState.UserRecord user = serverState.getUser(username);
 
             if (user == null) {
@@ -69,6 +90,76 @@ public class AuthServlet extends HttpServlet {
         } catch (Exception e) {
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Login failed: " + e.getMessage());
+        }
+    }
+
+    private void handleGetUsers(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        try {
+            List<ApiModels.UserInfo> users = serverState.getAllUsers();
+
+            // Create a response wrapper for consistency with other endpoints
+            UsersResponse response = new UsersResponse(users, serverState.getCurrentVersion(), true);
+            ServletUtils.writeJson(resp, response);
+
+        } catch (Exception e) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
+                    "Failed to get users: " + e.getMessage());
+        }
+    }
+
+    private void handleLogout(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        try {
+            // Get token from Authorization header or request parameter
+            String token = req.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+            } else {
+                token = req.getParameter("token");
+            }
+
+            if (token != null && !token.trim().isEmpty()) {
+                String username = serverState.getUsernameFromToken(token);
+                if (username != null) {
+                    // Remove token (logout user)
+                    serverState.removeToken(token);
+
+                    // Optionally, you could also remove the user entirely, but for now we'll keep
+                    // them
+                    // serverState.removeUser(username);
+
+                    ServletUtils.writeJson(resp, new LogoutResponse("success"));
+                    return;
+                }
+            }
+
+            ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "INVALID_TOKEN",
+                    "Invalid or missing token");
+
+        } catch (Exception e) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
+                    "Logout failed: " + e.getMessage());
+        }
+    }
+
+    // Response wrapper for users endpoint
+    public static class UsersResponse {
+        public List<ApiModels.UserInfo> users;
+        public long version;
+        public boolean full;
+
+        public UsersResponse(List<ApiModels.UserInfo> users, long version, boolean full) {
+            this.users = users;
+            this.version = version;
+            this.full = full;
+        }
+    }
+
+    // Response for logout endpoint
+    public static class LogoutResponse {
+        public String status;
+
+        public LogoutResponse(String status) {
+            this.status = status;
         }
     }
 }
