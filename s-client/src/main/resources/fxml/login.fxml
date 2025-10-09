@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.semulator.client.ui.LoginController">
+   <children>
+      <VBox fx:id="loginContainer" alignment="CENTER" spacing="20.0">
+         <children>
+            <Label fx:id="titleLabel" text="S-Emulator Login" />
+            <TextField fx:id="usernameField" promptText="Enter your username" />
+            <Button fx:id="loginButton" text="Login" />
+            <Label fx:id="errorLabel" text="Error message" visible="false" />
+         </children>
+         <padding>
+            <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+         </padding>
+      </VBox>
+   </children>
+   <padding>
+      <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+   </padding>
+</VBox>

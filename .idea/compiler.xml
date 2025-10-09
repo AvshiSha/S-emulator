@@ -8,6 +8,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="s-server" />
         <module name="s-engine-core" />
+        <module name="s-client" />
       </profile>
     </annotationProcessing>
   </component>

@@ -1,0 +1,14 @@
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\AuthServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\CatalogServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\DebugServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\EngineServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\ErrorServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\HistoryServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\RunServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\UploadServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\UsersServlet.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\filter\CorsFilter.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\model\ApiModels.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\service\EngineService.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\state\ServerState.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\util\ServletUtils.java

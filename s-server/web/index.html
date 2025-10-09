@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-Emulator Server</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        .endpoint { 
+            background: #f8f9fa; 
+            padding: 10px 15px; 
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+            font-family: monospace;
+        }
+        .status { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 S-Emulator Server</h1>
+        <p class="status">✅ Server is running</p>
+        
+        <h2>API Endpoints</h2>
+        
+        <h3>Authentication</h3>
+        <div class="endpoint">POST /api/auth/login</div>
+        
+        <h3>Users</h3>
+        <div class="endpoint">GET /api/users</div>
+        <div class="endpoint">POST /api/users/{username}/credits/topup</div>
+        
+        <h3>Catalog & Upload</h3>
+        <div class="endpoint">POST /api/upload</div>
+        <div class="endpoint">GET /api/programs</div>
+        <div class="endpoint">GET /api/functions</div>
+        
+        <h3>Runs</h3>
+        <div class="endpoint">POST /api/run/prepare</div>
+        <div class="endpoint">POST /api/run/start</div>
+        <div class="endpoint">GET /api/run/status?runId=...</div>
+        <div class="endpoint">POST /api/run/cancel</div>
+        
+        <h3>Debug</h3>
+        <div class="endpoint">POST /api/debug/step</div>
+        <div class="endpoint">POST /api/debug/stepOver</div>
+        <div class="endpoint">POST /api/debug/stop</div>
+        
+        <h3>History</h3>
+        <div class="endpoint">GET /api/history?user={username}</div>
+        
+        <h3>Health</h3>
+        <div class="endpoint">GET /api/engine</div>
+        
+        <h2>Status</h2>
+        <p>Version: 1.0-SNAPSHOT</p>
+        <p>Architecture: Multi-module (s-engine-core + s-server)</p>
+        <p>Context Path: <code>/s-emulator</code></p>
+        
+        <hr>
+        <p><small>Exercise 3 - Client-Server Architecture</small></p>
+    </div>
+    
+    <script>
+        // Test API connectivity
+        fetch('/api/engine')
+            .then(r => r.json())
+            .then(data => console.log('✅ API connected:', data))
+            .catch(err => console.error('❌ API error:', err));
+    </script>
+</body>
+</html>
