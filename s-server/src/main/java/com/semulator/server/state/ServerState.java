@@ -482,4 +482,114 @@ public class ServerState {
         }
         return "I"; // Default
     }
+
+    /**
+     * Get history chain for a selected instruction using Exercise 2 logic
+     */
+    public List<ApiModels.HistoryChainItem> getHistoryChain(String programName, int instructionIndex,
+            int currentDegree) {
+        List<ApiModels.HistoryChainItem> chain = new ArrayList<>();
+
+        try {
+            // Get the program
+            SProgram program = programs.get(programName);
+            if (program == null) {
+                return chain;
+            }
+
+            // Get expansion result for current degree
+            ExpansionResult currentExpansionResult;
+            try {
+                currentExpansionResult = program.expandToDegree(currentDegree);
+            } catch (Exception e) {
+                return chain;
+            }
+
+            // Validate instruction index
+            if (instructionIndex < 0 || instructionIndex >= currentExpansionResult.instructions().size()) {
+                return chain;
+            }
+
+            // Get the selected instruction
+            SInstruction selectedInstruction = currentExpansionResult.instructions().get(instructionIndex);
+
+            // Start building the chain (most recent first)
+            chain.add(createHistoryChainItem(selectedInstruction, instructionIndex, currentDegree));
+
+            // Trace back through the parent chain (Exercise 2 logic)
+            SInstruction current = selectedInstruction;
+            int currentDegreeForTracing = currentDegree;
+            ExpansionResult tracingExpansionResult = currentExpansionResult;
+
+            while (currentDegreeForTracing > 0) {
+
+                // Get the parent of the current instruction from the current expansion result
+                SInstruction parent = tracingExpansionResult.parent().get(current);
+
+                // If no exact match, try matching by name and variable
+                if (parent == null) {
+                    for (Map.Entry<SInstruction, SInstruction> entry : tracingExpansionResult.parent().entrySet()) {
+                        if (entry.getKey().getName().equals(current.getName()) &&
+                                entry.getKey().getVariable().equals(current.getVariable())) {
+                            parent = entry.getValue();
+                            break;
+                        }
+                    }
+                }
+
+                if (parent == null) {
+                    break;
+                }
+
+                // Move to the previous degree
+                currentDegreeForTracing--;
+
+                // Get the expansion result for the previous degree
+                ExpansionResult prevDegreeResult;
+                try {
+                    prevDegreeResult = program.expandToDegree(currentDegreeForTracing);
+                } catch (Exception e) {
+                    break;
+                }
+
+                // Update local expansion result for next iteration
+                tracingExpansionResult = prevDegreeResult;
+                current = parent;
+
+                // Add parent to chain
+                chain.add(createHistoryChainItem(parent, -1, currentDegreeForTracing));
+            }
+
+        } catch (Exception e) {
+            // Silently handle errors
+        }
+
+        return chain;
+    }
+
+    private ApiModels.HistoryChainItem createHistoryChainItem(SInstruction instruction, int rowNumber, int degree) {
+        String commandType = isBasicInstruction(instruction) ? "B" : "S";
+        String label = instruction.getLabel() != null ? instruction.getLabel().getLabel() : "";
+        String instructionText = getInstructionText(instruction);
+        String variable = instruction.getVariable() != null ? instruction.getVariable().toString() : "";
+        String architecture = getArchitectureForInstruction(instruction);
+
+        return new ApiModels.HistoryChainItem(
+                rowNumber,
+                commandType,
+                label,
+                instructionText,
+                instruction.cycles(),
+                variable,
+                architecture,
+                instruction.getName(),
+                degree);
+    }
+
+    private boolean isBasicInstruction(SInstruction instruction) {
+        return instruction instanceof IncreaseInstruction ||
+                instruction instanceof DecreaseInstruction ||
+                instruction instanceof NoOpInstruction ||
+                instruction instanceof JumpNotZeroInstruction;
+    }
 }

@@ -299,4 +299,53 @@ public class ApiModels {
             this.removed = removed;
         }
     }
+
+    // History Chain
+    public static class HistoryChainRequest {
+        public String programName;
+        public int instructionIndex; // Index of the selected instruction
+        public int degree; // Current degree for chain tracing
+    }
+
+    public static class HistoryChainResponse {
+        public boolean success;
+        public String message;
+        public List<HistoryChainItem> chain;
+        public int totalInstructions;
+        public int currentDegree;
+
+        public HistoryChainResponse(boolean success, String message, List<HistoryChainItem> chain,
+                int totalInstructions, int currentDegree) {
+            this.success = success;
+            this.message = message;
+            this.chain = chain;
+            this.totalInstructions = totalInstructions;
+            this.currentDegree = currentDegree;
+        }
+    }
+
+    public static class HistoryChainItem {
+        public int rowNumber;
+        public String commandType; // "B" or "S"
+        public String label;
+        public String instructionText;
+        public int cycles;
+        public String variable;
+        public String architecture;
+        public String instructionName;
+        public int degree; // Which degree this instruction came from
+
+        public HistoryChainItem(int rowNumber, String commandType, String label, String instructionText,
+                int cycles, String variable, String architecture, String instructionName, int degree) {
+            this.rowNumber = rowNumber;
+            this.commandType = commandType;
+            this.label = label;
+            this.instructionText = instructionText;
+            this.cycles = cycles;
+            this.variable = variable;
+            this.architecture = architecture;
+            this.instructionName = instructionName;
+            this.degree = degree;
+        }
+    }
 }

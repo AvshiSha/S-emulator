@@ -41,6 +41,10 @@ public class InstructionTable {
     @FXML
     private TableView<InstructionRow> instructionTableView;
 
+    public TableView<InstructionRow> getInstructionTableView() {
+        return instructionTableView;
+    }
+
     @FXML
     private TableColumn<InstructionRow, Integer> rowNumberColumn;
 

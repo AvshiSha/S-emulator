@@ -188,6 +188,13 @@ public class ProgramRunController implements Initializable {
             // When degree changes, request expanded instructions from server
             if (degree >= 0 && instructionTableComponentController != null) {
                 loadInstructionsForDegree(degree);
+
+                // Also refresh history chain if an instruction is currently selected
+                var selectedItem = instructionTableComponentController.getInstructionTableView().getSelectionModel()
+                        .getSelectedItem();
+                if (selectedItem != null && historyChainComponentController != null) {
+                    loadHistoryChainFromServer(selectedItem);
+                }
             }
         });
 
@@ -200,30 +207,352 @@ public class ProgramRunController implements Initializable {
     }
 
     private void initializeInstructionsTable() {
-        if (instructionTableComponentController == null)
+        if (instructionTableComponentController == null) {
             return;
+        }
 
         // Initialize the instruction table component
         instructionTableComponentController.initializeWithHttp();
 
-        // Set up selection callback for history chain
-        instructionTableComponentController.setHistoryChainCallback(instruction -> {
-            if (instruction != null && historyChainComponentController != null) {
-                // Create a simple history chain with just the selected instruction
-                // Pass null to let the component handle the instruction internally
-                historyChainComponentController.displayHistoryChain(null);
-            } else if (historyChainComponentController != null) {
-                historyChainComponentController.clearHistory();
-            }
-        });
+        // Simple direct table selection - show creation chain like Exercise 2
+        instructionTableComponentController.getInstructionTableView().getSelectionModel().selectedItemProperty()
+                .addListener((obs, oldSelection, newSelection) -> {
+                    if (newSelection != null && historyChainComponentController != null) {
+                        // Get history chain from server
+                        loadHistoryChainFromServer(newSelection);
+                    } else if (historyChainComponentController != null) {
+                        historyChainComponentController.clearHistory();
+                    }
+                });
     }
 
     private void initializeHistoryTable() {
-        if (historyChainComponentController == null)
-            return;
+        // History chain component initializes automatically via FXML
+    }
 
-        // Initialize the history chain component
-        historyChainComponentController.initializeWithHttp();
+    private void loadHistoryChainFromServer(
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+        try {
+            // Get current degree from the execution header
+            int currentDegree = executionHeaderController != null ? executionHeaderController.getCurrentDegree() : 1;
+            String programName = selectedProgram != null ? selectedProgram : selectedFunction;
+
+            if (programName == null) {
+                return;
+            }
+
+            // Convert row number (1-based) to instruction index (0-based)
+            int instructionIndex = selectedRow.getRowNumber() - 1;
+
+            // Call server endpoint
+            String url = "/history/chain?program=" + java.net.URLEncoder.encode(programName, "UTF-8") +
+                    "&instruction=" + instructionIndex +
+                    "&degree=" + currentDegree;
+
+            apiClient.get(url, ApiModels.HistoryChainResponse.class, null)
+                    .thenAccept(response -> {
+                        Platform.runLater(() -> {
+                            if (response.success() && historyChainComponentController != null) {
+                                // Display server response directly (no conversion needed!)
+                                historyChainComponentController.displayHistoryChainFromServer(response.chain());
+                            } else {
+                                if (historyChainComponentController != null) {
+                                    historyChainComponentController.clearHistory();
+                                }
+                            }
+                        });
+                    })
+                    .exceptionally(throwable -> {
+                        Platform.runLater(() -> {
+                            if (historyChainComponentController != null) {
+                                historyChainComponentController.clearHistory();
+                            }
+                        });
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            if (historyChainComponentController != null) {
+                historyChainComponentController.clearHistory();
+            }
+        }
+    }
+
+    private List<com.semulator.engine.model.SInstruction> convertHistoryChainToInstructions(
+            List<ApiModels.HistoryChainItem> chainItems) {
+        List<com.semulator.engine.model.SInstruction> instructions = new ArrayList<>();
+
+        for (ApiModels.HistoryChainItem item : chainItems) {
+            try {
+                com.semulator.engine.model.SInstruction instruction = createInstructionFromChainItem(item);
+                if (instruction != null) {
+                    instructions.add(instruction);
+                }
+            } catch (Exception e) {
+                // Silently skip items that can't be converted
+            }
+        }
+
+        return instructions;
+    }
+
+    private com.semulator.engine.model.SInstruction createInstructionFromChainItem(ApiModels.HistoryChainItem item) {
+        try {
+            com.semulator.engine.model.Variable variable = com.semulator.engine.model.Variable.of(item.variable());
+            com.semulator.engine.model.Label label = new com.semulator.engine.model.LabelImpl(item.label());
+
+            // Create appropriate instruction type based on command type and instruction
+            // name
+            switch (item.instructionName()) {
+                case "INCREASE":
+                    return new com.semulator.engine.model.IncreaseInstruction(variable, label);
+                case "DECREASE":
+                    return new com.semulator.engine.model.DecreaseInstruction(variable, label);
+                case "NO_OP":
+                case "NEUTRAL":
+                    return new com.semulator.engine.model.NoOpInstruction(variable, label);
+                case "ZERO_VARIABLE":
+                    return new com.semulator.engine.model.ZeroVariableInstruction(variable, label);
+                case "ASSIGN_VARIABLE":
+                    return new com.semulator.engine.model.AssignVariableInstruction(variable, variable, label);
+                case "ASSIGN_CONSTANT":
+                    return new com.semulator.engine.model.AssignConstantInstruction(variable, 0, label);
+                case "JUMP_NOT_ZERO":
+                    return new com.semulator.engine.model.JumpNotZeroInstruction(variable, label);
+                case "JUMP_ZERO":
+                    return new com.semulator.engine.model.JumpZeroInstruction(variable, label);
+                case "GOTO_LABEL":
+                    return new com.semulator.engine.model.GotoLabelInstruction(label);
+                default:
+                    if (item.commandType().equals("B")) {
+                        return new com.semulator.engine.model.IncreaseInstruction(variable, label);
+                    } else {
+                        return new com.semulator.engine.model.NoOpInstruction(variable, label);
+                    }
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void buildDegreeBasedChain(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow,
+            int degree) {
+        // try {
+        // // For degree 1: just the selected instruction
+        // if (degree <= 0) {
+        // return;
+        // }
+
+        // // For degree 2: add parent instructions
+        // if (degree >= 1) {
+        // addParentInstructions(chain, selectedRow);
+        // }
+
+        // // For degree 3: add grandparent instructions
+        // if (degree >= 2) {
+        // addGrandparentInstructions(chain, selectedRow);
+        // }
+
+        // // For degree 4: add great-grandparent instructions
+        // if (degree >= 3) {
+        // addGreatGrandparentInstructions(chain, selectedRow);
+        // }
+
+        // } catch (Exception e) {
+        // System.err.println("Error building degree-based chain: " + e.getMessage());
+        // }
+    }
+
+    private com.semulator.engine.model.SInstruction createMockInstruction(
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow row) {
+        try {
+            com.semulator.engine.model.Variable variable = com.semulator.engine.model.Variable.of(row.getVariable());
+            com.semulator.engine.model.Label label = new com.semulator.engine.model.LabelImpl(row.getLabel());
+
+            // Create appropriate instruction type based on command type
+            if (row.getCommandType().equals("B")) {
+                return new com.semulator.engine.model.IncreaseInstruction(variable, label);
+            } else {
+                return new com.semulator.engine.model.NoOpInstruction(variable, label);
+            }
+        } catch (Exception e) {
+            System.err.println("Error creating mock instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void addBasicInstructionsToChain(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+        try {
+            // Add basic instructions that would have created this synthetic instruction
+            com.semulator.engine.model.Variable var1 = com.semulator.engine.model.Variable.of("z1");
+            com.semulator.engine.model.Variable var2 = com.semulator.engine.model.Variable.of("z2");
+
+            chain.add(new com.semulator.engine.model.IncreaseInstruction(var1,
+                    new com.semulator.engine.model.LabelImpl("L1")));
+            chain.add(new com.semulator.engine.model.DecreaseInstruction(var2,
+                    new com.semulator.engine.model.LabelImpl("L2")));
+        } catch (Exception e) {
+            System.err.println("Error adding basic instructions: " + e.getMessage());
+        }
+    }
+
+    private void addAncestorInstructionsToChain(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+        try {
+            // Add even older instructions to show the full creation history
+            com.semulator.engine.model.Variable inputVar = com.semulator.engine.model.Variable.of("x1");
+            com.semulator.engine.model.Variable workVar = com.semulator.engine.model.Variable.of("z3");
+
+            chain.add(new com.semulator.engine.model.AssignVariableInstruction(inputVar, workVar,
+                    new com.semulator.engine.model.LabelImpl("L3")));
+            chain.add(new com.semulator.engine.model.AssignConstantInstruction(workVar, 5,
+                    new com.semulator.engine.model.LabelImpl("L4")));
+        } catch (Exception e) {
+            System.err.println("Error adding ancestor instructions: " + e.getMessage());
+        }
+    }
+
+    private void addParentInstructions(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+        try {
+            // Add parent instructions (degree 2)
+            com.semulator.engine.model.Variable var1 = com.semulator.engine.model.Variable.of("z1");
+            com.semulator.engine.model.Variable var2 = com.semulator.engine.model.Variable.of("z2");
+
+            chain.add(new com.semulator.engine.model.IncreaseInstruction(var1,
+                    new com.semulator.engine.model.LabelImpl("L1")));
+            chain.add(new com.semulator.engine.model.DecreaseInstruction(var2,
+                    new com.semulator.engine.model.LabelImpl("L2")));
+        } catch (Exception e) {
+            System.err.println("Error adding parent instructions: " + e.getMessage());
+        }
+    }
+
+    private void addGrandparentInstructions(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+        try {
+            // Add grandparent instructions (degree 3)
+            com.semulator.engine.model.Variable inputVar = com.semulator.engine.model.Variable.of("x1");
+            com.semulator.engine.model.Variable workVar = com.semulator.engine.model.Variable.of("z3");
+
+            chain.add(new com.semulator.engine.model.AssignVariableInstruction(inputVar, workVar,
+                    new com.semulator.engine.model.LabelImpl("L3")));
+            chain.add(new com.semulator.engine.model.AssignConstantInstruction(workVar, 5,
+                    new com.semulator.engine.model.LabelImpl("L4")));
+        } catch (Exception e) {
+            System.err.println("Error adding grandparent instructions: " + e.getMessage());
+        }
+    }
+
+    private void addGreatGrandparentInstructions(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+        try {
+            // Add great-grandparent instructions (degree 4)
+            com.semulator.engine.model.Variable resultVar = com.semulator.engine.model.Variable.RESULT;
+            com.semulator.engine.model.Variable inputVar2 = com.semulator.engine.model.Variable.of("x2");
+
+            chain.add(new com.semulator.engine.model.AssignVariableInstruction(resultVar, inputVar2,
+                    new com.semulator.engine.model.LabelImpl("L5")));
+            chain.add(new com.semulator.engine.model.ZeroVariableInstruction(inputVar2,
+                    new com.semulator.engine.model.LabelImpl("L6")));
+        } catch (Exception e) {
+            System.err.println("Error adding great-grandparent instructions: " + e.getMessage());
+        }
+    }
+
+    private void buildCreationChainFromServer(List<com.semulator.engine.model.SInstruction> chain,
+            com.semulator.engine.model.SInstruction selectedInstruction, int currentDegree) {
+        try {
+            // Start with the selected instruction (already added)
+            com.semulator.engine.model.SInstruction current = selectedInstruction;
+            int currentDegreeForTracing = currentDegree;
+
+            // For client-server architecture, we'll simulate the parent chain
+            // In a real implementation, this would come from the server's expansion results
+
+            while (currentDegreeForTracing > 0) {
+                // Get the parent of the current instruction
+                com.semulator.engine.model.SInstruction parent = findParentInstruction(current,
+                        currentDegreeForTracing);
+
+                if (parent == null) {
+                    // No parent found, we've reached the end of the chain
+                    break;
+                }
+
+                // Add parent to chain
+                chain.add(parent);
+
+                // Move to the previous degree
+                currentDegreeForTracing--;
+                current = parent;
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error building creation chain from server: " + e.getMessage());
+        }
+    }
+
+    private com.semulator.engine.model.SInstruction findParentInstruction(
+            com.semulator.engine.model.SInstruction current, int degree) {
+        try {
+            // Simulate finding parent instruction based on the current instruction
+            // This mimics the parent mapping from Exercise 2's ExpansionResult
+
+            if (degree <= 1) {
+                return null; // No parent at degree 0
+            }
+
+            // Create a parent instruction based on the current instruction type
+            String currentName = current.getName();
+            com.semulator.engine.model.Variable currentVar = current.getVariable();
+            com.semulator.engine.model.Label currentLabel = current.getLabel();
+
+            // Generate parent instruction based on current instruction
+            return createParentInstruction(currentName, currentVar, currentLabel, degree);
+
+        } catch (Exception e) {
+            System.err.println("Error finding parent instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private com.semulator.engine.model.SInstruction createParentInstruction(
+            String currentName, com.semulator.engine.model.Variable currentVar,
+            com.semulator.engine.model.Label currentLabel, int degree) {
+        try {
+            // Create parent instruction based on current instruction and degree
+            // This simulates the expansion logic from Exercise 2
+
+            switch (currentName) {
+                case "NEUTRAL":
+                case "INCREASE":
+                case "DECREASE":
+                    // Basic instructions - their parents are usually assignments
+                    return new com.semulator.engine.model.AssignVariableInstruction(
+                            currentVar,
+                            com.semulator.engine.model.Variable.of("x" + degree),
+                            new com.semulator.engine.model.LabelImpl("L" + degree));
+                case "ASSIGNMENT":
+                case "CONSTANT_ASSIGNMENT":
+                    // Assignment instructions - their parents are usually constants or other
+                    // variables
+                    return new com.semulator.engine.model.AssignConstantInstruction(
+                            currentVar,
+                            degree * 2,
+                            new com.semulator.engine.model.LabelImpl("L" + degree));
+                default:
+                    // Default parent - a basic instruction
+                    return new com.semulator.engine.model.IncreaseInstruction(
+                            currentVar,
+                            new com.semulator.engine.model.LabelImpl("L" + degree));
+            }
+        } catch (Exception e) {
+            System.err.println("Error creating parent instruction: " + e.getMessage());
+            return null;
+        }
     }
 
     private void initializeVariablesTable() {

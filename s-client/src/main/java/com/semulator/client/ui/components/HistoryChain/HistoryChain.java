@@ -7,8 +7,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import com.semulator.engine.model.SInstruction;
 import com.semulator.engine.model.Label;
-import com.semulator.engine.model.SProgram;
-import com.semulator.engine.model.Variable;
 import com.semulator.engine.model.IncreaseInstruction;
 import com.semulator.engine.model.DecreaseInstruction;
 import com.semulator.engine.model.NoOpInstruction;
@@ -24,7 +22,8 @@ import com.semulator.engine.model.QuoteInstruction;
 import com.semulator.engine.model.JumpEqualFunctionInstruction;
 import com.semulator.engine.model.FunctionArgument;
 import com.semulator.engine.model.FunctionCall;
-import com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow;
+import com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow;
+import com.semulator.client.model.ApiModels;
 
 import java.util.List;
 import java.util.Map;
@@ -52,17 +51,6 @@ public class HistoryChain {
 
     @FXML
     private void initialize() {
-        // This method is called by FXML automatically
-        // The actual initialization is done in initializeWithHttp()
-    }
-
-    public void initializeWithHttp() {
-        // No HTTP needed - works exactly like Exercise-2
-        setupTableColumns();
-        // HistoryChain initialized
-    }
-
-    private void setupTableColumns() {
         // Set up the table columns
         historyRowNumberColumn.setCellValueFactory(cellData -> cellData.getValue().rowNumberProperty().asObject());
         historyCommandTypeColumn.setCellValueFactory(cellData -> cellData.getValue().commandTypeProperty());
@@ -94,6 +82,32 @@ public class HistoryChain {
         displayHistoryChain(chain, null);
     }
 
+    /**
+     * Display history chain from server response (preferred method for
+     * client-server architecture)
+     */
+    public void displayHistoryChainFromServer(List<ApiModels.HistoryChainItem> chainItems) {
+        historyData.clear();
+
+        if (chainItems == null || chainItems.isEmpty()) {
+            return;
+        }
+
+        // Display chain from most recent (top) to oldest (bottom)
+        for (int i = 0; i < chainItems.size(); i++) {
+            ApiModels.HistoryChainItem item = chainItems.get(i);
+
+            InstructionRow row = new InstructionRow(
+                    i + 1, // Row number in the chain (sequential numbering)
+                    item.commandType(), // B or S from server
+                    item.label(), // Label from server
+                    item.instructionText(), // Formatted instruction text from server
+                    item.cycles(), // Cycles from server
+                    item.variable()); // Variable from server
+            historyData.add(row);
+        }
+    }
+
     public void displayHistoryChain(List<SInstruction> chain, Map<String, String> functionUserStrings) {
         historyData.clear();
 
@@ -111,14 +125,14 @@ public class HistoryChain {
                 // Some instructions don't have getVariable() method
                 variable = "";
             }
+
             InstructionRow row = new InstructionRow(
-                    i + 1, // Row number in the chain
+                    i + 1, // Row number in the chain (sequential numbering)
                     getCommandType(instruction), // B or S
                     getLabelText(instruction.getLabel()), // Label text
                     getInstructionText(instruction, functionUserStrings), // Instruction description
                     instruction.cycles(), // Cycles
-                    variable,
-                    "I"); // Architecture - placeholder for history chain
+                    variable);
             historyData.add(row);
         }
     }
@@ -145,10 +159,6 @@ public class HistoryChain {
             return "EXIT";
         }
         return label.getLabel() != null ? label.getLabel() : "";
-    }
-
-    private String getInstructionText(SInstruction instruction) {
-        return getInstructionText(instruction, null);
     }
 
     private String getInstructionText(SInstruction instruction, Map<String, String> functionUserStrings) {

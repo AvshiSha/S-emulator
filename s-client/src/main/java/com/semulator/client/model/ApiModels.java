@@ -142,4 +142,25 @@ public class ApiModels {
                         List<T> updated,
                         List<T> removed) {
         }
+
+        // History Chain
+        public record HistoryChainResponse(
+                        boolean success,
+                        String message,
+                        List<HistoryChainItem> chain,
+                        int totalInstructions,
+                        int currentDegree) {
+        }
+
+        public record HistoryChainItem(
+                        int rowNumber,
+                        String commandType,
+                        String label,
+                        String instructionText,
+                        int cycles,
+                        String variable,
+                        String architecture,
+                        String instructionName,
+                        int degree) {
+        }
 }
