@@ -211,8 +211,65 @@ public class ExecutionHeaderController implements Initializable {
 
     public void updateLabelVariableList(List<String> labelsAndVariables) {
         labelVariableList.clear();
-        Collections.sort(labelsAndVariables);
-        labelVariableList.addAll(labelsAndVariables);
+
+        // Sort variables by priority: output labels (y) -> labels (L1, L2, ...) ->
+        // input variables (x1, x2, ...) -> working variables
+        List<String> sortedList = new ArrayList<>(labelsAndVariables);
+        sortedList.sort((a, b) -> {
+            // Priority 1: Output labels (y, y1, y2, etc.)
+            boolean aIsOutput = a.matches("^y\\d*$");
+            boolean bIsOutput = b.matches("^y\\d*$");
+            if (aIsOutput && !bIsOutput)
+                return -1;
+            if (!aIsOutput && bIsOutput)
+                return 1;
+            if (aIsOutput && bIsOutput) {
+                // Sort output variables: y, y1, y2, etc.
+                return extractNumber(a).compareTo(extractNumber(b));
+            }
+
+            // Priority 2: Labels (L1, L2, L3, etc.)
+            boolean aIsLabel = a.matches("^L\\d+$");
+            boolean bIsLabel = b.matches("^L\\d+$");
+            if (aIsLabel && !bIsLabel)
+                return -1;
+            if (!aIsLabel && bIsLabel)
+                return 1;
+            if (aIsLabel && bIsLabel) {
+                // Sort labels numerically: L1, L2, L3, etc.
+                return extractNumber(a).compareTo(extractNumber(b));
+            }
+
+            // Priority 3: Input variables (x1, x2, x3, etc.)
+            boolean aIsInput = a.matches("^x\\d+$");
+            boolean bIsInput = b.matches("^x\\d+$");
+            if (aIsInput && !bIsInput)
+                return -1;
+            if (!aIsInput && bIsInput)
+                return 1;
+            if (aIsInput && bIsInput) {
+                // Sort input variables numerically: x1, x2, x3, etc.
+                return extractNumber(a).compareTo(extractNumber(b));
+            }
+
+            // Priority 4: Working variables (everything else) - alphabetical
+            return a.compareTo(b);
+        });
+
+        labelVariableList.addAll(sortedList);
         System.out.println("ExecutionHeader: Updated label/variable list with " + labelsAndVariables.size() + " items");
+    }
+
+    private Integer extractNumber(String variable) {
+        // Extract number from variables like "y1", "L2", "x3", etc.
+        String numberStr = variable.replaceAll("\\D+", "");
+        if (numberStr.isEmpty()) {
+            return 0; // For variables like "y" without number
+        }
+        try {
+            return Integer.parseInt(numberStr);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

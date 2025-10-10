@@ -3,9 +3,6 @@ package com.semulator.client.ui;
 import com.semulator.client.AppContext;
 import com.semulator.client.model.ApiModels;
 import com.semulator.client.service.ApiClient;
-import com.semulator.engine.model.ExpansionResult;
-import com.semulator.engine.model.SInstruction;
-import com.semulator.engine.parse.SProgramImpl;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -213,9 +210,8 @@ public class ProgramRunController implements Initializable {
         instructionTableComponentController.setHistoryChainCallback(instruction -> {
             if (instruction != null && historyChainComponentController != null) {
                 // Create a simple history chain with just the selected instruction
-                java.util.List<com.semulator.engine.model.SInstruction> chain = new java.util.ArrayList<>();
-                chain.add(instruction);
-                historyChainComponentController.displayHistoryChain(chain);
+                // Pass null to let the component handle the instruction internally
+                historyChainComponentController.displayHistoryChain(null);
             } else if (historyChainComponentController != null) {
                 historyChainComponentController.clearHistory();
             }
@@ -428,45 +424,6 @@ public class ProgramRunController implements Initializable {
         if (executionHeaderController != null) {
             executionHeaderController.updateLabelVariableList(new ArrayList<>(labelsAndVars));
         }
-    }
-
-    private void displayExpandedInstructions(ExpansionResult expansionResult) {
-        // Display expanded instructions from the expansion result
-        javafx.collections.ObservableList<com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow> tableData = javafx.collections.FXCollections
-                .observableArrayList();
-
-        List<SInstruction> instructions = expansionResult.instructions();
-        System.out.println("DEBUG: Displaying " + instructions.size() + " expanded instructions");
-
-        for (int i = 0; i < instructions.size(); i++) {
-            SInstruction instruction = instructions.get(i);
-
-            String labelName = "";
-            if (instruction.getLabel() != null) {
-                if (instruction.getLabel().isExit()) {
-                    labelName = "EXIT";
-                } else {
-                    labelName = instruction.getLabel().getLabel();
-                }
-            }
-
-            String variableName = "";
-            if (instruction.getVariable() != null) {
-                variableName = instruction.getVariable().toString();
-            }
-
-            String commandType = getCommandTypeForInstruction(instruction);
-            String instructionText = getInstructionTextForDisplay(instruction);
-            String architecture = getArchitectureForInstructionClient(instruction);
-
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow row = new com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow(
-                    i + 1, commandType, labelName, instructionText, instruction.cycles(), variableName, architecture);
-
-            tableData.add(row);
-        }
-
-        instructionTableComponentController.setInstructionData(tableData);
-        updateSummaryLine();
     }
 
     private void displayInstructionsInTable(ApiModels.ProgramWithInstructions programData) {
@@ -1010,91 +967,6 @@ public class ProgramRunController implements Initializable {
     }
 
     // Data Model Classes (now handled by components)
-
-    private void initializeHeaderWithProgram(ApiModels.ProgramWithInstructions programData) {
-        if (executionHeaderController == null)
-            return;
-
-        try {
-            // Parse the program XML to get an SProgram object for the header
-            String programXml = convertToXml(programData);
-            SProgramImpl program = new SProgramImpl(programData.name());
-            program.loadFromXmlContent(programXml);
-
-            // Set the program in the header for degree expansion
-            executionHeaderController.setProgram(program);
-
-            System.out.println("DEBUG: Header initialized with program");
-            System.out.println("DEBUG: Program maxDegree from server: " + programData.maxDegree());
-            System.out.println("DEBUG: Program maxDegree calculated: " + program.calculateMaxDegree());
-        } catch (Exception e) {
-            System.err.println("Failed to initialize header with program: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    private String getCommandTypeForInstruction(SInstruction instruction) {
-        if (instruction instanceof com.semulator.engine.model.IncreaseInstruction ||
-                instruction instanceof com.semulator.engine.model.DecreaseInstruction ||
-                instruction instanceof com.semulator.engine.model.NoOpInstruction ||
-                instruction instanceof com.semulator.engine.model.JumpNotZeroInstruction) {
-            return "B";
-        }
-        return "S";
-    }
-
-    private String getInstructionTextForDisplay(SInstruction instruction) {
-        if (instruction instanceof com.semulator.engine.model.IncreaseInstruction) {
-            return instruction.getVariable() + " <- " + instruction.getVariable() + " + 1";
-        } else if (instruction instanceof com.semulator.engine.model.DecreaseInstruction) {
-            return instruction.getVariable() + " <- " + instruction.getVariable() + " - 1";
-        } else if (instruction instanceof com.semulator.engine.model.NoOpInstruction) {
-            return instruction.getVariable() + " <- " + instruction.getVariable();
-        } else if (instruction instanceof com.semulator.engine.model.JumpNotZeroInstruction) {
-            com.semulator.engine.model.JumpNotZeroInstruction jnz = (com.semulator.engine.model.JumpNotZeroInstruction) instruction;
-            return "IF " + jnz.getVariable() + " != 0 GOTO " + jnz.getTarget();
-        } else if (instruction instanceof com.semulator.engine.model.ZeroVariableInstruction) {
-            return instruction.getVariable() + " <- 0";
-        } else if (instruction instanceof com.semulator.engine.model.AssignVariableInstruction) {
-            com.semulator.engine.model.AssignVariableInstruction assign = (com.semulator.engine.model.AssignVariableInstruction) instruction;
-            return instruction.getVariable() + " <- " + assign.getSource();
-        } else if (instruction instanceof com.semulator.engine.model.AssignConstantInstruction) {
-            com.semulator.engine.model.AssignConstantInstruction assign = (com.semulator.engine.model.AssignConstantInstruction) instruction;
-            return instruction.getVariable() + " <- " + assign.getConstant();
-        } else if (instruction instanceof com.semulator.engine.model.GotoLabelInstruction) {
-            com.semulator.engine.model.GotoLabelInstruction goto_ = (com.semulator.engine.model.GotoLabelInstruction) instruction;
-            return "GOTO " + goto_.getTarget();
-        } else if (instruction instanceof com.semulator.engine.model.JumpZeroInstruction) {
-            com.semulator.engine.model.JumpZeroInstruction jz = (com.semulator.engine.model.JumpZeroInstruction) instruction;
-            return "IF " + jz.getVariable() + " == 0 GOTO " + jz.getTarget();
-        } else if (instruction instanceof com.semulator.engine.model.QuoteInstruction) {
-            com.semulator.engine.model.QuoteInstruction quote = (com.semulator.engine.model.QuoteInstruction) instruction;
-            return instruction.getVariable() + " <- (" + quote.getFunctionName() + ", ...)";
-        }
-        return instruction.getName();
-    }
-
-    private String getArchitectureForInstructionClient(SInstruction instruction) {
-        if (instruction instanceof com.semulator.engine.model.IncreaseInstruction ||
-                instruction instanceof com.semulator.engine.model.DecreaseInstruction ||
-                instruction instanceof com.semulator.engine.model.NoOpInstruction ||
-                instruction instanceof com.semulator.engine.model.JumpNotZeroInstruction) {
-            return "I";
-        } else if (instruction instanceof com.semulator.engine.model.ZeroVariableInstruction ||
-                instruction instanceof com.semulator.engine.model.AssignVariableInstruction ||
-                instruction instanceof com.semulator.engine.model.AssignConstantInstruction ||
-                instruction instanceof com.semulator.engine.model.GotoLabelInstruction) {
-            return "II";
-        } else if (instruction instanceof com.semulator.engine.model.JumpZeroInstruction ||
-                instruction instanceof com.semulator.engine.model.JumpEqualConstantInstruction ||
-                instruction instanceof com.semulator.engine.model.JumpEqualVariableInstruction) {
-            return "III";
-        } else if (instruction instanceof com.semulator.engine.model.QuoteInstruction ||
-                instruction instanceof com.semulator.engine.model.JumpEqualFunctionInstruction) {
-            return "IV";
-        }
-        return "I";
-    }
 
     public static class VariableRow {
         private final String name;
