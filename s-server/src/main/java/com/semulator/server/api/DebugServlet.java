@@ -1,5 +1,6 @@
 package com.semulator.server.api;
 
+import com.semulator.engine.model.*;
 import com.semulator.server.model.ApiModels;
 import com.semulator.server.state.ServerState;
 import com.semulator.server.util.ServletUtils;
@@ -10,13 +11,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.UUID;
 
 /**
- * Debug endpoints
- * POST /api/debug/step
- * POST /api/debug/stepOver
- * POST /api/debug/stop
+ * Debug execution endpoints
+ * POST /api/debug/start - Start a debug session
+ * POST /api/debug/step - Execute one instruction
+ * POST /api/debug/resume - Continue execution to completion
+ * POST /api/debug/stop - Stop debug session
+ * GET /api/debug/state?sessionId=xxx - Get current debug state
  */
 @WebServlet(name = "DebugServlet", urlPatterns = { "/api/debug/*" })
 public class DebugServlet extends HttpServlet {
@@ -27,153 +30,305 @@ public class DebugServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         String pathInfo = req.getPathInfo();
 
-        if (pathInfo != null && pathInfo.equals("/step")) {
-            handleStep(req, resp);
-        } else if (pathInfo != null && pathInfo.equals("/stepOver")) {
-            handleStepOver(req, resp);
-        } else if (pathInfo != null && pathInfo.equals("/stop")) {
-            handleStop(req, resp);
+        if (pathInfo == null) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Endpoint not found");
+            return;
+        }
+
+        switch (pathInfo) {
+            case "/start":
+                handleStart(req, resp);
+                break;
+            case "/step":
+                handleStepNew(req, resp);
+                break;
+            case "/resume":
+                handleResume(req, resp);
+                break;
+            case "/stop":
+                handleStopNew(req, resp);
+                break;
+            default:
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Endpoint not found");
+                break;
+        }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String pathInfo = req.getPathInfo();
+
+        if (pathInfo != null && pathInfo.equals("/state")) {
+            handleGetState(req, resp);
         } else {
             ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Endpoint not found");
         }
     }
 
-    private void handleStep(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    private void handleStart(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
-            ApiModels.DebugRequest request = ServletUtils.parseJson(req, ApiModels.DebugRequest.class);
+            ApiModels.DebugStartRequest request = ServletUtils.parseJson(req, ApiModels.DebugStartRequest.class);
 
-            if (request.runId == null || request.runId.trim().isEmpty()) {
+            // Validate request
+            if (request.programName == null || request.programName.trim().isEmpty()) {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
-                        "runId is required");
+                        "programName is required");
                 return;
             }
 
-            ServerState.RunSession session = serverState.getRunSession(request.runId);
+            if (request.inputs == null) {
+                request.inputs = java.util.Collections.emptyList();
+            }
+
+            // Get username from session/token (for now, use "admin" as default)
+            String username = "admin";
+
+            // Create debug session
+            String sessionId = "debug_" + UUID.randomUUID().toString();
+            ServerState.DebugSession session = serverState.createDebugSession(
+                    sessionId, username, request.programName, request.degree, request.inputs);
+
             if (session == null) {
-                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Run not found");
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
+                        "Program not found: " + request.programName);
                 return;
             }
 
-            if (!"RUNNING".equals(session.state)) {
-                ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
-                        "Run is not in RUNNING state");
-                return;
-            }
+            // Set initial state to PAUSED (waiting for first step)
+            session.state = "PAUSED";
 
-            // Simulate step execution
-            session.cycles++;
-            session.pointer++;
-
-            // Check if execution is complete
-            if (session.pointer >= 100) { // Simplified completion check
-                session.state = "FINISHED";
-                session.outputY = (long) (Math.random() * 1000);
-
-                // Add to history
-                serverState.addHistoryEntry(
-                        session.username,
-                        session.runId,
-                        session.target.getName(),
-                        session.outputY,
-                        session.cycles);
-            }
-
-            ApiModels.DebugResponse response = new ApiModels.DebugResponse(
-                    session.state,
-                    session.cycles,
-                    session.pointer,
-                    session.outputY,
-                    session.error);
+            // Create response with initial state
+            ApiModels.DebugStateResponse stateResponse = createStateResponse(session);
+            ApiModels.DebugStartResponse response = new ApiModels.DebugStartResponse(
+                    true, "Debug session started", sessionId, stateResponse);
 
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
+            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
-                    "Step failed: " + e.getMessage());
+                    "Failed to start debug session: " + e.getMessage());
         }
     }
 
-    private void handleStepOver(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    private void handleStepNew(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
-            ApiModels.DebugRequest request = ServletUtils.parseJson(req, ApiModels.DebugRequest.class);
+            ApiModels.DebugStepRequest request = ServletUtils.parseJson(req, ApiModels.DebugStepRequest.class);
 
-            if (request.runId == null || request.runId.trim().isEmpty()) {
+            if (request.sessionId == null || request.sessionId.trim().isEmpty()) {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
-                        "runId is required");
+                        "sessionId is required");
                 return;
             }
 
-            ServerState.RunSession session = serverState.getRunSession(request.runId);
+            ServerState.DebugSession session = serverState.getDebugSession(request.sessionId);
             if (session == null) {
-                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Run not found");
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
+                        "Debug session not found");
                 return;
             }
 
-            if (!"RUNNING".equals(session.state)) {
+            if ("FINISHED".equals(session.state) || "ERROR".equals(session.state)) {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
-                        "Run is not in RUNNING state");
+                        "Debug session is already finished or in error state");
                 return;
             }
 
-            // Simulate step over execution (execute multiple steps)
-            int stepsToExecute = 5; // Simplified: step over executes 5 instructions
-            session.cycles += stepsToExecute;
-            session.pointer += stepsToExecute;
+            // Execute one instruction
+            boolean finished = executeSingleStep(session);
 
-            // Check if execution is complete
-            if (session.pointer >= 100) {
+            if (finished) {
                 session.state = "FINISHED";
-                session.outputY = (long) (Math.random() * 1000);
-
-                // Add to history
-                serverState.addHistoryEntry(
-                        session.username,
-                        session.runId,
-                        session.target.getName(),
-                        session.outputY,
-                        session.cycles);
+            } else {
+                session.state = "PAUSED";
             }
 
-            ApiModels.DebugResponse response = new ApiModels.DebugResponse(
-                    session.state,
-                    session.cycles,
-                    session.pointer,
-                    session.outputY,
-                    session.error);
+            // Create response with updated state
+            ApiModels.DebugStateResponse stateResponse = createStateResponse(session);
+            ApiModels.DebugStepResponse response = new ApiModels.DebugStepResponse(
+                    true, "Step executed", stateResponse);
 
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
+            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
-                    "Step over failed: " + e.getMessage());
+                    "Step execution failed: " + e.getMessage());
         }
     }
 
-    private void handleStop(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    private void handleResume(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
-            ApiModels.DebugRequest request = ServletUtils.parseJson(req, ApiModels.DebugRequest.class);
+            ApiModels.DebugResumeRequest request = ServletUtils.parseJson(req, ApiModels.DebugResumeRequest.class);
 
-            if (request.runId == null || request.runId.trim().isEmpty()) {
+            if (request.sessionId == null || request.sessionId.trim().isEmpty()) {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
-                        "runId is required");
+                        "sessionId is required");
                 return;
             }
 
-            ServerState.RunSession session = serverState.getRunSession(request.runId);
+            ServerState.DebugSession session = serverState.getDebugSession(request.sessionId);
             if (session == null) {
-                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "Run not found");
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
+                        "Debug session not found");
                 return;
             }
 
-            // Stop the execution
-            session.state = "STOPPED";
-            session.error = "Stopped by user";
+            if ("FINISHED".equals(session.state) || "ERROR".equals(session.state)) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                        "Debug session is already finished or in error state");
+                return;
+            }
 
-            ServletUtils.writeJson(resp, Map.of("success", true, "message", "Run stopped"));
+            // Execute all remaining instructions
+            session.state = "RUNNING";
+            while (session.currentInstructionIndex < session.instructions.size()) {
+                boolean finished = executeSingleStep(session);
+                if (finished) {
+                    break;
+                }
+            }
+
+            session.state = "FINISHED";
+
+            // Create response with final state
+            ApiModels.DebugStateResponse stateResponse = createStateResponse(session);
+            ApiModels.DebugResumeResponse response = new ApiModels.DebugResumeResponse(
+                    true, "Execution completed", stateResponse);
+
+            ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
+            e.printStackTrace();
+            ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
+                    "Resume execution failed: " + e.getMessage());
+        }
+    }
+
+    private void handleStopNew(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        try {
+            ApiModels.DebugStopRequest request = ServletUtils.parseJson(req, ApiModels.DebugStopRequest.class);
+
+            if (request.sessionId == null || request.sessionId.trim().isEmpty()) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                        "sessionId is required");
+                return;
+            }
+
+            ServerState.DebugSession session = serverState.getDebugSession(request.sessionId);
+            if (session == null) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
+                        "Debug session not found");
+                return;
+            }
+
+            // Remove the debug session
+            serverState.removeDebugSession(request.sessionId);
+
+            ApiModels.DebugStopResponse response = new ApiModels.DebugStopResponse(
+                    true, "Debug session stopped");
+
+            ServletUtils.writeJson(resp, response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Stop failed: " + e.getMessage());
         }
+    }
+
+    private void handleGetState(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        try {
+            String sessionId = req.getParameter("sessionId");
+
+            if (sessionId == null || sessionId.trim().isEmpty()) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                        "sessionId is required");
+                return;
+            }
+
+            ServerState.DebugSession session = serverState.getDebugSession(sessionId);
+            if (session == null) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
+                        "Debug session not found");
+                return;
+            }
+
+            ApiModels.DebugStateResponse response = createStateResponse(session);
+            ServletUtils.writeJson(resp, response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
+                    "Get state failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Execute a single instruction and return true if execution is finished
+     */
+    private boolean executeSingleStep(ServerState.DebugSession session) {
+        if (session.currentInstructionIndex >= session.instructions.size()) {
+            return true; // Already finished
+        }
+
+        try {
+            SInstruction currentInstruction = session.instructions.get(session.currentInstructionIndex);
+
+            // Execute the instruction
+            Label nextLabel = currentInstruction.execute(session.executionContext);
+
+            // Update cycles
+            session.cycles += currentInstruction.cycles();
+
+            // Determine next instruction
+            if (nextLabel == null || nextLabel == FixedLabel.EMPTY) {
+                // Continue to next instruction
+                session.currentInstructionIndex++;
+            } else if (nextLabel == FixedLabel.EXIT) {
+                // Exit execution
+                session.currentInstructionIndex = session.instructions.size();
+                session.updateVariablesFromContext();
+                return true;
+            } else {
+                // Jump to labeled instruction
+                String labelName = nextLabel.getLabel();
+                Integer targetIndex = session.labelToIndexMap.get(labelName);
+                if (targetIndex != null) {
+                    session.currentInstructionIndex = targetIndex;
+                } else {
+                    // Label not found, continue to next
+                    session.currentInstructionIndex++;
+                }
+            }
+
+            // Update variable states
+            session.updateVariablesFromContext();
+
+            // Check if execution is complete
+            return session.currentInstructionIndex >= session.instructions.size();
+
+        } catch (Exception e) {
+            session.error = "Execution error: " + e.getMessage();
+            session.state = "ERROR";
+            return true;
+        }
+    }
+
+    /**
+     * Create a state response from a debug session
+     */
+    private ApiModels.DebugStateResponse createStateResponse(ServerState.DebugSession session) {
+        // Get output value (y variable)
+        Long outputY = session.variables.get("y");
+
+        return new ApiModels.DebugStateResponse(
+                session.state,
+                session.currentInstructionIndex,
+                session.cycles,
+                session.variables,
+                outputY,
+                session.error,
+                session.instructions.size());
     }
 }

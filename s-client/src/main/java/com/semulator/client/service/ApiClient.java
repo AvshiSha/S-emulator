@@ -166,4 +166,35 @@ public class ApiClient {
             }
         });
     }
+
+    // Debug API methods
+    public CompletableFuture<com.semulator.client.model.ApiModels.DebugStartResponse> debugStart(
+            String programName, int degree, java.util.List<Long> inputs) {
+        com.semulator.client.model.ApiModels.DebugStartRequest request = new com.semulator.client.model.ApiModels.DebugStartRequest(
+                programName, degree, inputs);
+        return post("/debug/start", request, com.semulator.client.model.ApiModels.DebugStartResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.DebugStepResponse> debugStep(String sessionId) {
+        com.semulator.client.model.ApiModels.DebugStepRequest request = new com.semulator.client.model.ApiModels.DebugStepRequest(
+                sessionId);
+        return post("/debug/step", request, com.semulator.client.model.ApiModels.DebugStepResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.DebugResumeResponse> debugResume(String sessionId) {
+        com.semulator.client.model.ApiModels.DebugResumeRequest request = new com.semulator.client.model.ApiModels.DebugResumeRequest(
+                sessionId);
+        return post("/debug/resume", request, com.semulator.client.model.ApiModels.DebugResumeResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.DebugStopResponse> debugStop(String sessionId) {
+        com.semulator.client.model.ApiModels.DebugStopRequest request = new com.semulator.client.model.ApiModels.DebugStopRequest(
+                sessionId);
+        return post("/debug/stop", request, com.semulator.client.model.ApiModels.DebugStopResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.DebugStateResponse> debugGetState(String sessionId) {
+        return get("/debug/state?sessionId=" + sessionId,
+                com.semulator.client.model.ApiModels.DebugStateResponse.class);
+    }
 }

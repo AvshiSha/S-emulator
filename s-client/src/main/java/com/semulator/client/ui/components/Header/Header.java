@@ -294,7 +294,12 @@ public class Header {
 
           // Set the program in the debugger execution component
           if (debuggerExecution != null) {
-            debuggerExecution.setProgram(sProgram);
+            debuggerExecution.setProgramName(sProgram.getName(), 0);
+            // Extract and set input variables
+            Set<String> inputVars = extractInputVariablesFromProgram(sProgram);
+            if (!inputVars.isEmpty()) {
+              debuggerExecution.setInputVariables(new ArrayList<>(inputVars));
+            }
           }
 
           // Populate the label/variable combo box
@@ -428,7 +433,7 @@ public class Header {
                 historyStats.setProgram(program);
               }
               if (debuggerExecution != null) {
-                debuggerExecution.setProgram(program);
+                debuggerExecution.setProgramName(program.getName(), 0);
               }
 
             } catch (Exception e) {
@@ -734,7 +739,7 @@ public class Header {
 
       // Ensure the debugger execution component gets the current program
       if (debuggerExecution != null) {
-        debuggerExecution.setProgram(program);
+        debuggerExecution.setProgramName(program.getName(), currentDegree);
       }
 
       // Populate level selector with options from 0 to maxDegree
@@ -888,15 +893,9 @@ public class Header {
         // Handle program/function selector - preserve current selection during
         // expansion
         // Update the debugger execution component with the appropriate program
-
         if (debuggerExecution != null) {
-          if (degree == 0) {
-            // For degree 0, use the original active program
-            debuggerExecution.setProgram(activeProgram);
-          } else {
-            // For higher degrees, use the expanded program
-            debuggerExecution.setProgram(expandedProgram);
-          }
+          String programName = activeProgram.getName();
+          debuggerExecution.setProgramName(programName, degree);
         }
 
         // Update the label/variable combo box with the current program
@@ -1588,6 +1587,29 @@ public class Header {
         instructionTable.clearHighlighting();
       }
     }
+  }
+
+  // Helper method to extract input variables from a program
+  private Set<String> extractInputVariablesFromProgram(SProgram program) {
+    Set<String> inputVars = new java.util.TreeSet<>();
+    if (program == null || program.getInstructions() == null) {
+      return inputVars;
+    }
+
+    for (SInstruction instruction : program.getInstructions()) {
+      if (instruction.getVariable() != null) {
+        String varName = instruction.getVariable().toString();
+        if (varName.startsWith("x") && varName.length() > 1) {
+          try {
+            Integer.parseInt(varName.substring(1));
+            inputVars.add(varName);
+          } catch (NumberFormatException e) {
+            // Not a valid input variable
+          }
+        }
+      }
+    }
+    return inputVars;
   }
 
   // Helper method to convert user-friendly function name back to internal

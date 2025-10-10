@@ -9,52 +9,21 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.application.Platform;
-import javafx.concurrent.Task;
-import javafx.concurrent.Service;
 import javafx.beans.property.SimpleStringProperty;
 
-import com.semulator.engine.model.SProgram;
-import com.semulator.engine.parse.SProgramImpl;
-import com.semulator.engine.exec.ProgramExecutor;
-import com.semulator.engine.exec.ProgramExecutorImpl;
-import com.semulator.engine.exec.ExecutionContext;
-import com.semulator.engine.model.Variable;
-import com.semulator.engine.model.VariableImpl;
-import com.semulator.engine.model.VariableType;
-import com.semulator.engine.model.SInstruction;
-import com.semulator.engine.model.AssignVariableInstruction;
-import com.semulator.engine.model.DecreaseInstruction;
-import com.semulator.engine.model.IncreaseInstruction;
-import com.semulator.engine.model.ZeroVariableInstruction;
-import com.semulator.engine.model.JumpEqualVariableInstruction;
-import com.semulator.engine.model.JumpNotZeroInstruction;
-import com.semulator.engine.model.JumpZeroInstruction;
-import com.semulator.engine.model.QuoteInstruction;
-import com.semulator.engine.model.JumpEqualFunctionInstruction;
-import com.semulator.engine.model.FunctionArgument;
-import com.semulator.engine.model.FunctionCall;
-// Use fully qualified names to avoid conflict with javafx.scene.control.Label
-// import com.semulator.engine.model.Label;
-import com.semulator.engine.model.FixedLabel;
-
-// TODO: Add RunResult and Animations when available
-
-// import ui.RunResult;
-// import ui.animations.Animations;
-// TODO: Add animations when available
-// import ui.animations.RowPulseAnimation;
-// import ui.animations.VariableBlipAnimation;
-// import ui.animations.DataFlowTraceAnimation;
+import com.semulator.client.service.ApiClient;
+import com.semulator.client.model.ApiModels;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
+/**
+ * Debug Execution Panel - Uses server-side debug API for step-by-step execution
+ */
 public class DebuggerExecution {
 
     // FXML Components - Execution Commands
@@ -68,8 +37,6 @@ public class DebuggerExecution {
     private Button resumeButton;
     @FXML
     private Button stepOverButton;
-    @FXML
-    private Button stepBackwardButton;
 
     // FXML Components - Variables Panel
     @FXML
@@ -95,127 +62,38 @@ public class DebuggerExecution {
     private ObservableList<VariableRow> variablesData = FXCollections.observableArrayList();
 
     // Execution State
-    private SProgram currentProgram;
-    private ProgramExecutor executor;
-    private ExecutionContext executionContext;
+    private String currentProgramName;
+    private int currentDegree = 0;
+    private String debugSessionId = null;
 
-    // History callback
-    private java.util.function.Consumer<RunResult> historyCallback;
+    // API Client
+    private ApiClient apiClient;
 
-    // Reference to Header component for controlling expansion buttons
-    private com.semulator.client.ui.components.Header.Header headerController;
+    // State flags
     private AtomicBoolean isExecuting = new AtomicBoolean(false);
     private AtomicBoolean isDebugMode = new AtomicBoolean(false);
     private AtomicBoolean isPaused = new AtomicBoolean(false);
     private AtomicInteger currentCycles = new AtomicInteger(0);
-    private AtomicInteger maxCycles = new AtomicInteger(1000); // Default max cycles
-
-    // Execution Service
-    private ExecutionService executionService;
 
     // Input Variables Map
     private Map<String, Integer> inputVariables = new HashMap<>();
     private int nextInputNumber = 1;
 
-    // Debugger-specific fields
-    private int currentInstructionIndex = 0;
-    private List<SInstruction> currentInstructions = new java.util.ArrayList<>();
-    private Map<Variable, Long> previousVariableState = new HashMap<>();
-    private Map<Variable, Long> currentVariableState = new HashMap<>();
-    private boolean isStepExecution = false;
+    // Previous variable state for change tracking
+    private Map<String, Long> previousVariableState = new HashMap<>();
 
-    // Track if data flow animation has been shown for this execution session
-    private boolean dataFlowAnimationShown = false;
-
-    // Step-by-step execution context
-    private ExecutionContext stepExecutionContext = null;
-    private Map<String, Integer> labelToIndexMap = new HashMap<>();
-
-    // Step back history - stores previous execution states
-    private java.util.Deque<ExecutionState> executionHistory = new java.util.ArrayDeque<>();
-    private static final int MAX_HISTORY_SIZE = 50; // Limit history to prevent memory issues
-
-    // Execution state for step back functionality
-    private static class ExecutionState {
-        private final int instructionIndex;
-        private final Map<Variable, Long> variableState;
-        private final int cycles;
-        private final StepExecutionContext executionContext;
-
-        public ExecutionState(int instructionIndex, Map<Variable, Long> variableState,
-                int cycles, StepExecutionContext executionContext) {
-            this.instructionIndex = instructionIndex;
-            this.variableState = new HashMap<>(variableState);
-            this.cycles = cycles;
-            this.executionContext = copyExecutionContext(executionContext);
-        }
-
-        public int getInstructionIndex() {
-            return instructionIndex;
-        }
-
-        public Map<Variable, Long> getVariableState() {
-            return new HashMap<>(variableState);
-        }
-
-        public int getCycles() {
-            return cycles;
-        }
-
-        public StepExecutionContext getExecutionContext() {
-            return executionContext;
-        }
-
-        // Deep copy the execution context to avoid reference issues
-        private StepExecutionContext copyExecutionContext(StepExecutionContext original) {
-            if (original == null)
-                return null;
-            StepExecutionContext copy = new StepExecutionContext(original.inputs);
-            copy.variables.putAll(original.variables);
-            return copy;
-        }
-    }
-
-    // Simple execution context implementation for step-by-step execution
-    private static class StepExecutionContext implements ExecutionContext {
-        final Map<Variable, Long> variables = new HashMap<>();
-        private final Long[] inputs;
-
-        public StepExecutionContext(Long[] inputs) {
-            this.inputs = inputs;
-            // Initialize input variables
-            for (int i = 0; i < inputs.length; i++) {
-                Variable inputVar = new VariableImpl(
-                        VariableType.INPUT, i + 1);
-                variables.put(inputVar, inputs[i]);
-            }
-        }
-
-        @Override
-        public long getVariableValue(Variable v) {
-            return variables.getOrDefault(v, 0L);
-        }
-
-        @Override
-        public void updateVariable(Variable v, long value) {
-            variables.put(v, value);
-        }
-
-        public Map<Variable, Long> variableState() {
-            return new HashMap<>(variables);
-        }
-    }
+    // Callback for instruction table highlighting
+    private java.util.function.Consumer<Integer> instructionTableCallback;
 
     @FXML
     private void initialize() {
         // This method is called by FXML automatically
-        // The actual initialization is done in initializeWithHttp()
+        // The actual initialization is done in initializeWithApiClient()
     }
 
-    public void initializeWithHttp() {
-        // No HTTP needed - works exactly like Exercise-2
+    public void initializeWithApiClient(ApiClient apiClient) {
+        this.apiClient = apiClient;
         setupDebuggerComponents();
-        // DebuggerExecution initialized
     }
 
     private void setupDebuggerComponents() {
@@ -227,8 +105,6 @@ public class DebuggerExecution {
         // Set up row highlighting for changed variables
         setupVariableRowHighlighting();
 
-        // Input fields container will be populated dynamically
-
         // Set up table columns to be resizable
         variableNameColumn.setResizable(true);
         variableValueColumn.setResizable(true);
@@ -236,9 +112,6 @@ public class DebuggerExecution {
         // Disable sorting
         variableNameColumn.setSortable(false);
         variableValueColumn.setSortable(false);
-
-        // Initialize execution service
-        executionService = new ExecutionService();
 
         // Set initial button states
         updateButtonStates();
@@ -250,154 +123,181 @@ public class DebuggerExecution {
     // Execution Command Handlers
     @FXML
     private void startRegularExecution(ActionEvent event) {
-        if (currentProgram == null) {
+        if (currentProgramName == null) {
             showAlert("No Program", "Please load a program first.");
             return;
         }
 
-        isDebugMode.set(false);
-        isPaused.set(false);
-        isExecuting.set(true);
-        currentCycles.set(0);
-
-        updateButtonStates();
-        updateExecutionStatus("Starting Regular Execution...");
-
-        // Start execution in background
-        executionService.restart();
+        // Regular execution not implemented yet - would use RunServlet
+        showAlert("Not Implemented", "Regular execution via API is not yet implemented. Use Debug mode.");
     }
 
     @FXML
     private void startDebugExecution(ActionEvent event) {
-
-        if (currentProgram == null) {
+        if (currentProgramName == null) {
             showAlert("No Program", "Please load a program first.");
             return;
         }
 
         isDebugMode.set(true);
-        isPaused.set(true); // Start paused in debug mode
+        isPaused.set(true);
         isExecuting.set(true);
         currentCycles.set(0);
-        currentInstructionIndex = 0;
-        isStepExecution = true;
-
-        // Initialize debugger state
-        dataFlowAnimationShown = false; // Reset animation flag for new session
-        initializeDebuggerState();
 
         updateButtonStates();
-        updateExecutionStatus("Debug Mode Started - Use Step Over to execute instructions");
-        updateVariablesDisplay();
+        updateExecutionStatus("Starting Debug Session...");
 
-        // Highlight the first instruction immediately when debug mode starts
-        if (instructionTableCallback != null && !currentInstructions.isEmpty()) {
+        // Get inputs in proper order
+        List<Long> inputs = getOrderedInputs();
 
-            instructionTableCallback.accept(0); // Highlight instruction at index 0
-        }
+        // Start debug session via API
+        apiClient.debugStart(currentProgramName, currentDegree, inputs)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        if (response.success()) {
+                            debugSessionId = response.sessionId();
+                            updateExecutionStatus("Debug Mode Started - Use Step Over to execute instructions");
+                            updateFromDebugState(response.state());
 
-        // Disable expansion controls during debug execution
-        if (headerController != null) {
-            headerController.setExpansionControlsEnabled(false);
-        }
-
+                            // Highlight the first instruction
+                            if (instructionTableCallback != null) {
+                                instructionTableCallback.accept(response.state().currentInstructionIndex());
+                            }
+                        } else {
+                            showAlert("Debug Start Failed", response.message());
+                            stopExecution(null);
+                        }
+                    });
+                })
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        showAlert("Debug Start Error", "Failed to start debug session: " + ex.getMessage());
+                        stopExecution(null);
+                    });
+                    return null;
+                });
     }
 
     @FXML
     private void stopExecution(ActionEvent event) {
+        if (debugSessionId != null) {
+            // Stop debug session on server
+            apiClient.debugStop(debugSessionId)
+                    .thenAccept(response -> {
+                        Platform.runLater(() -> {
+                            cleanupExecution();
+                        });
+                    })
+                    .exceptionally(ex -> {
+                        Platform.runLater(() -> {
+                            cleanupExecution();
+                        });
+                        return null;
+                    });
+        } else {
+            cleanupExecution();
+        }
+    }
+
+    private void cleanupExecution() {
         isExecuting.set(false);
         isPaused.set(false);
         isDebugMode.set(false);
-        isStepExecution = false;
-
-        // Clear execution history when stopping
-        executionHistory.clear();
-
-        // Clean up any lingering animations
-        // TODO: Re-enable when animations are available
-        // ui.animations.DataFlowTraceAnimation.cleanupAllAnimations();
-
-        if (executionService != null && executionService.isRunning()) {
-            executionService.cancel();
-        }
+        debugSessionId = null;
 
         updateButtonStates();
         updateExecutionStatus("Execution Stopped");
-
-        // Re-enable expansion controls when debug execution stops
-        if (headerController != null) {
-            headerController.setExpansionControlsEnabled(true);
-        }
     }
 
     @FXML
     private void resumeExecution(ActionEvent event) {
-        if (isPaused.get()) {
-            isPaused.set(false);
-            isStepExecution = false; // Exit step-by-step mode
-            updateButtonStates();
-            updateExecutionStatus("Resuming Normal Execution...");
-
-            // Re-enable expansion controls when resuming normal execution
-            if (headerController != null) {
-                headerController.setExpansionControlsEnabled(true);
-            }
-
-            // Continue with normal execution
-            if (executionService != null && !executionService.isRunning()) {
-                executionService.restart();
-            }
+        if (debugSessionId == null) {
+            return;
         }
+
+        isPaused.set(false);
+        updateButtonStates();
+        updateExecutionStatus("Resuming Execution...");
+
+        // Resume execution on server
+        apiClient.debugResume(debugSessionId)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        if (response.success()) {
+                            updateFromDebugState(response.state());
+                            updateExecutionStatus("Execution Completed");
+                            isExecuting.set(false);
+                            isPaused.set(false);
+                            isDebugMode.set(false);
+                            updateButtonStates();
+                        } else {
+                            showAlert("Resume Failed", response.message());
+                        }
+                    });
+                })
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        showAlert("Resume Error", "Failed to resume execution: " + ex.getMessage());
+                    });
+                    return null;
+                });
     }
 
     @FXML
     private void stepOver(ActionEvent event) {
-        if (isDebugMode.get() && isPaused.get() && isStepExecution) {
-            executeSingleStep();
-        } else {
+        if (debugSessionId == null || !isDebugMode.get() || !isPaused.get()) {
+            return;
         }
+
+        updateExecutionStatus("Executing step...");
+
+        // Execute one step on server
+        apiClient.debugStep(debugSessionId)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        if (response.success()) {
+                            updateFromDebugState(response.state());
+
+                            // Check if finished
+                            if ("FINISHED".equals(response.state().state())) {
+                                updateExecutionStatus("Program execution completed");
+                                isExecuting.set(false);
+                                isPaused.set(false);
+                                isDebugMode.set(false);
+                                updateButtonStates();
+                            } else {
+                                updateExecutionStatus("Step executed - Instruction " +
+                                        response.state().currentInstructionIndex() + " of " +
+                                        response.state().totalInstructions());
+                            }
+
+                            // Highlight current instruction
+                            if (instructionTableCallback != null) {
+                                instructionTableCallback.accept(response.state().currentInstructionIndex());
+                            }
+                        } else {
+                            showAlert("Step Failed", response.message());
+                        }
+                    });
+                })
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        showAlert("Step Error", "Failed to execute step: " + ex.getMessage());
+                    });
+                    return null;
+                });
     }
 
-    @FXML
-    private void stepBackward(ActionEvent event) {
-        if (isDebugMode.get() && isPaused.get() && isStepExecution) {
-            if (executionHistory.isEmpty()) {
-                showAlert("Cannot Step Back",
-                        "No previous execution state available. Cannot step back from the initial state.");
-                return;
-            }
+    /**
+     * Update UI from debug state response
+     */
+    private void updateFromDebugState(ApiModels.DebugStateResponse state) {
+        // Update cycles
+        currentCycles.set(state.cycles());
+        updateCyclesDisplay();
 
-            // Restore the previous execution state
-            ExecutionState previousState = executionHistory.pop();
-
-            // Restore instruction index
-            currentInstructionIndex = previousState.getInstructionIndex();
-
-            // Restore variable states
-            currentVariableState.clear();
-            currentVariableState.putAll(previousState.getVariableState());
-
-            // Restore cycles
-            currentCycles.set(previousState.getCycles());
-
-            // Restore execution context
-            stepExecutionContext = previousState.getExecutionContext();
-
-            // Update displays
-            updateCyclesDisplay();
-            updateVariablesDisplay();
-
-            // Notify instruction table to highlight current instruction
-            if (instructionTableCallback != null) {
-                instructionTableCallback.accept(currentInstructionIndex);
-            }
-
-            updateExecutionStatus(
-                    "Stepped back to instruction " + currentInstructionIndex + " of " + currentInstructions.size());
-
-        } else {
-            showAlert("Step Back Not Available", "Step back is only available in debug mode when paused.");
-        }
+        // Update variables display
+        updateVariablesDisplay(state.variables());
     }
 
     /**
@@ -440,7 +340,6 @@ public class DebuggerExecution {
     /**
      * Add a new input variable manually
      */
-
     @FXML
     private void addInputVariable(ActionEvent event) {
         // Find the next available input number
@@ -464,18 +363,44 @@ public class DebuggerExecution {
     }
 
     // Public Methods for Integration
-    public void setProgram(SProgram program) {
-        this.currentProgram = program;
-        if (program != null) {
-            // Initialize executor with the program
-            this.executor = new ProgramExecutorImpl(program);
-            this.executionContext = null; // Will be created when execution starts
+    public void setProgramName(String programName, int degree) {
+        this.currentProgramName = programName;
+        this.currentDegree = degree;
 
-            // Extract required inputs and create dynamic input fields
-            extractAndDisplayRequiredInputs(program);
-
-            updateExecutionStatus("Program Loaded: " + program.getName());
+        if (programName != null) {
+            updateExecutionStatus("Program Loaded: " + programName + " (degree " + degree + ")");
         }
+    }
+
+    public void setInputVariables(List<String> inputVarNames) {
+        Platform.runLater(() -> {
+            // Clear existing input fields
+            inputFieldsContainer.getChildren().clear();
+            inputVariables.clear();
+
+            if (inputVarNames != null && !inputVarNames.isEmpty()) {
+                for (String varName : inputVarNames) {
+                    inputVariables.put(varName, 0);
+                    createInputField(varName, "0");
+                }
+
+                // Set next input number
+                int maxNum = 0;
+                for (String varName : inputVarNames) {
+                    if (varName.startsWith("x")) {
+                        try {
+                            int num = Integer.parseInt(varName.substring(1));
+                            maxNum = Math.max(maxNum, num);
+                        } catch (NumberFormatException e) {
+                            // Ignore
+                        }
+                    }
+                }
+                nextInputNumber = maxNum + 1;
+            } else {
+                nextInputNumber = 1;
+            }
+        });
     }
 
     public void clearExecution() {
@@ -510,17 +435,10 @@ public class DebuggerExecution {
     }
 
     /**
-     * Set the history callback to record runs
-     */
-    public void setHistoryCallback(java.util.function.Consumer<RunResult> callback) {
-        this.historyCallback = callback;
-    }
-
-    /**
      * Get inputs in proper order (x1, x2, x3, etc.) with zeros for missing inputs
      */
     private List<Long> getOrderedInputs() {
-        List<Long> orderedInputs = new java.util.ArrayList<>();
+        List<Long> orderedInputs = new ArrayList<>();
 
         // Find the maximum input number
         int maxInputNumber = 0;
@@ -545,615 +463,8 @@ public class DebuggerExecution {
         return orderedInputs;
     }
 
-    /**
-     * Extract required inputs from the program and create dynamic input fields
-     */
-    private void extractAndDisplayRequiredInputs(SProgram program) {
-        Platform.runLater(() -> {
-            try {
-                // Clear existing input fields
-                inputFieldsContainer.getChildren().clear();
-                inputVariables.clear();
-
-                // Get the program instructions
-                List<SInstruction> instructions = program.getInstructions();
-                if (instructions == null || instructions.isEmpty()) {
-                    updateExecutionStatus("No instructions found in program");
-                    return;
-                }
-
-                // Extract all input variables (x1, x2, x3, etc.) from instructions
-                java.util.Set<Integer> inputNumbers = new java.util.TreeSet<>();
-
-                for (SInstruction instruction : instructions) {
-                    // Check all instruction types that might use input variables
-                    String varName = null;
-
-                    if (instruction instanceof AssignVariableInstruction assignVar) {
-                        varName = assignVar.getVariable().toString();
-
-                        // Also check the source variable in arguments
-                        String sourceVar = assignVar.getSource().toString();
-                        if (sourceVar.startsWith("x") && sourceVar.length() > 1) {
-                            try {
-                                int inputNumber = Integer.parseInt(sourceVar.substring(1));
-                                inputNumbers.add(inputNumber);
-                            } catch (NumberFormatException e) {
-                                // Invalid input variable format
-                            }
-                        }
-                    } else if (instruction instanceof DecreaseInstruction decrease) {
-                        varName = decrease.getVariable().toString();
-                    } else if (instruction instanceof IncreaseInstruction increase) {
-                        varName = increase.getVariable().toString();
-                    } else if (instruction instanceof ZeroVariableInstruction zero) {
-                        varName = zero.getVariable().toString();
-                    } else if (instruction instanceof JumpEqualVariableInstruction jumpVar) {
-                        varName = jumpVar.getVariable().toString();
-                    } else if (instruction instanceof JumpNotZeroInstruction jumpNotZero) {
-                        varName = jumpNotZero.getVariable().toString();
-                    } else if (instruction instanceof JumpZeroInstruction jumpZero) {
-                        varName = jumpZero.getVariable().toString();
-                    } else if (instruction instanceof QuoteInstruction quote) {
-                        varName = quote.getVariable().toString();
-                        // Extract input variables from function arguments
-                        extractInputVariablesFromFunctionArguments(quote.getFunctionArguments(), inputNumbers);
-                    } else if (instruction instanceof JumpEqualFunctionInstruction jumpEqualFunc) {
-                        varName = jumpEqualFunc.getVariable().toString();
-                        // Extract input variables from function arguments
-                        extractInputVariablesFromFunctionArguments(jumpEqualFunc.getFunctionArguments(), inputNumbers);
-                    }
-
-                    // Check if it's a valid input variable (x1, x2, x3, etc.)
-                    if (varName != null && varName.startsWith("x") && varName.length() > 1) {
-                        try {
-                            int inputNumber = Integer.parseInt(varName.substring(1));
-                            inputNumbers.add(inputNumber);
-                        } catch (NumberFormatException e) {
-                            // Invalid input variable format
-                        }
-                    }
-                }
-
-                // Create input fields ONLY for the input variables that actually exist in the
-                // program
-                if (!inputNumbers.isEmpty()) {
-                    // Sort the input numbers to display them in order
-                    List<Integer> sortedInputNumbers = new ArrayList<>(inputNumbers);
-                    Collections.sort(sortedInputNumbers);
-
-                    for (Integer inputNumber : sortedInputNumbers) {
-                        String inputVar = "x" + inputNumber;
-                        // Initialize with default value 0
-                        inputVariables.put(inputVar, 0);
-                        createInputField(inputVar, "0");
-                    }
-
-                    // Set next input number to continue from the maximum found + 1
-                    int maxInputNumber = sortedInputNumbers.get(sortedInputNumbers.size() - 1);
-                    nextInputNumber = maxInputNumber + 1;
-
-                    updateExecutionStatus("Found input variables: " +
-                            sortedInputNumbers.stream()
-                                    .map(n -> "x" + n)
-                                    .collect(Collectors.joining(", "))
-                            +
-                            " (total: " + sortedInputNumbers.size() + " inputs)");
-                } else {
-                    // No input variables found, start from x1
-                    nextInputNumber = 1;
-                    updateExecutionStatus("No input variables found in program");
-                }
-
-            } catch (Exception e) {
-                updateExecutionStatus("Error extracting inputs: " + e.getMessage());
-                System.err.println("Error extracting required inputs: " + e.getMessage());
-            }
-        });
-    }
-
-    /**
-     * Recursively extract input variables from function arguments
-     */
-    private void extractInputVariablesFromFunctionArguments(
-            List<FunctionArgument> functionArguments, java.util.Set<Integer> inputNumbers) {
-        for (FunctionArgument arg : functionArguments) {
-            if (arg.isFunctionCall()) {
-                // For nested function calls, recursively extract input variables
-                FunctionCall call = arg.asFunctionCall();
-                extractInputVariablesFromFunctionArguments(call.getArguments(), inputNumbers);
-            } else {
-                // For simple variable arguments, check if it's an input variable
-                Variable var = arg.asVariable();
-                String varName = var.toString();
-                if (varName.startsWith("x") && varName.length() > 1) {
-                    try {
-                        int inputNumber = Integer.parseInt(varName.substring(1));
-                        inputNumbers.add(inputNumber);
-                    } catch (NumberFormatException e) {
-                        // Invalid input variable format
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Record the current run in history
-     */
-    private void recordRunInHistory() {
-        if (historyCallback != null && currentProgram != null) {
-            try {
-                // Get the current degree (we'll use 0 for now, but this could be dynamic)
-                int currentDegree = 0;
-
-                // Get the inputs in proper order (x1, x2, x3, etc.)
-                List<Long> inputs = getOrderedInputs();
-
-                // Get the final y value (we'll simulate this for now)
-                long yValue = 0;
-                if (executor != null) {
-                    Map<Variable, Long> variableState = executor.variableState();
-                    // Find the y variable
-                    for (Map.Entry<Variable, Long> entry : variableState.entrySet()) {
-                        if (entry.getKey().toString().equals("y")) {
-                            yValue = entry.getValue();
-                            break;
-                        }
-                    }
-                }
-
-                // Get the number of cycles
-                int cycles = currentCycles.get();
-
-                // Create the run result
-                RunResult runResult = new RunResult(0, currentDegree, inputs, yValue, cycles);
-
-                // Call the history callback
-                historyCallback.accept(runResult);
-
-            } catch (Exception e) {
-                System.err.println("Error recording run in history: " + e.getMessage());
-            }
-        }
-    }
-
-    // Debugger-specific methods
-    private void initializeDebuggerState() {
-
-        if (currentProgram != null && currentProgram.getInstructions() != null) {
-            currentInstructions.clear();
-            currentInstructions.addAll(currentProgram.getInstructions());
-
-            // Initialize variable states
-            previousVariableState.clear();
-            currentVariableState.clear();
-
-            // Clear execution history for new debug session
-            executionHistory.clear();
-
-            // Initialize step-by-step execution context
-            List<Long> inputs = getOrderedInputs();
-
-            stepExecutionContext = new StepExecutionContext(inputs.toArray(new Long[0]));
-
-            // Build label-to-index map for step-by-step execution
-            buildLabelMap();
-
-            // Get initial variable state
-            updateVariableStates();
-        } else {
-
-        }
-    }
-
-    private void buildLabelMap() {
-        labelToIndexMap.clear();
-        if (currentProgram != null && currentProgram.getInstructions() != null) {
-            List<SInstruction> instructions = currentProgram.getInstructions();
-
-            // First pass: collect all labels that are actually defined on instructions
-            for (int i = 0; i < instructions.size(); i++) {
-                SInstruction instruction = instructions.get(i);
-                com.semulator.engine.model.Label label = instruction.getLabel();
-
-                if (label != null && label != FixedLabel.EMPTY
-                        && label != FixedLabel.EXIT) {
-                    String labelName = label.getLabel();
-                    if (labelName != null && !labelName.isEmpty()) {
-                        labelToIndexMap.put(labelName, i);
-                    }
-                }
-            }
-        }
-    }
-
-    private void executeSingleStep() {
-
-        if (currentInstructionIndex >= currentInstructions.size()) {
-            updateExecutionStatus("Program execution completed");
-            isExecuting.set(false);
-            isPaused.set(false);
-            isDebugMode.set(false);
-            isStepExecution = false;
-            updateButtonStates();
-
-            // Re-enable expansion controls when debug execution completes
-            if (headerController != null) {
-                headerController.setExpansionControlsEnabled(true);
-            }
-
-            // Record the run in history
-            recordRunInHistory();
-            return;
-        }
-
-        try {
-            // Save current execution state to history before executing the step
-            saveCurrentExecutionState();
-
-            // Store previous variable state
-            previousVariableState.clear();
-            previousVariableState.putAll(currentVariableState);
-
-            // Execute the current instruction
-            SInstruction currentInstruction = currentInstructions.get(currentInstructionIndex);
-
-            // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially in debug mode
-            com.semulator.engine.model.Label nextLabel;
-            if (currentInstruction instanceof QuoteInstruction quoteInstruction) {
-                // Trigger data flow trace animation for QUOTE instruction (only once per
-                // session)
-                if (!dataFlowAnimationShown) {
-                    triggerDataFlowTraceAnimation(currentInstruction);
-                    dataFlowAnimationShown = true;
-                }
-                nextLabel = executeQuoteInstruction(quoteInstruction);
-            } else if (currentInstruction instanceof JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
-                // Trigger data flow trace animation for JUMP_EQUAL_FUNCTION instruction (only
-                // once per session)
-                if (!dataFlowAnimationShown) {
-                    triggerDataFlowTraceAnimation(currentInstruction);
-                    dataFlowAnimationShown = true;
-                }
-                nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction);
-            } else {
-                // Execute just this one instruction using the step execution context
-                nextLabel = currentInstruction.execute(stepExecutionContext);
-            }
-
-            // Update variable states from the execution context
-            updateVariableStatesFromContext();
-
-            // Calculate cycles properly for QUOTE and JUMP_EQUAL_FUNCTION instructions
-            int cyclesToAdd;
-            if (currentInstruction.getName().equals("QUOTE")) {
-                // For QUOTE instructions, use the proper cycle calculation: 5 + function cycles
-                cyclesToAdd = currentInstruction.cycles();
-            } else if (currentInstruction.getName().equals("JUMP_EQUAL_FUNCTION")) {
-                // For JUMP_EQUAL_FUNCTION instructions, use the proper cycle calculation
-                cyclesToAdd = currentInstruction.cycles();
-            } else {
-                // For regular instructions, use the standard cycle count
-                cyclesToAdd = currentInstruction.cycles();
-            }
-
-            currentCycles.set(currentCycles.get() + cyclesToAdd);
-
-            // Determine next instruction based on the returned label
-            if (nextLabel == FixedLabel.EMPTY) {
-                // Add cycles for this instruction
-                // Continue to next instruction in sequence
-                currentInstructionIndex++;
-            } else if (nextLabel == FixedLabel.EXIT) {
-                // Add cycles for this instruction
-                // Exit the program
-                updateExecutionStatus("Program execution completed");
-                isExecuting.set(false);
-                isPaused.set(false);
-                isDebugMode.set(false);
-                isStepExecution = false;
-                updateButtonStates();
-
-                // Re-enable expansion controls when debug execution completes
-                if (headerController != null) {
-                    headerController.setExpansionControlsEnabled(true);
-                }
-
-                // Record the run in history
-                recordRunInHistory();
-                updateCyclesDisplay();
-                return;
-            } else {
-
-                // Add cycles for this instruction
-                // Jump to the next label
-
-                String labelName = nextLabel.getLabel();
-                Integer targetIndex = labelToIndexMap.get(labelName);
-                if (targetIndex != null) {
-                    currentInstructionIndex = targetIndex;
-                } else {
-                    // If label not found, continue to next instruction
-                    currentInstructionIndex++;
-                }
-            }
-
-            // Update displays
-            updateCyclesDisplay();
-            updateVariablesDisplay();
-
-            // Notify instruction table to highlight current instruction
-            if (instructionTableCallback != null) {
-                instructionTableCallback.accept(currentInstructionIndex);
-            }
-
-            // Trigger row pulse animation for the executed instruction
-            if (instructionTableCallback != null) {
-                // The instruction table will handle the row pulse animation
-                instructionTableCallback.accept(currentInstructionIndex);
-            } else {
-            }
-
-            updateExecutionStatus(
-                    "Executed instruction " + (currentInstructionIndex - 1) + " of " + currentInstructions.size());
-
-            // Add a small delay to ensure UI updates are visible
-            try {
-                Thread.sleep(100); // 100ms delay to make step execution visible
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
-            updateExecutionStatus("Error executing step: " + e.getMessage());
-            System.err.println("Error in step execution: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Save the current execution state to history for step back functionality
-     */
-    private void saveCurrentExecutionState() {
-        if (stepExecutionContext instanceof StepExecutionContext) {
-            ExecutionState currentState = new ExecutionState(
-                    currentInstructionIndex,
-                    currentVariableState,
-                    currentCycles.get(),
-                    (StepExecutionContext) stepExecutionContext);
-
-            // Add to history and maintain size limit
-            executionHistory.push(currentState);
-            if (executionHistory.size() > MAX_HISTORY_SIZE) {
-                executionHistory.removeLast(); // Remove oldest state
-            }
-        }
-    }
-
-    private void updateVariableStates() {
-        if (executor != null) {
-            currentVariableState.clear();
-            currentVariableState.putAll(executor.variableState());
-        }
-    }
-
-    private void updateVariableStatesFromContext() {
-        if (stepExecutionContext != null && stepExecutionContext instanceof StepExecutionContext) {
-            currentVariableState.clear();
-            currentVariableState.putAll(((StepExecutionContext) stepExecutionContext).variableState());
-        }
-    }
-
-    private com.semulator.engine.model.Label executeQuoteInstruction(
-            QuoteInstruction quoteInstruction) {
-
-        try {
-            // Get the function definition from the program
-            if (!(currentProgram instanceof SProgramImpl)) {
-
-                // If we can't get the function, just assign 0 as fallback
-                stepExecutionContext.updateVariable(quoteInstruction.getVariable(), 0L);
-                return FixedLabel.EMPTY;
-            }
-
-            SProgramImpl programImpl = (SProgramImpl) currentProgram;
-            var functions = programImpl.getFunctions();
-            String functionName = quoteInstruction.getFunctionName();
-
-            if (!functions.containsKey(functionName)) {
-                // Function not found, assign 0 as fallback
-                stepExecutionContext.updateVariable(quoteInstruction.getVariable(), 0L);
-                return FixedLabel.EMPTY;
-            }
-
-            // Get the function body
-            var functionInstructions = functions.get(functionName);
-
-            // Create a new execution context for the function
-            List<Long> functionInputs = new ArrayList<>();
-            for (FunctionArgument arg : quoteInstruction.getFunctionArguments()) {
-                if (arg.isFunctionCall()) {
-                    // For function calls, we need to execute them first
-                    FunctionCall call = arg.asFunctionCall();
-                    long nestedResult = executeNestedFunctionCall(call, stepExecutionContext, functions);
-                    functionInputs.add(nestedResult);
-                } else {
-                    Variable var = arg.asVariable();
-                    if (var.getType() == VariableType.Constant) {
-                        long constantValue = (long) var.getNumber();
-                        functionInputs.add(constantValue);
-                    } else {
-                        // Get the value from the current execution context
-                        long variableValue = stepExecutionContext.getVariableValue(var);
-                        functionInputs.add(variableValue);
-                    }
-                }
-            }
-
-            StepExecutionContext functionContext = new StepExecutionContext(functionInputs.toArray(new Long[0]));
-
-            // Execute the function body
-            long functionResult = executeFunctionBody(functionInstructions, functionContext);
-
-            // Assign the result to the target variable
-            stepExecutionContext.updateVariable(quoteInstruction.getVariable(), functionResult);
-
-            return FixedLabel.EMPTY;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            // Fallback: assign 0 to the target variable
-            stepExecutionContext.updateVariable(quoteInstruction.getVariable(), 0L);
-            return FixedLabel.EMPTY;
-        }
-    }
-
-    private long executeFunctionBody(List<SInstruction> functionInstructions,
-            StepExecutionContext functionContext) {
-
-        // Execute the function body and return the result
-        // The result is stored in the 'y' variable (Variable.RESULT)
-
-        int instructionIndex = 0;
-        while (instructionIndex < functionInstructions.size()) {
-            SInstruction instruction = functionInstructions.get(instructionIndex);
-
-            com.semulator.engine.model.Label nextLabel = instruction.execute(functionContext);
-
-            // Handle jumps within the function
-            if (nextLabel == FixedLabel.EXIT) {
-                break; // Exit the function
-            } else if (nextLabel != FixedLabel.EMPTY) {
-                // Find the target instruction by label
-                int targetIndex = findInstructionByLabel(functionInstructions, nextLabel);
-                if (targetIndex != -1) {
-
-                    instructionIndex = targetIndex;
-                } else {
-
-                    instructionIndex++;
-                }
-            } else {
-                // No jump, continue to next instruction
-                instructionIndex++;
-            }
-        }
-
-        // Return the value of the 'y' variable (the function's output)
-        long result = functionContext.getVariableValue(Variable.RESULT);
-
-        // Debug: Print all variable states in the function context
-
-        for (var entry : functionContext.variableState().entrySet()) {
-
-        }
-
-        return result;
-    }
-
-    /**
-     * Find the index of an instruction with the given label
-     */
-    private int findInstructionByLabel(List<SInstruction> instructions,
-            com.semulator.engine.model.Label targetLabel) {
-        for (int i = 0; i < instructions.size(); i++) {
-            SInstruction instruction = instructions.get(i);
-            if (instruction.getLabel() != null && instruction.getLabel().equals(targetLabel)) {
-                return i;
-            }
-        }
-        return -1; // Label not found
-    }
-
-    private com.semulator.engine.model.Label executeJumpEqualFunctionInstruction(
-            JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
-        try {
-            // Execute the function and compare its result with the variable
-            long functionResult = executeFunctionForJumpEqual(jumpEqualFunctionInstruction);
-            long variableValue = stepExecutionContext.getVariableValue(jumpEqualFunctionInstruction.getVariable());
-
-            if (variableValue == functionResult) {
-                return jumpEqualFunctionInstruction.getTarget(); // Jump if equal
-            } else {
-                return FixedLabel.EMPTY; // Continue if not equal
-            }
-
-        } catch (Exception e) {
-            System.err.println("Error executing jump equal function instruction: " + e.getMessage());
-            // Fallback: don't jump
-            return FixedLabel.EMPTY;
-        }
-    }
-
-    private long executeFunctionForJumpEqual(
-            JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
-        try {
-            // Get the function definition from the program
-            if (!(currentProgram instanceof SProgramImpl)) {
-                return 0L; // Fallback
-            }
-
-            SProgramImpl programImpl = (SProgramImpl) currentProgram;
-            var functions = programImpl.getFunctions();
-            String functionName = jumpEqualFunctionInstruction.getFunctionName();
-
-            if (!functions.containsKey(functionName)) {
-                return 0L; // Fallback
-            }
-
-            // Get the function body
-            var functionInstructions = functions.get(functionName);
-
-            // Create a new execution context for the function
-            List<Long> functionInputs = new ArrayList<>();
-            for (FunctionArgument arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
-                if (arg.isFunctionCall()) {
-                    // For function calls, we need to execute them first
-                    FunctionCall call = arg.asFunctionCall();
-
-                    long nestedResult = executeNestedFunctionCall(call, stepExecutionContext, functions);
-                    functionInputs.add(nestedResult);
-
-                } else {
-                    Variable var = arg.asVariable();
-                    if (var.getType() == VariableType.Constant) {
-                        functionInputs.add((long) var.getNumber());
-                    } else {
-                        // Get the value from the current execution context
-                        functionInputs.add(stepExecutionContext.getVariableValue(var));
-                    }
-                }
-            }
-
-            StepExecutionContext functionContext = new StepExecutionContext(functionInputs.toArray(new Long[0]));
-
-            // Execute the function body and return the result
-            return executeFunctionBody(functionInstructions, functionContext);
-
-        } catch (Exception e) {
-            System.err.println("Error executing function for jump equal: " + e.getMessage());
-            return 0L; // Fallback
-        }
-    }
-
-    // Callback for instruction table highlighting
-    private java.util.function.Consumer<Integer> instructionTableCallback;
-
-    // Callback for data flow trace animation
-    private java.util.function.BiConsumer<javafx.scene.Node, javafx.scene.Node> dataFlowTraceCallback;
-
     public void setInstructionTableCallback(java.util.function.Consumer<Integer> callback) {
         this.instructionTableCallback = callback;
-    }
-
-    public void setDataFlowTraceCallback(java.util.function.BiConsumer<javafx.scene.Node, javafx.scene.Node> callback) {
-        this.dataFlowTraceCallback = callback;
-    }
-
-    public void setHeaderController(com.semulator.client.ui.components.Header.Header headerController) {
-        this.headerController = headerController;
     }
 
     private void setupVariableRowHighlighting() {
@@ -1168,10 +479,9 @@ public class DebuggerExecution {
                     } else {
                         // Highlight changed variables in debug mode
                         if (item.isChanged()) {
-                            setStyle("-fx-background-color: #FF6B6B; -fx-font-weight: bold;"); // Red highlight for
-                                                                                               // changed variables
+                            setStyle("-fx-background-color: #FF6B6B; -fx-font-weight: bold;");
                         } else {
-                            setStyle(""); // No highlighting
+                            setStyle("");
                         }
                     }
                 }
@@ -1191,7 +501,6 @@ public class DebuggerExecution {
         stopButton.setDisable(!executing);
         resumeButton.setDisable(!executing || !paused);
         stepOverButton.setDisable(!executing || !paused || !debugMode);
-        stepBackwardButton.setDisable(!executing || !paused || !debugMode);
     }
 
     private void updateExecutionStatus(String status) {
@@ -1206,221 +515,82 @@ public class DebuggerExecution {
         });
     }
 
-    private void updateVariablesDisplay() {
+    private void updateVariablesDisplay(Map<String, Long> serverVariables) {
+        // Make effectively final for use in lambda
+        final Map<String, Long> variables = (serverVariables != null) ? serverVariables : new HashMap<>();
+
         Platform.runLater(() -> {
             variablesData.clear();
-            Map<Variable, Long> variables = null;
 
-            // Use step execution context for debug mode, regular executor for normal mode
-            if (isDebugMode.get() && isStepExecution && stepExecutionContext != null
-                    && stepExecutionContext instanceof StepExecutionContext) {
-                variables = ((StepExecutionContext) stepExecutionContext).variableState();
-            } else if (executor != null) {
-                variables = executor.variableState();
-            }
+            List<VariableRow> orderedRows = new ArrayList<>();
 
-            // Ensure we always have a variables map, even if empty
-            if (variables == null) {
-                variables = new HashMap<>();
-            }
-
-            // Display variables in order: y, x1,x2,x3..., z1,z2,z3...
-            java.util.List<VariableRow> orderedRows = new java.util.ArrayList<>();
-
-            // First, always add y variable (result variable) - ensure it's always present
-            Variable resultVar = Variable.RESULT;
-            Long resultValue = variables.get(resultVar);
-            if (resultValue == null) {
-                // If y was never assigned, show it with value 0
-                resultValue = 0L;
-            }
-            boolean isChanged = isVariableChanged(resultVar, resultValue);
-            orderedRows.add(new VariableRow(resultVar.toString(), String.valueOf(resultValue), isChanged));
+            // Always show y variable first
+            Long yValue = variables.getOrDefault("y", 0L);
+            boolean yChanged = isVariableChanged("y", yValue);
+            orderedRows.add(new VariableRow("y", String.valueOf(yValue), yChanged));
 
             // Then add x variables (input variables) in order
-            java.util.List<Variable> xVars = new java.util.ArrayList<>();
-            for (Map.Entry<Variable, Long> entry : variables.entrySet()) {
-                Variable var = entry.getKey();
-                if (var.isInput()) {
-                    xVars.add(var);
+            List<String> xVars = new ArrayList<>();
+            for (String varName : variables.keySet()) {
+                if (varName.startsWith("x") && !varName.equals("x")) {
+                    xVars.add(varName);
                 }
             }
-            // Sort x variables by number
-            xVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
+            xVars.sort((v1, v2) -> {
+                try {
+                    int n1 = Integer.parseInt(v1.substring(1));
+                    int n2 = Integer.parseInt(v2.substring(1));
+                    return Integer.compare(n1, n2);
+                } catch (NumberFormatException e) {
+                    return v1.compareTo(v2);
+                }
+            });
 
-            for (Variable xVar : xVars) {
+            for (String xVar : xVars) {
                 Long value = variables.get(xVar);
-                boolean xVarChanged = isVariableChanged(xVar, value);
-                orderedRows.add(new VariableRow(xVar.toString(), String.valueOf(value), xVarChanged));
+                boolean changed = isVariableChanged(xVar, value);
+                orderedRows.add(new VariableRow(xVar, String.valueOf(value), changed));
             }
 
             // Finally add z variables (working variables) in order
-            java.util.List<Variable> zVars = new java.util.ArrayList<>();
-            for (Map.Entry<Variable, Long> entry : variables.entrySet()) {
-                Variable var = entry.getKey();
-                if (var.isWork()) {
-                    zVars.add(var);
+            List<String> zVars = new ArrayList<>();
+            for (String varName : variables.keySet()) {
+                if (varName.startsWith("z")) {
+                    zVars.add(varName);
                 }
             }
-            // Sort z variables by number
-            zVars.sort((v1, v2) -> Integer.compare(v1.getNumber(), v2.getNumber()));
+            zVars.sort((v1, v2) -> {
+                try {
+                    int n1 = Integer.parseInt(v1.substring(1));
+                    int n2 = Integer.parseInt(v2.substring(1));
+                    return Integer.compare(n1, n2);
+                } catch (NumberFormatException e) {
+                    return v1.compareTo(v2);
+                }
+            });
 
-            for (Variable zVar : zVars) {
+            for (String zVar : zVars) {
                 Long value = variables.get(zVar);
-                boolean zVarChanged = isVariableChanged(zVar, value);
-                orderedRows.add(new VariableRow(zVar.toString(), String.valueOf(value), zVarChanged));
+                boolean changed = isVariableChanged(zVar, value);
+                orderedRows.add(new VariableRow(zVar, String.valueOf(value), changed));
             }
 
             // Add all ordered rows to the table
             variablesData.addAll(orderedRows);
 
-            // Trigger variable blip animations for changed variables
-            triggerVariableBlipAnimations(orderedRows);
+            // Update previous state for next comparison
+            previousVariableState.clear();
+            previousVariableState.putAll(variables);
         });
-
     }
 
-    /**
-     * Trigger blip animations for variables that have changed.
-     */
-    private void triggerVariableBlipAnimations(java.util.List<VariableRow> variableRows) {
-        // TODO: Re-enable when animations are available
-        // if (!Animations.isEnabled()) {
-        // return;
-        // }
-
-        // Find the table rows that correspond to changed variables
-        for (int i = 0; i < variableRows.size(); i++) {
-            VariableRow row = variableRows.get(i);
-            if (row.isChanged()) {
-                // Use a more reliable method to get the table row
-                triggerVariableBlipAnimation(i);
-            }
-        }
-    }
-
-    /**
-     * Trigger blip animation for a specific variable row index.
-     */
-    private void triggerVariableBlipAnimation(int rowIndex) {
-        // TODO: Re-enable when animations are available
-        // if (!Animations.isEnabled()) {
-        // return;
-        // }
-
-        // Try multiple approaches to find the table row
-        javafx.scene.control.TableRow<VariableRow> tableRow = null;
-
-        // Method 1: Try CSS selector approach
-        tableRow = (javafx.scene.control.TableRow<VariableRow>) variablesTableView
-                .lookup(".table-row-cell:nth-child(" + (rowIndex + 1) + ")");
-
-        // Method 2: Try generic table row lookup
-        if (tableRow == null) {
-            tableRow = (javafx.scene.control.TableRow<VariableRow>) variablesTableView
-                    .lookup(".table-row-cell");
+    private boolean isVariableChanged(String varName, Long currentValue) {
+        if (!isDebugMode.get()) {
+            return false;
         }
 
-        // Method 3: Try to find any row in the table
-        if (tableRow == null) {
-            for (javafx.scene.Node node : variablesTableView.lookupAll(".table-row-cell")) {
-                if (node instanceof javafx.scene.control.TableRow) {
-                    tableRow = (javafx.scene.control.TableRow<VariableRow>) node;
-                    break;
-                }
-            }
-        }
-
-        // If we found a row, animate it
-        // TODO: Re-enable when animations are available
-        // if (tableRow != null) {
-        // VariableBlipAnimation.blipCell(tableRow);
-        // } else {
-        // // Fallback: try to animate the table itself as a last resort
-        // VariableBlipAnimation.blipCell(variablesTableView);
-        // }
-    }
-
-    /**
-     * Trigger data flow trace animation for function-related instructions.
-     */
-    private void triggerDataFlowTraceAnimation(SInstruction instruction) {
-        // TODO: Re-enable when animations are available
-        // if (!Animations.isEnabled()) {
-        // return;
-        // }
-
-        // For QUOTE and JUMP_EQUAL_FUNCTION instructions, we can trace from input
-        // variables to the instruction
-        if (instruction instanceof QuoteInstruction ||
-                instruction instanceof JumpEqualFunctionInstruction) {
-
-            // Create a simple data flow trace animation
-            // We'll trace from the input area to the instruction table
-            createSimpleDataFlowTrace();
-        }
-    }
-
-    /**
-     * Create a simple data flow trace animation.
-     * This traces from the input area to the instruction table.
-     */
-    private void createSimpleDataFlowTrace() {
-        // TODO: Re-enable when animations are available
-        // if (!Animations.isEnabled()) {
-        // return;
-        // }
-
-        // Get the scene to find the overlay layer
-        javafx.scene.Scene scene = variablesTableView.getScene();
-        if (scene == null) {
-            return;
-        }
-
-        // Find the root pane that can serve as an overlay layer
-        javafx.scene.layout.Pane overlayLayer = null;
-        javafx.scene.Node root = scene.getRoot();
-        if (root instanceof javafx.scene.layout.Pane) {
-            overlayLayer = (javafx.scene.layout.Pane) root;
-        } else if (root instanceof javafx.scene.layout.BorderPane) {
-            overlayLayer = (javafx.scene.layout.Pane) root;
-        }
-
-        if (overlayLayer != null) {
-            // Create a simple path from input area to instruction area
-            javafx.geometry.Point2D startPoint = new javafx.geometry.Point2D(50, 200); // Input area
-            javafx.geometry.Point2D endPoint = new javafx.geometry.Point2D(400, 100); // Instruction area
-
-            // Use the DataFlowTraceAnimation to create the trace
-            // TODO: Re-enable when animations are available
-            // ui.animations.DataFlowTraceAnimation.traceFlow(startPoint, endPoint,
-            // overlayLayer);
-        }
-    }
-
-    /**
-     * Test method to manually trigger all animations for debugging.
-     * This can be called from the UI to test if animations are working.
-     */
-    public void testAnimations() {
-
-        // Test variable blip animation
-        if (variablesTableView != null) {
-            triggerVariableBlipAnimation(0); // Test with first row
-        }
-
-        // Test data flow trace animation
-        createSimpleDataFlowTrace();
-
-    }
-
-    private boolean isVariableChanged(Variable variable, Long currentValue) {
-        if (!isDebugMode.get() || !isStepExecution) {
-            return false; // Only highlight changes in debug step mode
-        }
-
-        Long previousValue = previousVariableState.get(variable);
-        return previousValue == null || !previousValue.equals(currentValue);
+        Long previousValue = previousVariableState.get(varName);
+        return previousValue != null && !previousValue.equals(currentValue);
     }
 
     private void showAlert(String title, String message) {
@@ -1433,67 +603,6 @@ public class DebuggerExecution {
         });
     }
 
-    // Execution Service for Background Execution
-    private class ExecutionService extends Service<Void> {
-        @Override
-        protected Task<Void> createTask() {
-            return new Task<Void>() {
-                @Override
-                protected Void call() throws Exception {
-                    try {
-                        while (isExecuting.get() && !isCancelled()) {
-                            if (isPaused.get() && isDebugMode.get()) {
-                                // In debug mode and paused, wait for step command
-                                Thread.sleep(100);
-                                continue;
-                            }
-
-                            // Execute the program
-                            if (executor != null) {
-                                // Get ordered inputs
-                                List<Long> inputs = getOrderedInputs();
-
-                                // Run the program with inputs
-                                long result = executor.run(inputs.toArray(new Long[0]));
-
-                                // Calculate cycles by summing up all instruction cycles
-                                int totalCycles = 0;
-                                totalCycles = executor.getTotalCycles();
-                                currentCycles.set(totalCycles);
-                                updateCyclesDisplay();
-                                updateVariablesDisplay();
-
-                                // Mark execution as complete
-                                isExecuting.set(false);
-                                updateExecutionStatus("Execution Complete - Result: " + result);
-                                break;
-                            }
-                        }
-
-                        if (!isCancelled()) {
-                            isExecuting.set(false);
-                            isPaused.set(false);
-                            updateButtonStates();
-                            updateExecutionStatus("Execution Complete");
-
-                            // Record the run in history
-                            recordRunInHistory();
-                        }
-
-                    } catch (InterruptedException e) {
-                        // Execution was cancelled
-                        isExecuting.set(false);
-                        isPaused.set(false);
-                        updateButtonStates();
-                        updateExecutionStatus("Execution Cancelled");
-                    }
-
-                    return null;
-                }
-            };
-        }
-    }
-
     // Data Model Classes
     public static class VariableRow {
         private final SimpleStringProperty variableName;
@@ -1501,9 +610,7 @@ public class DebuggerExecution {
         private final boolean isChanged;
 
         public VariableRow(String name, String value) {
-            this.variableName = new SimpleStringProperty(name);
-            this.variableValue = new SimpleStringProperty(value);
-            this.isChanged = false;
+            this(name, value, false);
         }
 
         public VariableRow(String name, String value, boolean isChanged) {
@@ -1523,62 +630,5 @@ public class DebuggerExecution {
         public boolean isChanged() {
             return isChanged;
         }
-    }
-
-    /**
-     * Execute a nested function call and return its result
-     */
-    private long executeNestedFunctionCall(FunctionCall call, ExecutionContext parentContext,
-            Map<String, List<SInstruction>> functions) {
-
-        // Get the function body for the nested function
-        List<SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
-        if (nestedFunctionBody == null) {
-            throw new IllegalArgumentException("Function '" + call.getFunctionName() + "' not found");
-        }
-
-        // Create execution context for the nested function
-        List<Long> nestedInputs = new ArrayList<>();
-        for (FunctionArgument arg : call.getArguments()) {
-            if (arg.isFunctionCall()) {
-                // Recursively execute nested function calls
-                FunctionCall nestedCall = arg.asFunctionCall();
-                long nestedResult = executeNestedFunctionCall(nestedCall, parentContext, functions);
-                nestedInputs.add(nestedResult);
-            } else {
-                Variable var = arg.asVariable();
-                if (var.getType() == VariableType.Constant) {
-                    nestedInputs.add((long) var.getNumber());
-                } else {
-                    // Get the value from the parent execution context
-                    long varValue = parentContext.getVariableValue(var);
-                    nestedInputs.add(varValue);
-                }
-            }
-        }
-
-        StepExecutionContext nestedContext = new StepExecutionContext(nestedInputs.toArray(new Long[0]));
-
-        // Execute the nested function body
-        long result = executeFunctionBody(nestedFunctionBody, nestedContext);
-        return result;
-    }
-
-}
-
-// Temporary RunResult class until we have the real one
-class RunResult {
-    private final int runId;
-    private final int degree;
-    private final java.util.List<Long> inputs;
-    private final long yValue;
-    private final int cycles;
-
-    public RunResult(int runId, int degree, java.util.List<Long> inputs, long yValue, int cycles) {
-        this.runId = runId;
-        this.degree = degree;
-        this.inputs = inputs;
-        this.yValue = yValue;
-        this.cycles = cycles;
     }
 }

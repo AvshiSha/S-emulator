@@ -228,7 +228,7 @@ public class ApiModels {
         public String runId;
     }
 
-    // Debug
+    // Debug - Legacy (keep for compatibility)
     public static class DebugRequest {
         public String runId;
     }
@@ -246,6 +246,94 @@ public class ApiModels {
             this.pointer = pointer;
             this.outputY = outputY;
             this.error = error;
+        }
+    }
+
+    // Debug - New Debug Execution API
+    public static class DebugStartRequest {
+        public String programName;
+        public int degree;
+        public List<Long> inputs;
+    }
+
+    public static class DebugStartResponse {
+        public boolean success;
+        public String message;
+        public String sessionId;
+        public DebugStateResponse state;
+
+        public DebugStartResponse(boolean success, String message, String sessionId, DebugStateResponse state) {
+            this.success = success;
+            this.message = message;
+            this.sessionId = sessionId;
+            this.state = state;
+        }
+    }
+
+    public static class DebugStepRequest {
+        public String sessionId;
+    }
+
+    public static class DebugStepResponse {
+        public boolean success;
+        public String message;
+        public DebugStateResponse state;
+
+        public DebugStepResponse(boolean success, String message, DebugStateResponse state) {
+            this.success = success;
+            this.message = message;
+            this.state = state;
+        }
+    }
+
+    public static class DebugResumeRequest {
+        public String sessionId;
+    }
+
+    public static class DebugResumeResponse {
+        public boolean success;
+        public String message;
+        public DebugStateResponse state;
+
+        public DebugResumeResponse(boolean success, String message, DebugStateResponse state) {
+            this.success = success;
+            this.message = message;
+            this.state = state;
+        }
+    }
+
+    public static class DebugStopRequest {
+        public String sessionId;
+    }
+
+    public static class DebugStopResponse {
+        public boolean success;
+        public String message;
+
+        public DebugStopResponse(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
+    }
+
+    public static class DebugStateResponse {
+        public String state; // READY, RUNNING, PAUSED, FINISHED, ERROR
+        public int currentInstructionIndex;
+        public int cycles;
+        public Map<String, Long> variables;
+        public Long outputY;
+        public String error;
+        public int totalInstructions;
+
+        public DebugStateResponse(String state, int currentInstructionIndex, int cycles,
+                Map<String, Long> variables, Long outputY, String error, int totalInstructions) {
+            this.state = state;
+            this.currentInstructionIndex = currentInstructionIndex;
+            this.cycles = cycles;
+            this.variables = variables;
+            this.outputY = outputY;
+            this.error = error;
+            this.totalInstructions = totalInstructions;
         }
     }
 

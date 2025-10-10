@@ -98,11 +98,39 @@ public class ApiModels {
         public record CancelRequest(String runId) {
         }
 
-        // Debug
-        public record DebugRequest(String runId) {
+        // Debug - New Debug Execution API
+        public record DebugStartRequest(String programName, int degree, List<Long> inputs) {
         }
 
-        public record DebugResponse(String message, boolean success) {
+        public record DebugStartResponse(boolean success, String message, String sessionId, DebugStateResponse state) {
+        }
+
+        public record DebugStepRequest(String sessionId) {
+        }
+
+        public record DebugStepResponse(boolean success, String message, DebugStateResponse state) {
+        }
+
+        public record DebugResumeRequest(String sessionId) {
+        }
+
+        public record DebugResumeResponse(boolean success, String message, DebugStateResponse state) {
+        }
+
+        public record DebugStopRequest(String sessionId) {
+        }
+
+        public record DebugStopResponse(boolean success, String message) {
+        }
+
+        public record DebugStateResponse(
+                        String state, // READY, RUNNING, PAUSED, FINISHED, ERROR
+                        int currentInstructionIndex,
+                        int cycles,
+                        Map<String, Long> variables,
+                        Long outputY,
+                        String error,
+                        int totalInstructions) {
         }
 
         // History

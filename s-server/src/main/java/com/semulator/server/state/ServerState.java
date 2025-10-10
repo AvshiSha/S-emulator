@@ -2,6 +2,9 @@ package com.semulator.server.state;
 
 import com.semulator.engine.model.*;
 import com.semulator.engine.parse.SProgramImpl;
+import com.semulator.engine.exec.ExecutionContext;
+import com.semulator.engine.exec.ProgramExecutor;
+import com.semulator.engine.exec.ProgramExecutorImpl;
 import com.semulator.server.model.ApiModels;
 
 import java.util.*;
@@ -591,5 +594,145 @@ public class ServerState {
                 instruction instanceof DecreaseInstruction ||
                 instruction instanceof NoOpInstruction ||
                 instruction instanceof JumpNotZeroInstruction;
+    }
+
+    // Debug session management
+    private final Map<String, DebugSession> debugSessions = new ConcurrentHashMap<>();
+
+    public DebugSession createDebugSession(String sessionId, String username, String programName,
+            int degree, List<Long> inputs) {
+        SProgram program = programs.get(programName);
+        if (program == null) {
+            return null;
+        }
+
+        DebugSession session = new DebugSession(sessionId, username, programName, program, degree, inputs);
+        debugSessions.put(sessionId, session);
+        return session;
+    }
+
+    public DebugSession getDebugSession(String sessionId) {
+        return debugSessions.get(sessionId);
+    }
+
+    public void removeDebugSession(String sessionId) {
+        debugSessions.remove(sessionId);
+    }
+
+    /**
+     * Debug session state container
+     */
+    public static class DebugSession {
+        public final String sessionId;
+        public final String username;
+        public final String programName;
+        public final SProgram program;
+        public final int degree;
+        public final List<Long> inputs;
+        public final long created;
+
+        public ProgramExecutor executor;
+        public ExecutionContext executionContext;
+        public List<SInstruction> instructions;
+        public Map<String, Integer> labelToIndexMap;
+
+        public String state = "READY"; // READY, RUNNING, PAUSED, FINISHED, ERROR
+        public int currentInstructionIndex = 0;
+        public int cycles = 0;
+        public Map<String, Long> variables = new HashMap<>();
+        public String error = null;
+
+        public DebugSession(String sessionId, String username, String programName, SProgram program,
+                int degree, List<Long> inputs) {
+            this.sessionId = sessionId;
+            this.username = username;
+            this.programName = programName;
+            this.program = program;
+            this.degree = degree;
+            this.inputs = inputs;
+            this.created = System.currentTimeMillis();
+
+            this.executor = new ProgramExecutorImpl(program);
+            ExpansionResult expansion = program.expandToDegree(degree);
+            this.instructions = expansion.instructions();
+            this.labelToIndexMap = buildLabelMap(instructions);
+            initializeContext();
+        }
+
+        private void initializeContext() {
+            StepExecutionContext stepContext = new StepExecutionContext();
+            this.executionContext = stepContext;
+
+            // Set input variables
+            for (int i = 0; i < inputs.size(); i++) {
+                String varName = "x" + (i + 1);
+                stepContext.setVariable(varName, inputs.get(i));
+            }
+
+            // Initialize other variables to 0
+            for (SInstruction instruction : instructions) {
+                if (instruction.getVariable() != null) {
+                    String varName = instruction.getVariable().toString();
+                    if (!stepContext.hasVariable(varName)) {
+                        stepContext.setVariable(varName, 0L);
+                    }
+                }
+            }
+
+            updateVariablesFromContext();
+        }
+
+        private Map<String, Integer> buildLabelMap(List<SInstruction> instructions) {
+            Map<String, Integer> map = new HashMap<>();
+            for (int i = 0; i < instructions.size(); i++) {
+                SInstruction instruction = instructions.get(i);
+                if (instruction.getLabel() != null && !instruction.getLabel().isExit()
+                        && instruction.getLabel().getLabel() != null) {
+                    map.put(instruction.getLabel().getLabel(), i);
+                }
+            }
+            return map;
+        }
+
+        public void updateVariablesFromContext() {
+            variables.clear();
+            if (executionContext instanceof StepExecutionContext) {
+                StepExecutionContext stepContext = (StepExecutionContext) executionContext;
+                variables.putAll(stepContext.getVariableMap());
+            }
+        }
+    }
+
+    /**
+     * Custom execution context for step-by-step execution
+     */
+    private static class StepExecutionContext implements ExecutionContext {
+        private final Map<String, Long> variables = new HashMap<>();
+
+        @Override
+        public long getVariableValue(Variable v) {
+            return variables.getOrDefault(v.getRepresentation(), 0L);
+        }
+
+        @Override
+        public void updateVariable(Variable v, long value) {
+            variables.put(v.getRepresentation(), value);
+        }
+
+        public void setVariable(String name, Long value) {
+            variables.put(name, value);
+        }
+
+        public boolean hasVariable(String name) {
+            return variables.containsKey(name);
+        }
+
+        public void clearVariables() {
+            variables.clear();
+        }
+
+        public Map<String, Long> getVariableMap() {
+            return new HashMap<>(variables);
+        }
     }
 }

@@ -10,7 +10,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox maxWidth="Infinity" minWidth="250.0" spacing="5.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1">
+<VBox maxWidth="Infinity" minWidth="250.0" spacing="5.0" fillWidth="true" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.semulator.client.ui.components.DebuggerExecution.DebuggerExecution">
    <children>
       <!-- Main Title -->
       <Label maxWidth="Infinity" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 5px; -fx-background-color: #F0F0F0; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;" text="Debugger\Execution">
@@ -54,33 +54,28 @@
                         <Font name="System Bold" size="10.0" />
                      </font>
                   </Button>
-                  <Button fx:id="stepBackwardButton" mnemonicParsing="false" onAction="#stepBackward" prefHeight="25.0" minWidth="60.0" prefWidth="80.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" style="-fx-background-color: #607D8B; -fx-text-fill: white; -fx-background-radius: 5;" text="Step Back" wrapText="true">
-                     <font>
-                        <Font name="System Bold" size="10.0" />
-                     </font>
-                  </Button>
                </children>
             </HBox>
          </children>
       </VBox>
       
-      <!-- Main Content Area with Variables, Cycles, and Execution Inputs -->
-      <HBox maxWidth="Infinity" spacing="10.0">
+      <!-- Main Content Area with Variables/Cycles on Left, Execution Inputs on Right -->
+      <HBox maxWidth="Infinity" spacing="10.0" VBox.vgrow="ALWAYS">
          <children>
             <!-- Left Column: Variables and Cycles -->
-            <VBox minWidth="300.0" prefWidth="400.0" spacing="10.0">
+            <VBox minWidth="300.0" prefWidth="400.0" spacing="10.0" HBox.hgrow="ALWAYS">
                <children>
-                  <!-- Variables Panel (Pink Section) -->
-                  <VBox maxWidth="Infinity" prefHeight="400.0" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 10px;">
+                  <!-- Variables Panel (Pink/Magenta Section) -->
+                  <VBox maxWidth="Infinity" VBox.vgrow="ALWAYS" style="-fx-background-color: #E91E63; -fx-background-radius: 1; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-padding: 10px;">
                      <children>
                         <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Variables">
                            <font>
                               <Font name="System Bold" size="12.0" />
                            </font>
                         </Label>
-                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="350.0" prefWidth="380.0" vbarPolicy="AS_NEEDED">
+                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
                            <content>
-                              <TableView fx:id="variablesTableView" maxWidth="Infinity" prefHeight="350.0">
+                              <TableView fx:id="variablesTableView" maxWidth="Infinity">
                                  <columns>
                                     <TableColumn fx:id="variableNameColumn" minWidth="100.0" prefWidth="150.0" text="Variable Name" />
                                     <TableColumn fx:id="variableValueColumn" minWidth="80.0" prefWidth="100.0" text="Value" />
@@ -91,7 +86,7 @@
                      </children>
                   </VBox>
                   
-                  <!-- Cycles Panel (Small Pink Section) -->
+                  <!-- Cycles Panel (Small Pink/Magenta Section) -->
                   <VBox maxWidth="Infinity" prefHeight="60.0" style="-fx-background-color: #E91E63; -fx-border-width: 2; -fx-border-radius: 5; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
                      <children>
                         <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white; -fx-padding: 5px;" text="Cycles">
@@ -119,7 +114,7 @@
             </VBox>
             
             <!-- Right Column: Execution Inputs -->
-            <VBox maxWidth="Infinity" minWidth="300.0" prefWidth="400.0" style="-fx-background-color: #87CEEB; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+            <VBox maxWidth="Infinity" minWidth="300.0" prefWidth="400.0" HBox.hgrow="ALWAYS" style="-fx-background-color: #87CEEB; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
                <children>
                   <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #000000; -fx-padding: 5px;" text="Execution Inputs">
                      <font>
@@ -137,7 +132,7 @@
                         </Label>
                         
                         <!-- Dynamic Input Fields Container -->
-                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" prefHeight="200.0" vbarPolicy="AS_NEEDED">
+                        <ScrollPane fitToHeight="true" fitToWidth="true" hbarPolicy="AS_NEEDED" maxWidth="Infinity" vbarPolicy="AS_NEEDED" VBox.vgrow="ALWAYS">
                            <content>
                               <VBox fx:id="inputFieldsContainer" spacing="5.0" style="-fx-padding: 5;">
                                  <!-- Dynamic input fields will be added here -->
@@ -177,6 +172,5 @@
             </VBox>
          </children>
       </HBox>
-      <AnchorPane prefHeight="200.0" prefWidth="200.0" />
    </children>
 </VBox>

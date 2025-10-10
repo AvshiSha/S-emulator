@@ -56,75 +56,16 @@ public class ProgramRunController implements Initializable {
     private com.semulator.client.ui.components.InstructionTable.InstructionTable instructionTableComponentController;
     @FXML
     private com.semulator.client.ui.components.HistoryChain.HistoryChain historyChainComponentController;
+    @FXML
+    private com.semulator.client.ui.components.DebuggerExecution.DebuggerExecution debuggerExecutionComponentController;
 
     // Summary Line
     @FXML
     private Label summaryLine;
 
-    // Selected Instruction History Chain
-    // History Chain Table (now handled by component)
-
-    // Right Panel - Debugger/Execution
-    @FXML
-    private VBox rightPanel;
-    @FXML
-    private Label debuggerTitle;
-
-    // Debugger/Execution Commands (Yellow Box)
-    @FXML
-    private VBox executionCommandsBox;
-    @FXML
-    private Button startExecutionButton;
-    @FXML
-    private Button startRegularButton;
-    @FXML
-    private Button startDebugButton;
-    @FXML
-    private Button stopButton;
-    @FXML
-    private Button resumeButton;
-    @FXML
-    private Button stepForwardButton;
-    @FXML
-    private Button stepBackwardButton;
-
-    // Architecture Selection (Blue Box)
-    @FXML
-    private VBox architectureSelectionBox;
-    @FXML
-    private ComboBox<String> architectureComboBox;
-
-    // Variables (Magenta Box)
-    @FXML
-    private VBox variablesBox;
-    @FXML
-    private TableView<VariableRow> variablesTable;
-    @FXML
-    private TableColumn<VariableRow, String> variableNameColumn;
-    @FXML
-    private TableColumn<VariableRow, Integer> variableValueColumn;
-
-    // Execution Inputs (Blue Box)
-    @FXML
-    private VBox executionInputsBox;
-    @FXML
-    private TextField executionInputField;
-    @FXML
-    private Button setInputButton;
-
-    // Cycles (Magenta Box)
-    @FXML
-    private VBox cyclesBox;
-    @FXML
-    private Label cyclesLabel;
-
     // Navigation
     @FXML
     private Button backToDashboardButton;
-
-    // Data Models
-    // Data collections (now handled by components)
-    private ObservableList<VariableRow> variablesData = FXCollections.observableArrayList();
 
     // State Management
     private ApiClient apiClient;
@@ -150,9 +91,7 @@ public class ProgramRunController implements Initializable {
             initializeExecutionHeader();
             initializeInstructionsTable();
             initializeHistoryTable();
-            initializeVariablesTable();
-            initializeArchitectureSelection();
-            initializeExecutionCommands();
+            initializeDebuggerExecution();
 
             // Set up event handlers
             setupEventHandlers();
@@ -228,6 +167,23 @@ public class ProgramRunController implements Initializable {
 
     private void initializeHistoryTable() {
         // History chain component initializes automatically via FXML
+    }
+
+    private void initializeDebuggerExecution() {
+        if (debuggerExecutionComponentController == null) {
+            return;
+        }
+
+        // Initialize the debugger execution component with the API client
+        debuggerExecutionComponentController.initializeWithApiClient(apiClient);
+
+        // Wire up instruction table callback for highlighting
+        if (instructionTableComponentController != null) {
+            debuggerExecutionComponentController.setInstructionTableCallback(instructionIndex -> {
+                // Highlight the instruction in the instruction table
+                instructionTableComponentController.highlightCurrentInstruction(instructionIndex);
+            });
+        }
     }
 
     private void loadHistoryChainFromServer(
@@ -555,68 +511,10 @@ public class ProgramRunController implements Initializable {
         }
     }
 
-    private void initializeVariablesTable() {
-        if (variablesTable != null) {
-            if (variableNameColumn != null)
-                variableNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
-            if (variableValueColumn != null)
-                variableValueColumn.setCellValueFactory(new PropertyValueFactory<>("value"));
-
-            variablesTable.setItems(variablesData);
-        }
-    }
-
-    private void initializeArchitectureSelection() {
-        if (architectureComboBox != null) {
-            // Initialize architecture combo box with options I-IV
-            architectureComboBox.getItems().addAll("I", "II", "III", "IV");
-            architectureComboBox.setValue("I");
-
-            // Set up selection handler
-            architectureComboBox.setOnAction(e -> {
-                selectedArchitecture = architectureComboBox.getValue();
-                updateSummaryLine();
-                validateArchitectureCompatibility();
-            });
-        }
-    }
-
-    private void initializeExecutionCommands() {
-        // Initially disable execution buttons
-        if (stopButton != null)
-            stopButton.setDisable(true);
-        if (resumeButton != null)
-            resumeButton.setDisable(true);
-        if (stepForwardButton != null)
-            stepForwardButton.setDisable(true);
-        if (stepBackwardButton != null)
-            stepBackwardButton.setDisable(true);
-    }
-
     private void setupEventHandlers() {
-        // Execution commands
-        if (startExecutionButton != null)
-            startExecutionButton.setOnAction(e -> handleStartExecution());
-        if (startRegularButton != null)
-            startRegularButton.setOnAction(e -> handleStartRegular());
-        if (startDebugButton != null)
-            startDebugButton.setOnAction(e -> handleStartDebug());
-        if (stopButton != null)
-            stopButton.setOnAction(e -> handleStop());
-        if (resumeButton != null)
-            resumeButton.setOnAction(e -> handleResume());
-        if (stepForwardButton != null)
-            stepForwardButton.setOnAction(e -> handleStepForward());
-        if (stepBackwardButton != null)
-            stepBackwardButton.setOnAction(e -> handleStepBackward());
-
         // Navigation
         if (backToDashboardButton != null)
             backToDashboardButton.setOnAction(e -> navigateBackToDashboard());
-
-        // Input handling
-        if (setInputButton != null)
-            setInputButton.setOnAction(e -> handleSetInput());
     }
 
     public void setTarget(String targetName, String targetType) {
@@ -667,6 +565,19 @@ public class ProgramRunController implements Initializable {
                                 executionHeaderController.setProgramInfo(programWithInstructions.name(),
                                         programWithInstructions.maxDegree());
                             }
+
+                            // Initialize the debugger execution component with program info
+                            if (debuggerExecutionComponentController != null) {
+                                debuggerExecutionComponentController.setProgramName(
+                                        programWithInstructions.name(),
+                                        programWithInstructions.maxDegree());
+
+                                // Extract input variables from instructions
+                                Set<String> inputVars = extractInputVariables(programWithInstructions);
+                                if (!inputVars.isEmpty()) {
+                                    debuggerExecutionComponentController.setInputVariables(new ArrayList<>(inputVars));
+                                }
+                            }
                         } else {
                             System.err.println("DEBUG: Component or program data is null");
                         }
@@ -715,6 +626,12 @@ public class ProgramRunController implements Initializable {
                         if (instructionTableComponentController != null && programWithInstructions != null) {
                             displayInstructionsInTable(programWithInstructions);
                             updateLabelVariableListFromInstructions(programWithInstructions);
+
+                            // Update debugger component with new degree
+                            if (debuggerExecutionComponentController != null) {
+                                debuggerExecutionComponentController.setProgramName(
+                                        programWithInstructions.name(), degree);
+                            }
                         }
                     });
                 })
@@ -753,6 +670,32 @@ public class ProgramRunController implements Initializable {
         if (executionHeaderController != null) {
             executionHeaderController.updateLabelVariableList(new ArrayList<>(labelsAndVars));
         }
+    }
+
+    private Set<String> extractInputVariables(ApiModels.ProgramWithInstructions programData) {
+        // Extract input variables (x1, x2, x3, etc.) from instructions
+        Set<String> inputVars = new java.util.TreeSet<>();
+
+        if (programData.instructions() != null) {
+            for (Object instrObj : programData.instructions()) {
+                if (instrObj instanceof com.google.gson.internal.LinkedTreeMap) {
+                    @SuppressWarnings("unchecked")
+                    com.google.gson.internal.LinkedTreeMap<String, Object> instr = (com.google.gson.internal.LinkedTreeMap<String, Object>) instrObj;
+
+                    String variable = (String) instr.get("variable");
+                    if (variable != null && variable.startsWith("x") && variable.length() > 1) {
+                        try {
+                            Integer.parseInt(variable.substring(1));
+                            inputVars.add(variable);
+                        } catch (NumberFormatException e) {
+                            // Not a valid input variable
+                        }
+                    }
+                }
+            }
+        }
+
+        return inputVars;
     }
 
     private void displayInstructionsInTable(ApiModels.ProgramWithInstructions programData) {
@@ -922,314 +865,7 @@ public class ProgramRunController implements Initializable {
         System.out.println("History chain update - now handled by component");
     }
 
-    // Execution Command Handlers
-    private void handleStartExecution() {
-        validateAndExecute(false); // Regular execution
-    }
-
-    private void handleStartRegular() {
-        validateAndExecute(false); // Regular execution
-    }
-
-    private void handleStartDebug() {
-        validateAndExecute(true); // Debug execution
-    }
-
-    private void validateAndExecute(boolean debugMode) {
-        // Get current user credits and validate
-        apiClient.get("/users", ApiModels.UsersResponse.class, null)
-                .thenAccept(response -> {
-                    Platform.runLater(() -> {
-                        // Find current user's credits
-                        int userCredits = 0;
-                        for (ApiModels.UserInfo user : response.users()) {
-                            if (user.username().equals(currentUser)) {
-                                userCredits = user.credits();
-                                break;
-                            }
-                        }
-
-                        // Calculate estimated cost
-                        int architectureCost = getArchitectureCost(selectedArchitecture);
-                        int estimatedExecutionCost = calculateEstimatedCost();
-                        int totalCost = architectureCost + estimatedExecutionCost;
-
-                        if (userCredits < totalCost) {
-                            showErrorAlert("Insufficient Credits",
-                                    "You need " + totalCost + " credits to run this program.\n" +
-                                            "Architecture cost: " + architectureCost + " credits\n" +
-                                            "Estimated execution cost: " + estimatedExecutionCost + " credits\n" +
-                                            "Current credits: " + userCredits + "\n\n" +
-                                            "Please add more credits before running the program.");
-                        } else {
-                            // Credits are sufficient, proceed with execution
-                            startExecution(debugMode);
-                        }
-                    });
-                })
-                .exceptionally(throwable -> {
-                    Platform.runLater(() -> {
-                        showErrorAlert("Credit Validation Failed",
-                                "Failed to validate credits: " + throwable.getMessage());
-                    });
-                    return null;
-                });
-    }
-
-    private void handleStop() {
-        if (currentRunId != null) {
-            stopExecution();
-        }
-    }
-
-    private void handleResume() {
-        if (currentRunId != null) {
-            resumeExecution();
-        }
-    }
-
-    private void handleStepForward() {
-        if (currentRunId != null && isDebugging) {
-            stepExecution(true);
-        }
-    }
-
-    private void handleStepBackward() {
-        if (currentRunId != null && isDebugging) {
-            stepExecution(false);
-        }
-    }
-
-    private void handleSetInput() {
-        // TODO: Handle input setting
-        String input = executionInputField.getText().trim();
-        if (!input.isEmpty()) {
-            // Process input
-            executionInputField.clear();
-        }
-    }
-
-    private int getArchitectureCost(String architecture) {
-        // Architecture costs: I=10, II=20, III=30, IV=40 credits
-        switch (architecture) {
-            case "I":
-                return 10;
-            case "II":
-                return 20;
-            case "III":
-                return 30;
-            case "IV":
-                return 40;
-            default:
-                return 10;
-        }
-    }
-
-    private int calculateEstimatedCost() {
-        // Estimate cost based on instruction count and cycles
-        // TODO: Get actual cycle count from component
-        int totalCycles = 10; // Placeholder estimate
-
-        // Each cycle costs 1 credit
-        return totalCycles;
-    }
-
-    private void startExecution(boolean debugMode) {
-        // Create run target
-        ApiModels.RunTarget target = new ApiModels.RunTarget(
-                targetType,
-                targetType.equals("PROGRAM") ? selectedProgram : selectedFunction);
-
-        // Create start request
-        ApiModels.StartRequest startRequest = new ApiModels.StartRequest(
-                target,
-                selectedArchitecture,
-                1, // degree - TODO: Make this configurable
-                new HashMap<>() // inputs - TODO: Add input handling
-        );
-
-        // Send start request to server
-        apiClient.post("/run/start", startRequest, ApiModels.StartResponse.class)
-                .thenAccept(response -> {
-                    Platform.runLater(() -> {
-                        currentRunId = response.runId();
-                        isExecuting = true;
-                        isDebugging = debugMode;
-
-                        // Update UI state
-                        updateExecutionButtons();
-
-                        // Start status polling
-                        startStatusPolling();
-                    });
-                })
-                .exceptionally(throwable -> {
-                    Platform.runLater(() -> {
-                        showErrorAlert("Execution Failed", "Failed to start execution: " + throwable.getMessage());
-                    });
-                    return null;
-                });
-    }
-
-    private void stopExecution() {
-        if (currentRunId == null)
-            return;
-
-        ApiModels.CancelRequest cancelRequest = new ApiModels.CancelRequest(currentRunId);
-
-        apiClient.post("/run/cancel", cancelRequest, String.class)
-                .thenAccept(response -> {
-                    Platform.runLater(() -> {
-                        currentRunId = null;
-                        isExecuting = false;
-                        isDebugging = false;
-                        updateExecutionButtons();
-                        stopStatusPolling();
-                    });
-                })
-                .exceptionally(throwable -> {
-                    Platform.runLater(() -> {
-                        showErrorAlert("Stop Failed", "Failed to stop execution: " + throwable.getMessage());
-                    });
-                    return null;
-                });
-    }
-
-    private void resumeExecution() {
-        // TODO: Implement resume functionality
-        // This would depend on server API support
-    }
-
-    private void stepExecution(boolean forward) {
-        if (currentRunId == null)
-            return;
-
-        String endpoint = forward ? "/debug/step" : "/debug/stepBack"; // stepBack might not exist
-        ApiModels.DebugRequest debugRequest = new ApiModels.DebugRequest(currentRunId);
-
-        apiClient.post(endpoint, debugRequest, ApiModels.DebugResponse.class)
-                .thenAccept(response -> {
-                    Platform.runLater(() -> {
-                        if (response.success()) {
-                            // Update UI with new state
-                            updateExecutionState();
-                        } else {
-                            showErrorAlert("Step Failed", response.message());
-                        }
-                    });
-                })
-                .exceptionally(throwable -> {
-                    Platform.runLater(() -> {
-                        showErrorAlert("Step Failed", "Failed to step execution: " + throwable.getMessage());
-                    });
-                    return null;
-                });
-    }
-
-    private void startStatusPolling() {
-        if (statusUpdateTimer != null) {
-            statusUpdateTimer.cancel();
-        }
-
-        statusUpdateTimer = new Timer(true);
-        statusUpdateTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                if (currentRunId != null) {
-                    pollExecutionStatus();
-                }
-            }
-        }, 0, 1000); // Poll every second
-    }
-
-    private void stopStatusPolling() {
-        if (statusUpdateTimer != null) {
-            statusUpdateTimer.cancel();
-            statusUpdateTimer = null;
-        }
-    }
-
-    private void pollExecutionStatus() {
-        if (currentRunId == null)
-            return;
-
-        apiClient.get("/run/status?runId=" + currentRunId, ApiModels.StatusResponse.class, null)
-                .thenAccept(response -> {
-                    Platform.runLater(() -> {
-                        updateExecutionState(response);
-                    });
-                })
-                .exceptionally(throwable -> {
-                    Platform.runLater(() -> {
-                        System.err.println("Failed to poll status: " + throwable.getMessage());
-                    });
-                    return null;
-                });
-    }
-
-    private void updateExecutionState() {
-        // Update based on current state
-        // This is called after step operations
-    }
-
-    private void updateExecutionState(ApiModels.StatusResponse status) {
-        // Update cycles display
-        cyclesLabel.setText("Cycles: " + status.cycles());
-
-        // Update variables if available
-        if (status.instrByArch() != null) {
-            variablesData.clear();
-            for (Map.Entry<String, Integer> entry : status.instrByArch().entrySet()) {
-                variablesData.add(new VariableRow(entry.getKey(), entry.getValue()));
-            }
-        }
-
-        // Update credits in real-time (deduct 1 credit per cycle)
-        updateCreditsDisplay();
-
-        // Check if execution is complete
-        if ("COMPLETED".equals(status.state()) || "ERROR".equals(status.state())) {
-            isExecuting = false;
-            isDebugging = false;
-            currentRunId = null;
-            updateExecutionButtons();
-            stopStatusPolling();
-
-            if ("ERROR".equals(status.state()) && status.error() != null) {
-                if (status.error().contains("insufficient credits") || status.error().contains("out of credits")) {
-                    showErrorAlert("Out of Credits",
-                            "Execution stopped: You have run out of credits.\n" +
-                                    "Returning to Programs screen.");
-                    // Navigate back to dashboard after a delay
-                    Platform.runLater(() -> {
-                        try {
-                            Thread.sleep(2000);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                        navigateBackToDashboard();
-                    });
-                } else {
-                    showErrorAlert("Execution Error", status.error());
-                }
-            }
-        }
-    }
-
-    private void updateExecutionButtons() {
-        boolean canStart = !isExecuting && instructionTableComponentController != null;
-        boolean canStop = isExecuting;
-        boolean canDebug = isDebugging;
-
-        startExecutionButton.setDisable(!canStart);
-        startRegularButton.setDisable(!canStart);
-        startDebugButton.setDisable(!canStart);
-
-        stopButton.setDisable(!canStop);
-        resumeButton.setDisable(!canStop);
-        stepForwardButton.setDisable(!canDebug);
-        stepBackwardButton.setDisable(!canDebug);
-    }
+    // All execution command handling is now done by the DebuggerExecution component
 
     private void startStatusUpdateTimer() {
         // Timer for updating credits and other status
@@ -1268,8 +904,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private void navigateBackToDashboard() {
-        // Clean up resources
-        stopStatusPolling();
+        // Clean up resources (now handled by DebuggerExecution component)
 
         try {
             // Load dashboard

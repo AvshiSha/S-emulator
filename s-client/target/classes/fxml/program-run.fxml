@@ -56,119 +56,12 @@
                </children>
             </VBox>
             
-            <!-- Right Panel - Debugger/Execution -->
-            <VBox fx:id="rightPanel" minWidth="350" maxWidth="400"
+            <!-- Right Panel - Debugger/Execution Component -->
+            <VBox fx:id="rightPanel" minWidth="500" prefWidth="800" HBox.hgrow="NEVER"
                   style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
                <children>
-                  <!-- Debugger/Execution Title -->
-                  <Label fx:id="debuggerTitle" text="Debugger/Execution" 
-                         style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;">
-                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </Label>
-                  
-                  <!-- Debugger/Execution Commands (Yellow Box) -->
-                  <VBox fx:id="executionCommandsBox" 
-                        style="-fx-background-color: #fff3cd; -fx-border-color: #ffeaa7; -fx-border-width: 2; -fx-padding: 10;">
-                     <children>
-                        <Label text="Debugger/Execution Commands" 
-                               style="-fx-font-weight: bold; -fx-text-fill: #856404;">
-                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
-                        </Label>
-                        <HBox spacing="5" alignment="CENTER_LEFT">
-                           <children>
-                              <Button fx:id="startExecutionButton" text="Start Execution" 
-                                      style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                              <Button fx:id="startRegularButton" text="Start Regular" 
-                                      style="-fx-background-color: #17a2b8; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                              <Button fx:id="startDebugButton" text="Start Debug" 
-                                      style="-fx-background-color: #6f42c1; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                           </children>
-                        </HBox>
-                        <HBox spacing="5" alignment="CENTER_LEFT">
-                           <children>
-                              <Button fx:id="stopButton" text="Stop" 
-                                      style="-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                              <Button fx:id="resumeButton" text="Resume" 
-                                      style="-fx-background-color: #fd7e14; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                           </children>
-                           <VBox.margin><Insets top="5.0"/></VBox.margin>
-                        </HBox>
-                        <HBox spacing="5" alignment="CENTER_LEFT">
-                           <children>
-                              <Button fx:id="stepForwardButton" text="Step Forward" 
-                                      style="-fx-background-color: #20c997; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                              <Button fx:id="stepBackwardButton" text="Step Backward" 
-                                      style="-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                           </children>
-                           <VBox.margin><Insets top="5.0"/></VBox.margin>
-                        </HBox>
-                     </children>
-                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </VBox>
-                  
-                  <!-- Architecture Selection (Blue Box) -->
-                  <VBox fx:id="architectureSelectionBox" 
-                        style="-fx-background-color: #e3f2fd; -fx-border-color: #2196F3; -fx-border-width: 2; -fx-padding: 10;">
-                     <children>
-                        <Label text="Architecture Selection" 
-                               style="-fx-font-weight: bold; -fx-text-fill: #0d47a1;">
-                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
-                        </Label>
-                        <ComboBox fx:id="architectureComboBox" promptText="Select Architecture">
-                           <VBox.margin><Insets bottom="5.0"/></VBox.margin>
-                        </ComboBox>
-                        <Label text="Select processor architecture (I - IV)" 
-                               style="-fx-font-size: 10px; -fx-text-fill: #666;"/>
-                     </children>
-                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </VBox>
-                  
-                  <!-- Variables (Magenta Box) -->
-                  <VBox fx:id="variablesBox" 
-                        style="-fx-background-color: #fce4ec; -fx-border-color: #e91e63; -fx-border-width: 2; -fx-padding: 10;">
-                     <children>
-                        <Label text="Variables" 
-                               style="-fx-font-weight: bold; -fx-text-fill: #880e4f;">
-                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
-                        </Label>
-                        <TableView fx:id="variablesTable" minHeight="100">
-                           <columns>
-                              <TableColumn fx:id="variableNameColumn" text="Variable" prefWidth="100"/>
-                              <TableColumn fx:id="variableValueColumn" text="Value" prefWidth="80"/>
-                           </columns>
-                        </TableView>
-                     </children>
-                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </VBox>
-                  
-                  <!-- Execution Inputs (Blue Box) -->
-                  <VBox fx:id="executionInputsBox" 
-                        style="-fx-background-color: #e3f2fd; -fx-border-color: #2196F3; -fx-border-width: 2; -fx-padding: 10;">
-                     <children>
-                        <Label text="Execution Inputs" 
-                               style="-fx-font-weight: bold; -fx-text-fill: #0d47a1;">
-                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
-                        </Label>
-                        <HBox spacing="5" alignment="CENTER_LEFT">
-                           <children>
-                              <TextField fx:id="executionInputField" promptText="Enter input value"/>
-                              <Button fx:id="setInputButton" text="Set" 
-                                      style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;"/>
-                           </children>
-                        </HBox>
-                     </children>
-                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </VBox>
-                  
-                  <!-- Cycles (Magenta Box) -->
-                  <VBox fx:id="cyclesBox" 
-                        style="-fx-background-color: #fce4ec; -fx-border-color: #e91e63; -fx-border-width: 2; -fx-padding: 10;">
-                     <children>
-                        <Label fx:id="cyclesLabel" text="Cycles: 0" 
-                               style="-fx-font-weight: bold; -fx-text-fill: #880e4f;"/>
-                     </children>
-                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </VBox>
+                  <!-- DebuggerExecution Component -->
+                  <fx:include fx:id="debuggerExecutionComponent" source="../fxml/components/DebuggerExecution.fxml" VBox.vgrow="ALWAYS" />
                   
                   <!-- Back to Dashboard Button -->
                   <Button fx:id="backToDashboardButton" text="Back to Dashboard" 
