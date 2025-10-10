@@ -90,29 +90,38 @@ public class ApiModels {
     // Programs & Functions
     public static class ProgramInfo {
         public String name;
+        public String uploadedBy;
         public int instructionCount;
         public int maxDegree;
+        public int runs;
+        public double avgCost;
         public List<String> functions;
 
-        public ProgramInfo(String name, int instructionCount, int maxDegree, List<String> functions) {
+        public ProgramInfo(String name, String uploadedBy, int instructionCount, int maxDegree, int runs,
+                double avgCost, List<String> functions) {
             this.name = name;
+            this.uploadedBy = uploadedBy;
             this.instructionCount = instructionCount;
             this.maxDegree = maxDegree;
+            this.runs = runs;
+            this.avgCost = avgCost;
             this.functions = functions;
         }
     }
 
     public static class FunctionInfo {
         public String name;
-        public String userString;
-        public int templateDegree;
+        public String parentProgram;
+        public String uploadedBy;
         public int instructionCount;
+        public int maxDegree;
 
-        public FunctionInfo(String name, String userString, int templateDegree, int instructionCount) {
+        public FunctionInfo(String name, String parentProgram, String uploadedBy, int instructionCount, int maxDegree) {
             this.name = name;
-            this.userString = userString;
-            this.templateDegree = templateDegree;
+            this.parentProgram = parentProgram;
+            this.uploadedBy = uploadedBy;
             this.instructionCount = instructionCount;
+            this.maxDegree = maxDegree;
         }
     }
 

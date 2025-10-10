@@ -3,6 +3,7 @@ package com.semulator.client.ui;
 import com.semulator.client.AppContext;
 import com.semulator.client.model.ApiModels;
 import com.semulator.client.service.ApiClient;
+import com.semulator.client.service.UserUpdateClient;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -130,6 +131,7 @@ public class DashboardController implements Initializable {
 
     // State Management
     private ApiClient apiClient;
+    private UserUpdateClient userUpdateClient;
     private String currentUser;
     private String selectedUser = null; // For history view
     private String selectedProgram = null;
@@ -143,6 +145,9 @@ public class DashboardController implements Initializable {
         this.apiClient = AppContext.getInstance().getApiClient();
         this.currentUser = AppContext.getInstance().getCurrentUser();
 
+        // Initialize user update socket client
+        this.userUpdateClient = new UserUpdateClient(this);
+
         // Initialize UI components
         initializeHeaderBar();
         initializeUsersTable();
@@ -153,14 +158,20 @@ public class DashboardController implements Initializable {
         // Set up event handlers
         setupEventHandlers();
 
-        // Start auto-refresh
-        startAutoRefresh();
+        // Start auto-refresh (disabled for better UX)
+        // startAutoRefresh();
 
         // Set up window close handler
         setupWindowCloseHandler();
 
         // Load initial data
         loadInitialData();
+
+        // Start auto-refresh
+        startAutoRefresh();
+
+        // Connect to user update socket
+        userUpdateClient.connect();
     }
 
     private void initializeHeaderBar() {
@@ -330,10 +341,44 @@ public class DashboardController implements Initializable {
         File selectedFile = fileChooser.showOpenDialog(stage);
 
         if (selectedFile != null) {
-            // TODO: Implement file upload to server
-            loadedFilePath.setText(selectedFile.getAbsolutePath());
-            showInfoAlert("File Selected",
-                    "File: " + selectedFile.getName() + "\nUpload functionality will be implemented.");
+            try {
+                // Read file content
+                String xmlContent = java.nio.file.Files.readString(selectedFile.toPath());
+
+                // Create upload request
+                ApiModels.UploadRequest uploadRequest = new ApiModels.UploadRequest(
+                        selectedFile.getName(),
+                        xmlContent);
+
+                // Upload to server
+                apiClient.post("/upload", uploadRequest, ApiModels.LoadResult.class)
+                        .thenAccept(response -> {
+                            Platform.runLater(() -> {
+                                if (response.success()) {
+                                    loadedFilePath.setText(selectedFile.getAbsolutePath());
+                                    showInfoAlert("Upload Successful",
+                                            "Program '" + response.programName() + "' uploaded successfully!\n" +
+                                                    "Instructions: " + response.instructionCount());
+
+                                    // Refresh data to show new program
+                                    refreshProgramsData();
+                                    refreshFunctionsData();
+                                } else {
+                                    showErrorAlert("Upload Failed", response.message());
+                                }
+                            });
+                        })
+                        .exceptionally(throwable -> {
+                            Platform.runLater(() -> {
+                                showErrorAlert("Upload Failed",
+                                        "Failed to upload file: " + throwable.getMessage());
+                            });
+                            return null;
+                        });
+
+            } catch (Exception e) {
+                showErrorAlert("File Error", "Failed to read file: " + e.getMessage());
+            }
         }
     }
 
@@ -433,9 +478,12 @@ public class DashboardController implements Initializable {
             @Override
             public void run() {
                 Platform.runLater(() -> {
-                    refreshUserData();
-                    refreshProgramsData();
-                    refreshFunctionsData();
+                    // User data is updated via socket, no need to poll
+                    // refreshUserData();
+                    // Program and function data is updated via socket, no need to poll
+                    // refreshProgramsData();
+                    // refreshFunctionsData();
+                    // Only refresh history
                     if (selectedUser != null) {
                         loadUserHistory(selectedUser);
                     } else {
@@ -497,21 +545,110 @@ public class DashboardController implements Initializable {
     }
 
     private void refreshProgramsData() {
-        // TODO: Load programs from server API
-        // For now, add some sample data
-        programsData.clear();
-        programsData.add(new ProgramInfo("fibonacci", "user1", 15, 4, 25, 2.5));
-        programsData.add(new ProgramInfo("factorial", "user2", 8, 3, 18, 1.8));
-        programsData.add(new ProgramInfo("gcd", currentUser, 12, 5, 30, 3.2));
+        if (apiClient == null) {
+            return;
+        }
+
+        apiClient.get("/programs", ApiModels.DeltaResponse.class, null)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        System.out.println("DEBUG: Received programs response: " + response);
+                        programsData.clear();
+
+                        // Convert server ProgramInfo to local ProgramInfo model
+                        if (response.items() != null) {
+                            System.out.println("DEBUG: Found " + response.items().size() + " programs");
+                            for (Object item : response.items()) {
+                                System.out.println("DEBUG: Processing item: " + item + " (type: "
+                                        + item.getClass().getName() + ")");
+
+                                // Handle LinkedTreeMap objects from Gson deserialization
+                                if (item instanceof com.google.gson.internal.LinkedTreeMap) {
+                                    @SuppressWarnings("unchecked")
+                                    com.google.gson.internal.LinkedTreeMap<String, Object> map = (com.google.gson.internal.LinkedTreeMap<String, Object>) item;
+
+                                    String name = (String) map.get("name");
+                                    String uploadedBy = (String) map.get("uploadedBy");
+                                    int instructionCount = ((Double) map.get("instructionCount")).intValue();
+                                    int maxDegree = ((Double) map.get("maxDegree")).intValue();
+                                    int runs = ((Double) map.get("runs")).intValue();
+                                    double avgCost = ((Double) map.get("avgCost")).doubleValue();
+
+                                    System.out.println("DEBUG: Creating local program: " + name);
+                                    ProgramInfo localProgram = new ProgramInfo(
+                                            name, uploadedBy, instructionCount, maxDegree, runs, avgCost);
+                                    programsData.add(localProgram);
+                                }
+                            }
+                        } else {
+                            System.out.println("DEBUG: No items in response");
+                        }
+                    });
+                })
+                .exceptionally(throwable -> {
+                    Platform.runLater(() -> {
+                        System.err.println("Failed to load programs: " + throwable.getMessage());
+                        // Fallback to sample data if API fails
+                        programsData.clear();
+                        programsData.add(new ProgramInfo("fibonacci", "user1", 15, 4, 25, 2.5));
+                        programsData.add(new ProgramInfo("factorial", "user2", 8, 3, 18, 1.8));
+                        programsData.add(new ProgramInfo("gcd", currentUser, 12, 5, 30, 3.2));
+                    });
+                    return null;
+                });
     }
 
     private void refreshFunctionsData() {
-        // TODO: Load functions from server API
-        // For now, add some sample data
-        functionsData.clear();
-        functionsData.add(new FunctionInfo("add", "fibonacci", "user1", 5, 2));
-        functionsData.add(new FunctionInfo("multiply", "factorial", "user2", 7, 3));
-        functionsData.add(new FunctionInfo("subtract", "gcd", currentUser, 4, 1));
+        if (apiClient == null) {
+            return;
+        }
+
+        apiClient.get("/functions", ApiModels.DeltaResponse.class, null)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        System.out.println("DEBUG: Received functions response: " + response);
+                        functionsData.clear();
+
+                        // Convert server FunctionInfo to local FunctionInfo model
+                        if (response.items() != null) {
+                            System.out.println("DEBUG: Found " + response.items().size() + " functions");
+                            for (Object item : response.items()) {
+                                System.out.println("DEBUG: Processing function item: " + item + " (type: "
+                                        + item.getClass().getName() + ")");
+
+                                // Handle LinkedTreeMap objects from Gson deserialization
+                                if (item instanceof com.google.gson.internal.LinkedTreeMap) {
+                                    @SuppressWarnings("unchecked")
+                                    com.google.gson.internal.LinkedTreeMap<String, Object> map = (com.google.gson.internal.LinkedTreeMap<String, Object>) item;
+
+                                    String name = (String) map.get("name");
+                                    String parentProgram = (String) map.get("parentProgram");
+                                    String uploadedBy = (String) map.get("uploadedBy");
+                                    int instructionCount = ((Double) map.get("instructionCount")).intValue();
+                                    int maxDegree = ((Double) map.get("maxDegree")).intValue();
+
+                                    System.out.println("DEBUG: Creating local function: " + name);
+                                    FunctionInfo localFunction = new FunctionInfo(
+                                            name, parentProgram, uploadedBy, instructionCount, maxDegree);
+                                    functionsData.add(localFunction);
+                                }
+                            }
+                        } else {
+                            System.out.println("DEBUG: No function items in response");
+                        }
+                    });
+                })
+                .exceptionally(throwable -> {
+                    Platform.runLater(() -> {
+                        System.err.println("Failed to load functions: " + throwable.getMessage());
+                        // Fallback to sample data if API fails
+                        functionsData.clear();
+                        functionsData.add(new FunctionInfo("add", "fibonacci", "user1", 5, 2));
+                        functionsData.add(new FunctionInfo("multiply", "factorial", "user2", 7, 3));
+                        functionsData.add(new FunctionInfo("subtract", "gcd", currentUser, 4, 1));
+                    });
+                    return null;
+                });
     }
 
     private void loadUserHistory(String userName) {
@@ -761,10 +898,118 @@ public class DashboardController implements Initializable {
         }
     }
 
+    /**
+     * Handle real-time program updates from socket
+     */
+    public void updateProgramsFromSocket(com.google.gson.JsonArray programsArray) {
+        programsData.clear();
+
+        for (int i = 0; i < programsArray.size(); i++) {
+            com.google.gson.JsonObject programObj = programsArray.get(i).getAsJsonObject();
+
+            String name = programObj.get("name").getAsString();
+            String uploadedBy = programObj.get("uploadedBy").getAsString();
+            int instructionCount = programObj.get("instructionCount").getAsInt();
+            int maxDegree = programObj.get("maxDegree").getAsInt();
+            int runs = programObj.get("runs").getAsInt();
+            double avgCost = programObj.get("avgCost").getAsDouble();
+
+            ProgramInfo localProgram = new ProgramInfo(
+                    name, uploadedBy, instructionCount, maxDegree, runs, avgCost);
+            programsData.add(localProgram);
+        }
+
+        System.out.println("Updated programs from WebSocket: " + programsData.size() + " programs");
+    }
+
+    /**
+     * Handle real-time function updates from socket
+     */
+    public void updateFunctionsFromSocket(com.google.gson.JsonArray functionsArray) {
+        functionsData.clear();
+
+        for (int i = 0; i < functionsArray.size(); i++) {
+            com.google.gson.JsonObject functionObj = functionsArray.get(i).getAsJsonObject();
+
+            String name = functionObj.get("name").getAsString();
+            String parentProgram = functionObj.get("parentProgram").getAsString();
+            String uploadedBy = functionObj.get("uploadedBy").getAsString();
+            int instructionCount = functionObj.get("instructionCount").getAsInt();
+            int maxDegree = functionObj.get("maxDegree").getAsInt();
+
+            FunctionInfo localFunction = new FunctionInfo(
+                    name, parentProgram, uploadedBy, instructionCount, maxDegree);
+            functionsData.add(localFunction);
+        }
+
+        System.out.println("Updated functions from WebSocket: " + functionsData.size() + " functions");
+    }
+
+    /**
+     * Handle real-time user updates from WebSocket
+     */
+    public void updateUsersFromWebSocket(com.google.gson.JsonArray usersArray) {
+        usersData.clear();
+
+        for (int i = 0; i < usersArray.size(); i++) {
+            com.google.gson.JsonObject userObj = usersArray.get(i).getAsJsonObject();
+
+            String username = userObj.get("username").getAsString();
+            int credits = userObj.get("credits").getAsInt();
+            int totalRuns = userObj.get("totalRuns").getAsInt();
+
+            // Calculate additional fields (these would need to be provided by server)
+            int mainPrograms = 0; // TODO: Get from server
+            int subfunctions = 0; // TODO: Get from server
+            int creditsUsed = 0; // TODO: Calculate from history
+
+            UserInfo localUser = new UserInfo(
+                    username, mainPrograms, subfunctions, credits, creditsUsed, totalRuns);
+            usersData.add(localUser);
+        }
+
+        // Update current user's credits in header
+        updateCurrentUserCredits();
+
+        System.out.println("Updated users from WebSocket: " + usersData.size() + " users");
+    }
+
+    /**
+     * Update users from socket message
+     */
+    public void updateUsersFromSocket(com.google.gson.JsonArray usersArray) {
+        usersData.clear();
+
+        for (int i = 0; i < usersArray.size(); i++) {
+            com.google.gson.JsonObject userObj = usersArray.get(i).getAsJsonObject();
+
+            String username = userObj.get("username").getAsString();
+            int credits = userObj.get("credits").getAsInt();
+            int totalRuns = userObj.get("totalRuns").getAsInt();
+            long lastActive = userObj.get("lastActive").getAsLong();
+            int mainPrograms = userObj.has("mainPrograms") ? userObj.get("mainPrograms").getAsInt() : 0;
+            int subfunctions = userObj.has("subfunctions") ? userObj.get("subfunctions").getAsInt() : 0;
+            int creditsUsed = userObj.has("creditsUsed") ? userObj.get("creditsUsed").getAsInt() : 0;
+
+            UserInfo localUser = new UserInfo(
+                    username, mainPrograms, subfunctions, credits, creditsUsed, totalRuns);
+            usersData.add(localUser);
+        }
+
+        // Update current user's credits in header
+        updateCurrentUserCredits();
+
+        System.out.println("Updated users from socket: " + usersData.size() + " users");
+    }
+
     public void cleanup() {
         if (refreshTimer != null) {
             refreshTimer.cancel();
             refreshTimer = null;
+        }
+
+        if (userUpdateClient != null) {
+            userUpdateClient.disconnect();
         }
     }
 }

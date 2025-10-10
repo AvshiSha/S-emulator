@@ -42,3 +42,5 @@ echo You need to deploy the WAR file to a Tomcat server.
 echo The WAR file is located at: target/s-emulator.war
 echo.
 pause
+
+

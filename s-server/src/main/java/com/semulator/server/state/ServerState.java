@@ -4,7 +4,6 @@ import com.semulator.engine.model.*;
 import com.semulator.engine.parse.SProgramImpl;
 import com.semulator.server.model.ApiModels;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,6 +26,14 @@ public class ServerState {
     // Program catalog
     private final Map<String, SProgram> programs = new ConcurrentHashMap<>();
     private final Map<String, SProgram> functions = new ConcurrentHashMap<>();
+
+    // Program metadata tracking
+    private final Map<String, String> programOwners = new ConcurrentHashMap<>(); // programName -> ownerUsername
+    private final Map<String, String> functionOwners = new ConcurrentHashMap<>(); // functionName -> ownerUsername
+    private final Map<String, String> functionParentPrograms = new ConcurrentHashMap<>(); // functionName ->
+                                                                                          // parentProgramName
+    private final Map<String, Integer> programRunCounts = new ConcurrentHashMap<>(); // programName -> runCount
+    private final Map<String, Double> programAvgCosts = new ConcurrentHashMap<>(); // programName -> avgCost
 
     // Run sessions
     private final Map<String, RunSession> runSessions = new ConcurrentHashMap<>();
@@ -66,6 +73,14 @@ public class ServerState {
         users.put(username, user);
         userHistory.put(username, new ArrayList<>());
         incrementVersion();
+
+        // Broadcast user update to all connected clients
+        try {
+            com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
+        } catch (Exception e) {
+            System.err.println("Error broadcasting user update: " + e.getMessage());
+        }
+
         return user;
     }
 
@@ -120,78 +135,108 @@ public class ServerState {
 
     // Program management
     public SProgram loadProgram(String xmlContent, String ownerUsername) throws Exception {
-
-        // Create a temporary file path for the XML content
-        java.nio.file.Path tempPath = java.nio.file.Files.createTempFile("upload_", ".xml");
-
         try {
-
-            // Write XML content to temporary file
-            java.nio.file.Files.write(tempPath, xmlContent.getBytes("UTF-8"));
-
-            // Debug: Read back the file content to verify it was written correctly
-            String writtenContent = java.nio.file.Files.readString(tempPath);
-            System.out.println(writtenContent.substring(0, Math.min(200, writtenContent.length())));
-
-            // Create program and validate the XML file
+            // Create program instance
             SProgramImpl program = new SProgramImpl("LoadedProgram_" + System.currentTimeMillis());
 
-            // Validate the XML file
-            String validation = program.validate(tempPath);
-
+            // Validate XML content directly
+            String validation = program.validateXmlContent(xmlContent);
             if (!"Valid".equals(validation)) {
                 throw new Exception("Invalid XML: " + validation);
             }
 
-            // Load the program from the validated XML file
-            Object result = program.load();
+            // Load the program from XML content
+            String programName = program.loadFromXmlContent(xmlContent);
+
+            // Set the program name from XML
+            if (programName != null && !programName.trim().isEmpty()) {
+                // Create a new instance with the correct name
+                SProgramImpl namedProgram = new SProgramImpl(programName);
+                namedProgram.loadFromXmlContent(xmlContent);
+                program = namedProgram;
+            }
 
             // Store the program
             programs.put(program.getName(), program);
+
+            // Track program metadata
+            programOwners.put(program.getName(), ownerUsername);
+            programRunCounts.put(program.getName(), 0);
+            programAvgCosts.put(program.getName(), 0.0);
+
+            // Extract and store functions if any
+            if (program instanceof SProgramImpl) {
+                SProgramImpl impl = (SProgramImpl) program;
+                Map<String, List<SInstruction>> programFunctions = impl.getFunctions();
+                for (String funcName : programFunctions.keySet()) {
+                    // Create a function program for each function
+                    SProgramImpl functionProgram = new SProgramImpl(funcName);
+                    functionProgram.loadFromXmlContent(xmlContent);
+                    functions.put(funcName, functionProgram);
+
+                    // Track function metadata
+                    functionOwners.put(funcName, ownerUsername);
+                    functionParentPrograms.put(funcName, program.getName());
+                }
+            }
+
             incrementVersion();
+
+            // Broadcast program update to all connected clients
+            try {
+                com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
+            } catch (Exception e) {
+                System.err.println("Error broadcasting program update: " + e.getMessage());
+            }
 
             return program;
 
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
-        } finally {
-            // Clean up temporary file
-            try {
-                java.nio.file.Files.deleteIfExists(tempPath);
-            } catch (Exception e) {
-                System.err.println("Warning: Could not delete temporary file: " + e.getMessage());
-            }
         }
     }
 
     public List<ApiModels.ProgramInfo> getPrograms() {
         return programs.values().stream()
-                .map(p -> new ApiModels.ProgramInfo(
-                        p.getName(),
-                        p.getInstructions().size(),
-                        p.calculateMaxDegree(),
-                        new ArrayList<>() // TODO: Extract function names
-                ))
+                .map(p -> {
+                    String owner = programOwners.getOrDefault(p.getName(), "unknown");
+                    int runs = programRunCounts.getOrDefault(p.getName(), 0);
+                    double avgCost = programAvgCosts.getOrDefault(p.getName(), 0.0);
+
+                    // Extract function names from the program
+                    List<String> functionNames = new ArrayList<>();
+                    if (p instanceof SProgramImpl) {
+                        SProgramImpl impl = (SProgramImpl) p;
+                        functionNames.addAll(impl.getFunctions().keySet());
+                    }
+
+                    return new ApiModels.ProgramInfo(
+                            p.getName(),
+                            owner,
+                            p.getInstructions().size(),
+                            p.calculateMaxDegree(),
+                            runs,
+                            avgCost,
+                            functionNames);
+                })
                 .toList();
     }
 
     public List<ApiModels.FunctionInfo> getFunctions() {
         List<ApiModels.FunctionInfo> result = new ArrayList<>();
 
-        for (SProgram program : programs.values()) {
-            if (program instanceof SProgramImpl) {
-                SProgramImpl impl = (SProgramImpl) program;
-                Map<String, String> userStrings = impl.getFunctionUserStrings();
+        for (SProgram function : functions.values()) {
+            String funcName = function.getName();
+            String owner = functionOwners.getOrDefault(funcName, "unknown");
+            String parentProgram = functionParentPrograms.getOrDefault(funcName, "unknown");
 
-                for (String funcName : impl.getFunctions().keySet()) {
-                    result.add(new ApiModels.FunctionInfo(
-                            funcName,
-                            userStrings.getOrDefault(funcName, ""),
-                            program.calculateFunctionTemplateDegree(funcName),
-                            impl.getFunctions().get(funcName).size()));
-                }
-            }
+            result.add(new ApiModels.FunctionInfo(
+                    funcName,
+                    parentProgram,
+                    owner,
+                    function.getInstructions().size(),
+                    function.calculateMaxDegree()));
         }
 
         return result;

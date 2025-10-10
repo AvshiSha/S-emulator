@@ -108,16 +108,28 @@ public class LoginController implements Initializable {
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
                         String errorMessage = throwable.getMessage();
-                        
+
                         // Handle specific error cases
-                        if (errorMessage != null && errorMessage.contains("USER_ALREADY_LOGGED_IN")) {
-                            showError("This username is already logged in. Please use a different username or wait for the other session to logout.");
-                        } else if (errorMessage != null && errorMessage.contains("CONFLICT")) {
-                            showError("Username conflict. Please try a different username.");
+                        if (errorMessage != null) {
+                            if (errorMessage.contains("already logged in")) {
+                                showError(
+                                        "This username is already logged in. Please use a different username or wait for the other session to logout.");
+                            } else if (errorMessage.contains("CONFLICT")) {
+                                showError("Username conflict. Please try a different username.");
+                            } else if (errorMessage.contains("Username is required")) {
+                                showError("Please enter a username.");
+                            } else if (errorMessage.contains("HTTP error: 500")) {
+                                showError("Server error. Please try again later.");
+                            } else if (errorMessage.contains("HTTP error: 404")) {
+                                showError("Server not available. Please check if the server is running.");
+                            } else {
+                                // Show the clean error message from server
+                                showError(errorMessage);
+                            }
                         } else {
-                            showError("Login failed: " + errorMessage);
+                            showError("Login failed. Please try again.");
                         }
-                        
+
                         loginButton.setDisable(false);
                         loginButton.setText("Login");
                     });

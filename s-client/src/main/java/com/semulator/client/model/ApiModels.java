@@ -48,7 +48,8 @@ public class ApiModels {
         }
 
         // Server response models (matching server-side ApiModels)
-        public record ProgramInfo(String name, int instructionCount, int maxDegree, List<String> functions) {
+        public record ProgramInfo(String name, String uploadedBy, int instructionCount, int maxDegree, int runs,
+                        double avgCost, List<String> functions) {
         }
 
         public record ProgramWithInstructions(String name, List<Object> instructions, int maxDegree,
@@ -57,7 +58,8 @@ public class ApiModels {
                 // Maps
         }
 
-        public record FunctionInfo(String name, String userString, int templateDegree, int instructionCount) {
+        public record FunctionInfo(String name, String parentProgram, String uploadedBy, int instructionCount,
+                        int maxDegree) {
         }
 
         // Runs
@@ -129,7 +131,7 @@ public class ApiModels {
 
         // Delta responses
         public record DeltaResponse<T>(
-                        String version,
+                        long version,
                         boolean full,
                         List<T> items,
                         DeltaChanges<T> delta) {

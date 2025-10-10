@@ -8,8 +8,6 @@ import org.xml.sax.SAXException;
 
 import com.semulator.engine.model.*;
 
-
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -141,6 +139,30 @@ public class SProgramImpl implements SProgram {
 
             this.xmlPath = p;
             return "Valid";
+        }
+    }
+
+    /**
+     * Validate XML content directly from string (for server uploads)
+     * 
+     * @param xmlContent The XML content as a string
+     * @return "Valid" if valid, error message if invalid
+     */
+    public String validateXmlContent(String xmlContent) {
+        if (xmlContent == null || xmlContent.trim().isEmpty()) {
+            return "XML content is empty";
+        }
+
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(xmlContent.getBytes("UTF-8")));
+            doc.getDocumentElement().normalize();
+
+            boolean isValid = validateXmlFile(doc);
+            return isValid ? "Valid" : "Invalid XML structure";
+        } catch (Exception e) {
+            return "XML parsing error: " + e.getMessage();
         }
     }
 
@@ -1266,6 +1288,36 @@ public class SProgramImpl implements SProgram {
         buildInMemory(doc);
         reseedNameRegistryFromProgram();
         return xmlPath;
+    }
+
+    /**
+     * Load XML content directly from string (for server uploads)
+     * 
+     * @param xmlContent The XML content as a string
+     * @return The program name if successful, null if failed
+     * @throws Exception if parsing or validation fails
+     */
+    public String loadFromXmlContent(String xmlContent) throws Exception {
+        if (xmlContent == null || xmlContent.trim().isEmpty()) {
+            throw new IllegalArgumentException("XML content is empty");
+        }
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.parse(new java.io.ByteArrayInputStream(xmlContent.getBytes("UTF-8")));
+        doc.getDocumentElement().normalize();
+
+        boolean isValid = validateXmlFile(doc);
+        if (!isValid) {
+            throw new IllegalArgumentException("Invalid XML structure");
+        }
+
+        buildInMemory(doc);
+        reseedNameRegistryFromProgram();
+
+        // Return the program name from the XML
+        Element root = doc.getDocumentElement();
+        return root.getAttribute("name");
     }
 
     private void buildInMemory(Document doc) {

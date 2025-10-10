@@ -45,6 +45,7 @@
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
         </dependency>
+
     </dependencies>
 
     <build>
@@ -57,6 +58,13 @@
                 <configuration>
                     <warSourceDirectory>web</warSourceDirectory>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <packagingExcludes>
+                        WEB-INF/lib/jakarta.websocket*.jar,
+                        WEB-INF/lib/tyrus*.jar,
+                        WEB-INF/lib/grizzly*.jar,
+                        WEB-INF/lib/jakarta.activation*.jar,
+                        WEB-INF/lib/jakarta.xml.bind*.jar
+                    </packagingExcludes>
                 </configuration>
             </plugin>
         </plugins>

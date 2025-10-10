@@ -89,7 +89,30 @@ public class ApiClient {
 
                 try (Response response = client.newCall(request).execute()) {
                     if (!response.isSuccessful()) {
-                        throw new RuntimeException("HTTP error: " + response.code() + " " + response.message());
+                        // Try to parse error message from response body
+                        String errorMessage = "HTTP error: " + response.code() + " " + response.message();
+                        try {
+                            ResponseBody errorBody = response.body();
+                            if (errorBody != null) {
+                                String errorJson = errorBody.string();
+                                // Try to parse as error response
+                                try {
+                                    com.google.gson.JsonObject errorObj = gson.fromJson(errorJson,
+                                            com.google.gson.JsonObject.class);
+                                    if (errorObj.has("error") && errorObj.getAsJsonObject("error").has("message")) {
+                                        errorMessage = errorObj.getAsJsonObject("error").get("message").getAsString();
+                                    }
+                                } catch (Exception e) {
+                                    // If parsing fails, use the JSON as is
+                                    if (!errorJson.trim().isEmpty()) {
+                                        errorMessage = errorJson;
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            // Fall back to default error message
+                        }
+                        throw new RuntimeException(errorMessage);
                     }
 
                     ResponseBody responseBody = response.body();
