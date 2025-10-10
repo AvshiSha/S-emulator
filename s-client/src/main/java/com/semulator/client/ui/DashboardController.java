@@ -8,15 +8,19 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 import java.util.Timer;
@@ -687,9 +691,38 @@ public class DashboardController implements Initializable {
     }
 
     private void navigateToExecutionScreen(String targetName, String targetType) {
-        // TODO: Navigate to execution screen with selected program/function
-        showInfoAlert("Navigation", "Would navigate to execution screen for:\n" +
-                "Target: " + targetName + "\nType: " + targetType);
+        try {
+            // Check if the resource exists
+            java.net.URL resourceUrl = getClass().getResource("/fxml/program-run.fxml");
+
+            if (resourceUrl == null) {
+                throw new IOException("FXML resource not found: /fxml/program-run.fxml");
+            }
+
+            // Load the program run screen
+            FXMLLoader loader = new FXMLLoader(resourceUrl);
+            Parent root = loader.load();
+            Scene scene = new Scene(root, 1200, 800);
+            scene.getStylesheets().add(getClass().getResource("/styles/main.css").toExternalForm());
+
+            // Get the controller and set the target
+            ProgramRunController controller = loader.getController();
+            controller.setTarget(targetName, targetType);
+
+            Stage stage = (Stage) executeProgramButton.getScene().getWindow();
+            stage.setTitle("S-Emulator - Execution - " + targetName);
+            stage.setScene(scene);
+            stage.setResizable(true);
+
+        } catch (IOException e) {
+            System.err.println("Navigation error: " + e.getMessage());
+            e.printStackTrace();
+            showErrorAlert("Navigation Error", "Failed to navigate to execution screen: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected navigation error: " + e.getMessage());
+            e.printStackTrace();
+            showErrorAlert("Navigation Error", "Unexpected error: " + e.getMessage());
+        }
     }
 
     private void showRunStatus(RunHistory run) {

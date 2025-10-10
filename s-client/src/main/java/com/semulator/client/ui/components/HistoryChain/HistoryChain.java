@@ -117,7 +117,8 @@ public class HistoryChain {
                     getLabelText(instruction.getLabel()), // Label text
                     getInstructionText(instruction, functionUserStrings), // Instruction description
                     instruction.cycles(), // Cycles
-                    variable);
+                    variable,
+                    "I"); // Architecture - placeholder for history chain
             historyData.add(row);
         }
     }

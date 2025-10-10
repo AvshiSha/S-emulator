@@ -56,6 +56,9 @@ public class InstructionTable {
     @FXML
     private TableColumn<InstructionRow, Integer> cyclesColumn;
 
+    @FXML
+    private TableColumn<InstructionRow, String> architectureColumn;
+
     private ObservableList<InstructionRow> instructionData = FXCollections.observableArrayList();
 
     // For highlighting functionality
@@ -91,6 +94,7 @@ public class InstructionTable {
         labelColumn.setCellValueFactory(cellData -> cellData.getValue().labelProperty());
         instructionTypeColumn.setCellValueFactory(cellData -> cellData.getValue().instructionTypeProperty());
         cyclesColumn.setCellValueFactory(cellData -> cellData.getValue().cyclesProperty().asObject());
+        architectureColumn.setCellValueFactory(cellData -> cellData.getValue().architectureProperty());
 
         // Set the data source for the table
         instructionTableView.setItems(instructionData);
@@ -104,12 +108,14 @@ public class InstructionTable {
         commandTypeColumn.setResizable(true);
         labelColumn.setResizable(true);
         cyclesColumn.setResizable(true);
+        architectureColumn.setResizable(true);
 
         // Set sortable to false for all columns to maintain order
         rowNumberColumn.setSortable(false);
         commandTypeColumn.setSortable(false);
         labelColumn.setSortable(false);
         cyclesColumn.setSortable(false);
+        architectureColumn.setSortable(false);
     }
 
     @FXML
@@ -224,7 +230,8 @@ public class InstructionTable {
                             getLabelText(instruction.getLabel()), // Label text
                             getInstructionText(instruction, functionUserStrings), // Instruction description
                             instruction.cycles(), // Cycles
-                            variable);
+                            variable,
+                            getArchitectureForInstruction(instruction)); // Architecture
                     instructionData.add(row);
                 } catch (Exception e) {
                     System.err.println("Error processing instruction at index " + i + ": " + e.getMessage());
@@ -333,6 +340,14 @@ public class InstructionTable {
     public void clearTable() {
         instructionData.clear();
         rowCache.clear(); // Clear the row cache when clearing the table
+    }
+
+    public void setInstructionData(javafx.collections.ObservableList<InstructionRow> data) {
+        instructionData.clear();
+        instructionData.addAll(data);
+        instructionTableView.setItems(instructionData);
+        instructionTableView.refresh();
+        System.out.println("InstructionTable: Set " + data.size() + " instructions");
     }
 
     public void setTableEnabled(boolean enabled) {
@@ -507,6 +522,30 @@ public class InstructionTable {
         return instruction.getName(); // Use getName() method from SInstruction interface
     }
 
+    private String getArchitectureForInstruction(SInstruction instruction) {
+        // TODO: Implement architecture detection logic
+        // For now, return a placeholder based on instruction type
+        if (instruction instanceof IncreaseInstruction
+                || instruction instanceof DecreaseInstruction
+                || instruction instanceof NoOpInstruction
+                || instruction instanceof JumpNotZeroInstruction
+                || instruction instanceof ZeroVariableInstruction) {
+            return "I"; // Basic instructions support Architecture I
+        } else if (instruction instanceof AssignVariableInstruction
+                || instruction instanceof AssignConstantInstruction
+                || instruction instanceof GotoLabelInstruction) {
+            return "II"; // Assignment and goto instructions support Architecture II
+        } else if (instruction instanceof JumpZeroInstruction
+                || instruction instanceof JumpEqualConstantInstruction
+                || instruction instanceof JumpEqualVariableInstruction) {
+            return "III"; // Jump instructions support Architecture III
+        } else if (instruction instanceof QuoteInstruction
+                || instruction instanceof JumpEqualFunctionInstruction) {
+            return "IV"; // Function-related instructions support Architecture IV
+        }
+        return "?"; // Unknown architecture
+    }
+
     private String getDisplayFunctionName(String functionName, Map<String, String> functionUserStrings) {
         if (functionUserStrings != null && functionUserStrings.containsKey(functionName)) {
             return functionUserStrings.get(functionName);
@@ -563,16 +602,18 @@ public class InstructionTable {
         private final javafx.beans.property.StringProperty instructionType;
         private final javafx.beans.property.IntegerProperty cycles;
         private final javafx.beans.property.StringProperty variable;
+        private final javafx.beans.property.StringProperty architecture;
         private boolean highlighted = false;
 
         public InstructionRow(int rowNumber, String commandType, String label,
-                String instructionType, int cycles, String variable) {
+                String instructionType, int cycles, String variable, String architecture) {
             this.rowNumber = new javafx.beans.property.SimpleIntegerProperty(rowNumber);
             this.commandType = new javafx.beans.property.SimpleStringProperty(commandType);
             this.label = new javafx.beans.property.SimpleStringProperty(label);
             this.instructionType = new javafx.beans.property.SimpleStringProperty(instructionType);
             this.cycles = new javafx.beans.property.SimpleIntegerProperty(cycles);
             this.variable = new javafx.beans.property.SimpleStringProperty(variable);
+            this.architecture = new javafx.beans.property.SimpleStringProperty(architecture);
         }
 
         // Property getters
@@ -600,6 +641,10 @@ public class InstructionTable {
             return variable;
         }
 
+        public javafx.beans.property.StringProperty architectureProperty() {
+            return architecture;
+        }
+
         // Value getters
         public int getRowNumber() {
             return rowNumber.get();
@@ -623,6 +668,10 @@ public class InstructionTable {
 
         public String getVariable() {
             return variable.get();
+        }
+
+        public String getArchitecture() {
+            return architecture.get();
         }
 
         // Highlighting methods

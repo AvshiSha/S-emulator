@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+      fx:controller="com.semulator.client.ui.ProgramRunController"
+      style="-fx-background-color: #f5f5f5; -fx-padding: 10;">
+   
+   <children>
+      <!-- Header Bar -->
+      <HBox fx:id="headerBar" 
+            style="-fx-background-color: #e0e0e0; -fx-padding: 10; -fx-spacing: 15;"
+            alignment="CENTER_LEFT">
+         <children>
+            <!-- User Name -->
+            <Label text="User Name:" style="-fx-font-weight: bold;"/>
+            <Label fx:id="currentUserName" text="[Current User]" style="-fx-text-fill: #0066cc;"/>
+            
+            <!-- Screen Title -->
+            <Label fx:id="screenTitle" text="S-Emulator - Execution" 
+                   style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;"/>
+            
+            <!-- Available Credits -->
+            <Label text="Available Credits:" style="-fx-font-weight: bold;"/>
+            <Label fx:id="availableCredits" text="0" style="-fx-text-fill: #ff6600; -fx-font-weight: bold;"/>
+         </children>
+         <VBox.margin><Insets bottom="20.0"/></VBox.margin>
+      </HBox>
+      
+      <!-- Main Content Area -->
+      <HBox spacing="10" VBox.vgrow="ALWAYS">
+         <children>
+            <!-- Left Panel - Instructions and History -->
+            <VBox fx:id="leftPanel" HBox.hgrow="ALWAYS" minWidth="400"
+                  style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
+               <children>
+                  <!-- Degree Commands and Highlight Selection -->
+                  <HBox spacing="20" alignment="CENTER_LEFT">
+                     <children>
+                        <Label fx:id="degreeCommandsLabel" text="Degree Commands" 
+                               style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 5; -fx-font-weight: bold;"/>
+                        <Label fx:id="highlightSelectionLabel" text="Highlight Selection" 
+                               style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 5; -fx-font-weight: bold;"/>
+                     </children>
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </HBox>
+                  
+                  <!-- Instructions Table Component -->
+                  <fx:include fx:id="instructionTableComponent" source="../fxml/components/InstructionTable.fxml" VBox.vgrow="ALWAYS" />
+                  
+                  <!-- Advanced Summary Line -->
+                  <Label fx:id="summaryLine" text="Architecture Support: I:0 II:0 III:0 IV:0"
+                         style="-fx-background-color: #e0e0e0; -fx-padding: 5; -fx-font-weight: bold;">
+                     <VBox.margin><Insets top="10.0" bottom="10.0"/></VBox.margin>
+                  </Label>
+                  
+                  <!-- Selected Instruction History Chain Component -->
+                  <fx:include fx:id="historyChainComponent" source="../fxml/components/HistoryChain.fxml" />
+               </children>
+            </VBox>
+            
+            <!-- Right Panel - Debugger/Execution -->
+            <VBox fx:id="rightPanel" minWidth="350" maxWidth="400"
+                  style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
+               <children>
+                  <!-- Debugger/Execution Title -->
+                  <Label fx:id="debuggerTitle" text="Debugger/Execution" 
+                         style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;">
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </Label>
+                  
+                  <!-- Debugger/Execution Commands (Yellow Box) -->
+                  <VBox fx:id="executionCommandsBox" 
+                        style="-fx-background-color: #fff3cd; -fx-border-color: #ffeaa7; -fx-border-width: 2; -fx-padding: 10;">
+                     <children>
+                        <Label text="Debugger/Execution Commands" 
+                               style="-fx-font-weight: bold; -fx-text-fill: #856404;">
+                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+                        </Label>
+                        <HBox spacing="5" alignment="CENTER_LEFT">
+                           <children>
+                              <Button fx:id="startExecutionButton" text="Start Execution" 
+                                      style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                              <Button fx:id="startRegularButton" text="Start Regular" 
+                                      style="-fx-background-color: #17a2b8; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                              <Button fx:id="startDebugButton" text="Start Debug" 
+                                      style="-fx-background-color: #6f42c1; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                           </children>
+                        </HBox>
+                        <HBox spacing="5" alignment="CENTER_LEFT">
+                           <children>
+                              <Button fx:id="stopButton" text="Stop" 
+                                      style="-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                              <Button fx:id="resumeButton" text="Resume" 
+                                      style="-fx-background-color: #fd7e14; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                           </children>
+                           <VBox.margin><Insets top="5.0"/></VBox.margin>
+                        </HBox>
+                        <HBox spacing="5" alignment="CENTER_LEFT">
+                           <children>
+                              <Button fx:id="stepForwardButton" text="Step Forward" 
+                                      style="-fx-background-color: #20c997; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                              <Button fx:id="stepBackwardButton" text="Step Backward" 
+                                      style="-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                           </children>
+                           <VBox.margin><Insets top="5.0"/></VBox.margin>
+                        </HBox>
+                     </children>
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </VBox>
+                  
+                  <!-- Architecture Selection (Blue Box) -->
+                  <VBox fx:id="architectureSelectionBox" 
+                        style="-fx-background-color: #e3f2fd; -fx-border-color: #2196F3; -fx-border-width: 2; -fx-padding: 10;">
+                     <children>
+                        <Label text="Architecture Selection" 
+                               style="-fx-font-weight: bold; -fx-text-fill: #0d47a1;">
+                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+                        </Label>
+                        <ComboBox fx:id="architectureComboBox" promptText="Select Architecture">
+                           <VBox.margin><Insets bottom="5.0"/></VBox.margin>
+                        </ComboBox>
+                        <Label text="Select processor architecture (I - IV)" 
+                               style="-fx-font-size: 10px; -fx-text-fill: #666;"/>
+                     </children>
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </VBox>
+                  
+                  <!-- Variables (Magenta Box) -->
+                  <VBox fx:id="variablesBox" 
+                        style="-fx-background-color: #fce4ec; -fx-border-color: #e91e63; -fx-border-width: 2; -fx-padding: 10;">
+                     <children>
+                        <Label text="Variables" 
+                               style="-fx-font-weight: bold; -fx-text-fill: #880e4f;">
+                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+                        </Label>
+                        <TableView fx:id="variablesTable" minHeight="100">
+                           <columns>
+                              <TableColumn fx:id="variableNameColumn" text="Variable" prefWidth="100"/>
+                              <TableColumn fx:id="variableValueColumn" text="Value" prefWidth="80"/>
+                           </columns>
+                        </TableView>
+                     </children>
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </VBox>
+                  
+                  <!-- Execution Inputs (Blue Box) -->
+                  <VBox fx:id="executionInputsBox" 
+                        style="-fx-background-color: #e3f2fd; -fx-border-color: #2196F3; -fx-border-width: 2; -fx-padding: 10;">
+                     <children>
+                        <Label text="Execution Inputs" 
+                               style="-fx-font-weight: bold; -fx-text-fill: #0d47a1;">
+                           <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+                        </Label>
+                        <HBox spacing="5" alignment="CENTER_LEFT">
+                           <children>
+                              <TextField fx:id="executionInputField" promptText="Enter input value"/>
+                              <Button fx:id="setInputButton" text="Set" 
+                                      style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                           </children>
+                        </HBox>
+                     </children>
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </VBox>
+                  
+                  <!-- Cycles (Magenta Box) -->
+                  <VBox fx:id="cyclesBox" 
+                        style="-fx-background-color: #fce4ec; -fx-border-color: #e91e63; -fx-border-width: 2; -fx-padding: 10;">
+                     <children>
+                        <Label fx:id="cyclesLabel" text="Cycles: 0" 
+                               style="-fx-font-weight: bold; -fx-text-fill: #880e4f;"/>
+                     </children>
+                     <VBox.margin><Insets bottom="15.0"/></VBox.margin>
+                  </VBox>
+                  
+                  <!-- Back to Dashboard Button -->
+                  <Button fx:id="backToDashboardButton" text="Back to Dashboard" 
+                          style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8;">
+                     <VBox.margin><Insets top="20.0"/></VBox.margin>
+                  </Button>
+               </children>
+            </VBox>
+         </children>
+      </HBox>
+      
+   </children>
+</VBox>
