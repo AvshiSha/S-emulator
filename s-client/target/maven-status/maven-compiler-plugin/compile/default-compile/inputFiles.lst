@@ -6,6 +6,7 @@ C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\clien
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\JavaFXLauncher.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\Main.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\ui\DashboardController.java
+C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\ui\components\Header\ExecutionHeaderController.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\ui\components\Header\HeaderController.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\ui\components\HistoryChain\HistoryChain.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\ui\components\HistoryStats\HistoryStats.java
@@ -14,3 +15,4 @@ C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\clien
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\service\ApiClient.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\service\UserUpdateClient.java
 C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\model\ApiModels.java
+C:\Users\user\IdeaProjects\S-emulator\s-client\src\main\java\com\semulator\client\ui\ProgramRunController.java

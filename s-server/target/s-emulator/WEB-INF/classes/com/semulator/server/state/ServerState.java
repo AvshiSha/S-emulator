@@ -322,13 +322,17 @@ public class ServerState {
     }
 
     public ApiModels.ProgramWithInstructions getProgramWithInstructions(String programName) {
+        return getProgramWithInstructions(programName, 0);
+    }
+
+    public ApiModels.ProgramWithInstructions getProgramWithInstructions(String programName, int degree) {
         SProgram program = programs.get(programName);
         if (program == null) {
             return null;
         }
 
-        // Expand program to degree 0 to get the actual instructions to display
-        ExpansionResult expansion = program.expandToDegree(0);
+        // Expand program to the requested degree
+        ExpansionResult expansion = program.expandToDegree(degree);
         List<SInstruction> expandedInstructions = expansion.instructions();
 
         List<ApiModels.InstructionDTO> instructionDTOs = new ArrayList<>();
@@ -365,7 +369,8 @@ public class ServerState {
                     instructionText,
                     instruction.cycles(),
                     variableName,
-                    architecture));
+                    architecture,
+                    instruction.getName())); // Original instruction type name
         }
 
         return new ApiModels.ProgramWithInstructions(

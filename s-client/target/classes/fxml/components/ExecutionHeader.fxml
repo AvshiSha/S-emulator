@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.text.Font?>
+
+<HBox alignment="CENTER_LEFT" spacing="15.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.semulator.client.ui.components.Header.ExecutionHeaderController"
+      style="-fx-padding: 10; -fx-background-color: #f0f0f0;">
+   <children>
+      <Label text="Degree:" style="-fx-font-weight: bold; -fx-font-size: 12px;" />
+      <ComboBox fx:id="levelSelector" maxWidth="150.0" minWidth="100.0" prefHeight="30.0" prefWidth="150.0" promptText="Select Degree">
+         <tooltip>
+            <Tooltip text="Select the expansion degree to view expanded instructions" />
+         </tooltip>
+      </ComboBox>
+      <Label fx:id="lblDegreeStatus" alignment="CENTER" prefHeight="30.0" prefWidth="150.0" text="0 / 0" style="-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #0066cc;">
+         <font>
+            <Font name="System Bold" size="12.0" />
+         </font>
+      </Label>
+      <Label text="Highlight:" style="-fx-font-weight: bold; -fx-font-size: 12px;" />
+      <ComboBox fx:id="labelVariableComboBox" maxWidth="200.0" minWidth="150.0" prefHeight="30.0" prefWidth="200.0" promptText="Select Label/Variable">
+         <tooltip>
+            <Tooltip text="Select a label or variable to highlight its usage in the instruction table" />
+         </tooltip>
+      </ComboBox>
+   </children>
+</HBox>
+

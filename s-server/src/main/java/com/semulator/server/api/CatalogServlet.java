@@ -89,14 +89,21 @@ public class CatalogServlet extends HttpServlet {
     private void handleGetSpecificProgram(HttpServletRequest req, HttpServletResponse resp, String programName)
             throws IOException {
         try {
+            // Check for degree parameter
+            String degreeParam = req.getParameter("degree");
+            int degree = degreeParam != null ? Integer.parseInt(degreeParam) : 0;
+
             ApiModels.ProgramWithInstructions programWithInstructions = serverState
-                    .getProgramWithInstructions(programName);
+                    .getProgramWithInstructions(programName, degree);
             if (programWithInstructions != null) {
                 ServletUtils.writeJson(resp, programWithInstructions);
             } else {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "PROGRAM_NOT_FOUND",
                         "Program not found: " + programName);
             }
+        } catch (NumberFormatException e) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                    "Invalid degree parameter");
         } catch (Exception e) {
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Failed to get program: " + e.getMessage());

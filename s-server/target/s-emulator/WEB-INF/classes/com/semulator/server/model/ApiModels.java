@@ -151,7 +151,7 @@ public class ApiModels {
         public String name; // Original instruction name (for compatibility)
 
         public InstructionDTO(int rowNumber, String commandType, String label, String instruction,
-                int cycles, String variable, String architecture) {
+                int cycles, String variable, String architecture, String instructionTypeName) {
             this.rowNumber = rowNumber;
             this.commandType = commandType;
             this.label = label;
@@ -159,7 +159,7 @@ public class ApiModels {
             this.cycles = cycles;
             this.variable = variable;
             this.architecture = architecture;
-            this.name = instruction; // For backward compatibility
+            this.name = instructionTypeName; // Original instruction type name
         }
     }
 

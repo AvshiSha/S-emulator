@@ -37,16 +37,10 @@
             <VBox fx:id="leftPanel" HBox.hgrow="ALWAYS" minWidth="400"
                   style="-fx-background-color: #fff; -fx-border-color: #ccc; -fx-border-width: 1; -fx-padding: 15;">
                <children>
-                  <!-- Degree Commands and Highlight Selection -->
-                  <HBox spacing="20" alignment="CENTER_LEFT">
-                     <children>
-                        <Label fx:id="degreeCommandsLabel" text="Degree Commands" 
-                               style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 5; -fx-font-weight: bold;"/>
-                        <Label fx:id="highlightSelectionLabel" text="Highlight Selection" 
-                               style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 5; -fx-font-weight: bold;"/>
-                     </children>
+                  <!-- Execution Header Component (Degree and Highlight Controls) -->
+                  <fx:include fx:id="executionHeader" source="../fxml/components/ExecutionHeader.fxml">
                      <VBox.margin><Insets bottom="15.0"/></VBox.margin>
-                  </HBox>
+                  </fx:include>
                   
                   <!-- Instructions Table Component -->
                   <fx:include fx:id="instructionTableComponent" source="../fxml/components/InstructionTable.fxml" VBox.vgrow="ALWAYS" />
