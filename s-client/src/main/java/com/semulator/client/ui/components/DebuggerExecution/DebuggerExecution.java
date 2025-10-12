@@ -67,6 +67,7 @@ public class DebuggerExecution {
 
     // Execution State
     private String currentProgramName;
+    private String targetType = "PROGRAM"; // "PROGRAM" or "FUNCTION"
     private int currentDegree = 0;
     private String debugSessionId = null;
 
@@ -384,10 +385,21 @@ public class DebuggerExecution {
     // Public Methods for Integration
     public void setProgramName(String programName, int degree) {
         this.currentProgramName = programName;
+        this.targetType = "PROGRAM";
         this.currentDegree = degree;
 
         if (programName != null) {
             updateExecutionStatus("Program Loaded: " + programName + " (degree " + degree + ")");
+        }
+    }
+
+    public void setFunctionName(String functionName, int degree) {
+        this.currentProgramName = functionName;
+        this.targetType = "FUNCTION";
+        this.currentDegree = degree;
+
+        if (functionName != null) {
+            updateExecutionStatus("Function Loaded: " + functionName + " (degree " + degree + ")");
         }
     }
 
@@ -697,10 +709,10 @@ public class DebuggerExecution {
 
                                 // Call server API to run the program
                                 try {
-                                    apiClient.runPrepare("PROGRAM", currentProgramName, "I", currentDegree, inputMap)
+                                    apiClient.runPrepare(targetType, currentProgramName, "I", currentDegree, inputMap)
                                             .thenCompose(prepareResponse -> {
                                                 if (prepareResponse.supported()) {
-                                                    return apiClient.runStart("PROGRAM", currentProgramName, "I",
+                                                    return apiClient.runStart(targetType, currentProgramName, "I",
                                                             currentDegree, inputMap, "admin");
                                                 } else {
                                                     throw new RuntimeException(
@@ -725,7 +737,7 @@ public class DebuggerExecution {
                                                     isExecuting.set(false);
                                                     updateButtonStates();
                                                     showAlert("Execution Error",
-                                                            "Failed to execute program: " + ex.getMessage());
+                                                            "Failed to execute program 1: " + ex.getMessage());
                                                     updateExecutionStatus("Execution Failed");
                                                 });
                                                 return null;
@@ -735,7 +747,7 @@ public class DebuggerExecution {
                                     Platform.runLater(() -> {
                                         isExecuting.set(false);
                                         updateButtonStates();
-                                        showAlert("Execution Error", "Failed to execute program: " + e.getMessage());
+                                        showAlert("Execution Error", "Failed to execute program 2: " + e.getMessage());
                                         updateExecutionStatus("Execution Failed");
                                     });
                                 }

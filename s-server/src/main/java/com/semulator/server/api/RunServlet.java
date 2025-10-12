@@ -1,6 +1,7 @@
 package com.semulator.server.api;
 
 import com.semulator.engine.model.*;
+import com.semulator.engine.model.RunTarget;
 import com.semulator.engine.exec.ExecutionContext;
 import com.semulator.engine.exec.ProgramExecutor;
 import com.semulator.engine.exec.ProgramExecutorImpl;
@@ -282,11 +283,25 @@ public class RunServlet extends HttpServlet {
         // Execute the S-program using the engine
         new Thread(() -> {
             try {
-                // Get the program from server state
-                SProgram program = serverState.getProgram(session.target.getName());
-                if (program == null) {
+                // Get the program or function from server state
+                SProgram program = null;
+                if (session.target.getType() == RunTarget.Type.PROGRAM) {
+                    program = serverState.getProgram(session.target.getName());
+                    if (program == null) {
+                        session.state = "ERROR";
+                        session.error = "Program not found: " + session.target.getName();
+                        return;
+                    }
+                } else if (session.target.getType() == RunTarget.Type.FUNCTION) {
+                    program = serverState.getFunction(session.target.getName());
+                    if (program == null) {
+                        session.state = "ERROR";
+                        session.error = "Function not found: " + session.target.getName();
+                        return;
+                    }
+                } else {
                     session.state = "ERROR";
-                    session.error = "Program not found: " + session.target.getName();
+                    session.error = "Invalid target type: " + session.target.getType();
                     return;
                 }
 

@@ -518,11 +518,17 @@ public class ProgramRunController implements Initializable {
                                         programWithInstructions.maxDegree());
                             }
 
-                            // Initialize the debugger execution component with program info
+                            // Initialize the debugger execution component with program/function info
                             if (debuggerExecutionComponentController != null) {
-                                debuggerExecutionComponentController.setProgramName(
-                                        programWithInstructions.name(),
-                                        programWithInstructions.maxDegree());
+                                if ("PROGRAM".equals(targetType)) {
+                                    debuggerExecutionComponentController.setProgramName(
+                                            programWithInstructions.name(),
+                                            programWithInstructions.maxDegree());
+                                } else if ("FUNCTION".equals(targetType)) {
+                                    debuggerExecutionComponentController.setFunctionName(
+                                            programWithInstructions.name(),
+                                            programWithInstructions.maxDegree());
+                                }
 
                                 // Extract input variables from instructions
                                 Set<String> inputVars = extractInputVariables(programWithInstructions);

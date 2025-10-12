@@ -2,11 +2,18 @@ package com.semulator.server.util;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.semulator.engine.model.RunTarget;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Type;
 
 /**
  * Utility class for common servlet operations
@@ -15,6 +22,7 @@ public class ServletUtils {
 
     private static final Gson gson = new GsonBuilder()
             .setPrettyPrinting()
+            .registerTypeAdapter(RunTarget.class, new RunTargetDeserializer())
             .create();
 
     /**
@@ -130,6 +138,29 @@ public class ServletUtils {
                 this.message = message;
                 this.details = details;
             }
+        }
+    }
+
+    /**
+     * Custom deserializer for RunTarget to handle string-to-enum conversion
+     */
+    private static class RunTargetDeserializer implements JsonDeserializer<RunTarget> {
+        @Override
+        public RunTarget deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+                throws JsonParseException {
+            JsonObject jsonObject = json.getAsJsonObject();
+
+            String typeString = jsonObject.get("type").getAsString();
+            String name = jsonObject.get("name").getAsString();
+
+            RunTarget.Type type;
+            try {
+                type = RunTarget.Type.valueOf(typeString);
+            } catch (IllegalArgumentException e) {
+                throw new JsonParseException("Invalid RunTarget type: " + typeString, e);
+            }
+
+            return new RunTarget(type, name);
         }
     }
 }

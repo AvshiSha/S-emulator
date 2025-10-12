@@ -464,6 +464,10 @@ public class ServerState {
         return programs.get(programName);
     }
 
+    public SProgram getFunction(String functionName) {
+        return functions.get(functionName);
+    }
+
     private String getCommandType(SInstruction instruction) {
         // Basic instructions: INCREASE, DECREASE, NEUTRAL, JUMP_NOT_ZERO
         if (instruction instanceof IncreaseInstruction ||

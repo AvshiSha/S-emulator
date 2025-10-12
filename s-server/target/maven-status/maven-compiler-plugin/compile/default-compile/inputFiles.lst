@@ -8,7 +8,9 @@ C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\serve
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\UploadServlet.java
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\api\UsersServlet.java
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\filter\CorsFilter.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\listener\UserUpdateServerListener.java
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\model\ApiModels.java
+C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\realtime\UserUpdateServer.java
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\service\EngineService.java
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\state\ServerState.java
 C:\Users\user\IdeaProjects\S-emulator\s-server\src\main\java\com\semulator\server\util\ServletUtils.java
