@@ -4,6 +4,7 @@ import com.semulator.engine.model.Architecture;
 import com.semulator.engine.model.Inputs;
 import com.semulator.engine.model.RunTarget;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -347,17 +348,26 @@ public class ApiModels {
     // History
     public static class HistoryEntry {
         public String runId;
-        public String programName;
-        public long result;
+        public String targetName;
+        public String targetType; // "PROGRAM" or "FUNCTION"
+        public String architecture; // "I", "II", "III", or "IV"
+        public int degree;
+        public long finalYValue;
         public int cycles;
         public long timestamp;
+        public Map<String, Long> finalVariables; // All variable values at the end of execution
 
-        public HistoryEntry(String runId, String programName, long result, int cycles, long timestamp) {
+        public HistoryEntry(String runId, String targetName, String targetType, String architecture,
+                int degree, long finalYValue, int cycles, long timestamp, Map<String, Long> finalVariables) {
             this.runId = runId;
-            this.programName = programName;
-            this.result = result;
+            this.targetName = targetName;
+            this.targetType = targetType;
+            this.architecture = architecture;
+            this.degree = degree;
+            this.finalYValue = finalYValue;
             this.cycles = cycles;
             this.timestamp = timestamp;
+            this.finalVariables = finalVariables != null ? finalVariables : new HashMap<>();
         }
     }
 

@@ -155,6 +155,44 @@ public class UserUpdateServer {
     }
 
     /**
+     * Broadcast history update for a specific user to all connected clients
+     */
+    public static void broadcastHistoryUpdate(String username) {
+        System.out.println(
+                "broadcastHistoryUpdate called for user: " + username + ". Connected clients: " + clients.size());
+
+        if (clients.isEmpty()) {
+            System.out.println("No clients connected, skipping broadcast");
+            return;
+        }
+
+        try {
+            var history = serverState.getUserHistory(username);
+            System.out.println(
+                    "Broadcasting history update for user " + username + " with " + history.size() + " entries");
+
+            JsonObject update = new JsonObject();
+            update.addProperty("type", "HISTORY_UPDATE");
+            update.addProperty("username", username);
+            update.add("history", gson.toJsonTree(history));
+            update.addProperty("timestamp", System.currentTimeMillis());
+
+            String message = gson.toJson(update) + "\n";
+            System.out
+                    .println("Message to broadcast: " + message.substring(0, Math.min(100, message.length())) + "...");
+
+            for (ClientConnection client : clients) {
+                client.send(message);
+            }
+
+            System.out.println("✓ Broadcasted history update to " + clients.size() + " clients");
+        } catch (Exception e) {
+            System.err.println("✗ Error broadcasting history update: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Client connection handler
      */
     private static class ClientConnection implements Runnable {

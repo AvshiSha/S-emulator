@@ -377,13 +377,50 @@ public class RunServlet extends HttpServlet {
                 session.state = "FINISHED";
                 session.instrByArch.put(session.arch.toString(), session.cycles);
 
+                // Collect all final variable values for history
+                Map<String, Long> finalVariables = new HashMap<>();
+                // Extract all variables from the context
+                if (context instanceof ExecutionContext) {
+                    // Get all variables by trying common patterns
+                    for (int i = 1; i <= 10; i++) {
+                        try {
+                            Variable xVar = new VariableImpl(VariableType.INPUT, i);
+                            long value = context.getVariableValue(xVar);
+                            if (value != 0 || session.inputs.getAll().containsKey("x" + i)) {
+                                finalVariables.put("x" + i, value);
+                            }
+                        } catch (Exception e) {
+                            // Variable doesn't exist, skip
+                        }
+                    }
+                    finalVariables.put("y", session.outputY);
+                    for (int i = 1; i <= 10; i++) {
+                        try {
+                            Variable zVar = new VariableImpl(VariableType.WORK, i);
+                            long value = context.getVariableValue(zVar);
+                            if (value != 0) {
+                                finalVariables.put("z" + i, value);
+                            }
+                        } catch (Exception e) {
+                            // Variable doesn't exist, skip
+                        }
+                    }
+                }
+
+                // Determine target type
+                String targetType = session.target.getType() == RunTarget.Type.PROGRAM ? "PROGRAM" : "FUNCTION";
+
                 // Add to history
                 serverState.addHistoryEntry(
                         session.username,
                         session.runId,
                         session.target.getName(),
+                        targetType,
+                        session.arch.toString(),
+                        session.degree,
                         session.outputY,
-                        session.cycles);
+                        session.cycles,
+                        finalVariables);
 
             } catch (Exception e) {
                 session.state = "ERROR";

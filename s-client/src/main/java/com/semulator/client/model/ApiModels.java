@@ -148,7 +148,27 @@ public class ApiModels {
                         String timestamp) {
         }
 
+        // History Entry (from server)
+        public record HistoryEntry(
+                        String runId,
+                        String targetName,
+                        String targetType, // "PROGRAM" or "FUNCTION"
+                        String architecture, // "I", "II", "III", or "IV"
+                        int degree,
+                        long finalYValue,
+                        int cycles,
+                        long timestamp,
+                        Map<String, Long> finalVariables) {
+        }
+
         public record HistoryResponse(List<RunHistory> runs, String version, boolean full) {
+        }
+
+        // History list response from server
+        public record HistoryListResponse(
+                        long version,
+                        boolean full,
+                        List<HistoryEntry> items) {
         }
 
         // Error

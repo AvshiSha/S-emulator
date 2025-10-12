@@ -227,13 +227,27 @@ public class DebugServlet extends HttpServlet {
                 return;
             }
 
-            // Update program statistics if execution reached the end (state is FINISHED)
+            // Update program statistics and history if execution reached the end (state is
+            // FINISHED)
             // Don't update if user stopped early or if no execution happened
             if ("FINISHED".equals(session.state) && session.cycles > 0) {
                 serverState.updateProgramStatistics(session.programName, session.cycles);
 
                 // Increment user's total runs count
                 serverState.incrementUserRuns(session.username);
+
+                // Add to history
+                Long finalYValue = session.variables.get("y");
+                serverState.addHistoryEntry(
+                        session.username,
+                        request.sessionId,
+                        session.programName,
+                        "PROGRAM", // TODO: Detect if it's a program or function
+                        "I", // TODO: Determine actual architecture used
+                        session.degree,
+                        finalYValue != null ? finalYValue : 0L,
+                        session.cycles,
+                        session.variables);
             }
 
             // Remove the debug session

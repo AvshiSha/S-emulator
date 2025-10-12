@@ -294,10 +294,11 @@ public class ServerState {
     }
 
     // History management
-    public void addHistoryEntry(String username, String runId, String programName,
-            long result, int cycles) {
+    public void addHistoryEntry(String username, String runId, String targetName, String targetType,
+            String architecture, int degree, long finalYValue, int cycles, Map<String, Long> finalVariables) {
         List<ApiModels.HistoryEntry> history = userHistory.computeIfAbsent(username, k -> new ArrayList<>());
-        history.add(new ApiModels.HistoryEntry(runId, programName, result, cycles, System.currentTimeMillis()));
+        history.add(new ApiModels.HistoryEntry(runId, targetName, targetType, architecture,
+                degree, finalYValue, cycles, System.currentTimeMillis(), finalVariables));
 
         // Update user run count
         UserRecord user = users.get(username);
@@ -309,13 +310,20 @@ public class ServerState {
         }
 
         // Update program run statistics (this will also broadcast the program update)
-        updateProgramStatistics(programName, cycles);
+        updateProgramStatistics(targetName, cycles);
 
         // Broadcast user update to all connected clients
         try {
             com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
         } catch (Exception e) {
             System.err.println("Error broadcasting user update: " + e.getMessage());
+        }
+
+        // Broadcast history update to all connected clients
+        try {
+            com.semulator.server.realtime.UserUpdateServer.broadcastHistoryUpdate(username);
+        } catch (Exception e) {
+            System.err.println("Error broadcasting history update: " + e.getMessage());
         }
 
         incrementVersion();

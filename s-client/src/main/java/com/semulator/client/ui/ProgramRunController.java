@@ -938,6 +938,48 @@ public class ProgramRunController implements Initializable {
         updateSummaryLine();
     }
 
+    /**
+     * Set the execution degree/level
+     * Called when re-running a previous execution
+     */
+    public void setDegree(int degree) {
+        System.out.println("ProgramRunController: Setting degree to " + degree);
+        // Notify execution header to set the degree
+        if (executionHeaderController != null) {
+            executionHeaderController.setDegree(degree);
+        }
+    }
+
+    /**
+     * Set input values for re-running
+     * Called when re-running a previous execution
+     */
+    public void setInputs(Map<String, Long> inputs) {
+        System.out.println("ProgramRunController: Setting inputs - " + inputs);
+        // Convert Map<String, Long> to List<Long> in order (x1, x2, x3, ...)
+        List<Long> inputList = new ArrayList<>();
+
+        // Extract and sort input variables (x1, x2, x3, ...)
+        List<String> keys = new ArrayList<>(inputs.keySet());
+        keys.sort((a, b) -> {
+            // Extract numbers from x1, x2, etc.
+            int numA = Integer.parseInt(a.replace("x", ""));
+            int numB = Integer.parseInt(b.replace("x", ""));
+            return Integer.compare(numA, numB);
+        });
+
+        for (String key : keys) {
+            if (key.startsWith("x")) {
+                inputList.add(inputs.get(key));
+            }
+        }
+
+        // Notify debugger execution component to set the inputs
+        if (debuggerExecutionComponentController != null) {
+            debuggerExecutionComponentController.setInputs(inputList);
+        }
+    }
+
     // Data Model Classes (now handled by components)
 
     public static class VariableRow {

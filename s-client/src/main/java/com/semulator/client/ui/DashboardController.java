@@ -22,9 +22,9 @@ import javafx.stage.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.*;
 import java.util.ResourceBundle;
 import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * New Client-Server Dashboard Controller
@@ -141,7 +141,6 @@ public class DashboardController implements Initializable {
     private String selectedProgram = null;
     private String selectedFunction = null;
     private Timer refreshTimer;
-    private static final int REFRESH_INTERVAL = 5000; // 5 seconds
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -212,6 +211,7 @@ public class DashboardController implements Initializable {
             if (newSelection != null) {
                 selectedUser = newSelection.getUserName();
                 updateHistoryTableTitle();
+                // Load history for the selected user
                 loadUserHistory(selectedUser);
             }
         });
@@ -477,25 +477,10 @@ public class DashboardController implements Initializable {
     }
 
     private void startAutoRefresh() {
-        refreshTimer = new Timer(true); // Daemon thread
-        refreshTimer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                Platform.runLater(() -> {
-                    // User data is updated via socket, no need to poll
-                    // refreshUserData();
-                    // Program and function data is updated via socket, no need to poll
-                    // refreshProgramsData();
-                    // refreshFunctionsData();
-                    // Only refresh history
-                    if (selectedUser != null) {
-                        loadUserHistory(selectedUser);
-                    } else {
-                        loadUserHistory(currentUser);
-                    }
-                });
-            }
-        }, REFRESH_INTERVAL, REFRESH_INTERVAL);
+        // History updates are now handled via WebSocket broadcasts
+        // No polling needed - real-time updates for users, programs, functions, and
+        // history
+        System.out.println("Auto-refresh disabled - using WebSocket for real-time updates");
     }
 
     private void loadInitialData() {
@@ -651,19 +636,61 @@ public class DashboardController implements Initializable {
     }
 
     private void loadUserHistory(String userName) {
-        // TODO: Load user history from server API
-        // For now, add some sample data
-        historyData.clear();
+        if (apiClient == null || userName == null) {
+            return;
+        }
 
-        if (userName.equals(currentUser)) {
-            // Current user's history
-            historyData.add(new RunHistory(1, "Main Program", "fibonacci", "Basic", 2, 21L, 150));
-            historyData.add(new RunHistory(2, "Utility Function", "add", "Advanced", 1, 8L, 45));
-            historyData.add(new RunHistory(3, "Main Program", "gcd", "Basic", 3, 6L, 200));
-        } else {
-            // Other user's history
-            historyData.add(new RunHistory(1, "Main Program", "factorial", "Basic", 2, 120L, 180));
-            historyData.add(new RunHistory(2, "Utility Function", "multiply", "Advanced", 1, 15L, 60));
+        // Fetch user history from server
+        String endpoint = "/history?user=" + userName;
+
+        apiClient.get(endpoint, ApiModels.HistoryListResponse.class)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        historyData.clear();
+
+                        if (response.items() != null) {
+                            int runNumber = 1;
+                            for (ApiModels.HistoryEntry entry : response.items()) {
+                                // Map architecture number to readable name
+                                String archName = getArchitectureName(entry.architecture());
+
+                                // Create RunHistory object
+                                RunHistory history = new RunHistory(
+                                        runNumber++,
+                                        entry.runId(),
+                                        entry.targetType(),
+                                        entry.targetName(),
+                                        archName,
+                                        entry.degree(),
+                                        entry.finalYValue(),
+                                        entry.cycles(),
+                                        entry.finalVariables());
+                                historyData.add(history);
+                            }
+                        }
+                    });
+                })
+                .exceptionally(throwable -> {
+                    Platform.runLater(() -> {
+                        System.err.println("Failed to load user history: " + throwable.getMessage());
+                        historyData.clear();
+                    });
+                    return null;
+                });
+    }
+
+    private String getArchitectureName(String archCode) {
+        switch (archCode) {
+            case "I":
+                return "Basic (I)";
+            case "II":
+                return "Enhanced (II)";
+            case "III":
+                return "Advanced (III)";
+            case "IV":
+                return "Expert (IV)";
+            default:
+                return archCode;
         }
     }
 
@@ -721,17 +748,118 @@ public class DashboardController implements Initializable {
     }
 
     private void showRunStatus(RunHistory run) {
-        // TODO: Show detailed status of the selected run
-        showInfoAlert("Run Status", "Run #" + run.getRunNumber() + " Status:\n" +
-                "Type: " + run.getType() + "\n" +
-                "Target: " + run.getName() + "\n" +
-                "Result: " + run.getYValue());
+        // Create a detailed status dialog showing all final variable values
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Run Status - Run #" + run.getRunNumber());
+        alert.setHeaderText("Final Variable Values");
+
+        // Build the content text with all variables
+        StringBuilder content = new StringBuilder();
+        content.append("Program/Function: ").append(run.getName()).append("\n");
+        content.append("Type: ").append(run.getType()).append("\n");
+        content.append("Architecture: ").append(run.getArchitecture()).append("\n");
+        content.append("Level (Degree): ").append(run.getLevel()).append("\n");
+        content.append("Total Cycles: ").append(run.getCycles()).append("\n\n");
+
+        content.append("=== Variable Values ===\n");
+
+        // Get final variables and display them in a sorted order
+        Map<String, Long> variables = run.getFinalVariables();
+        if (variables.isEmpty()) {
+            content.append("No variable data available.\n");
+        } else {
+            // Sort variables: inputs (x), result (y), work variables (z)
+            List<String> sortedKeys = new ArrayList<>(variables.keySet());
+            sortedKeys.sort((a, b) -> {
+                // Custom sort: x1, x2, ..., y, z1, z2, ...
+                if (a.equals("y"))
+                    return b.equals("y") ? 0 : (b.startsWith("x") ? 1 : -1);
+                if (b.equals("y"))
+                    return a.equals("y") ? 0 : (a.startsWith("x") ? 1 : -1);
+                if (a.startsWith("x") && !b.startsWith("x"))
+                    return -1;
+                if (!a.startsWith("x") && b.startsWith("x"))
+                    return 1;
+                return a.compareTo(b);
+            });
+
+            for (String varName : sortedKeys) {
+                Long value = variables.get(varName);
+                content.append(String.format("%-6s = %d\n", varName, value));
+            }
+        }
+
+        alert.setContentText(content.toString());
+
+        // Make the dialog resizable and larger
+        alert.setResizable(true);
+        alert.getDialogPane().setPrefWidth(500);
+        alert.getDialogPane().setPrefHeight(400);
+
+        alert.showAndWait();
     }
 
     private void reRunExecution(RunHistory run) {
-        // TODO: Re-run the selected execution
-        showInfoAlert("Re-Run", "Would re-run execution:\n" +
-                "Run #" + run.getRunNumber() + " - " + run.getName());
+        try {
+            // Determine the target type
+            String targetType = "PROGRAM".equals(run.getType()) ? "PROGRAM" : "FUNCTION";
+
+            // Navigate to execution screen with the target
+            navigateToExecutionScreenWithContext(run.getName(), targetType, run.getLevel(), run.getFinalVariables());
+
+        } catch (Exception e) {
+            System.err.println("Re-run error: " + e.getMessage());
+            e.printStackTrace();
+            showErrorAlert("Re-run Error", "Failed to re-run execution: " + e.getMessage());
+        }
+    }
+
+    private void navigateToExecutionScreenWithContext(String targetName, String targetType, int degree,
+            Map<String, Long> previousInputs) {
+        try {
+            // Check if the resource exists
+            java.net.URL resourceUrl = getClass().getResource("/fxml/program-run.fxml");
+
+            if (resourceUrl == null) {
+                throw new IOException("FXML resource not found: /fxml/program-run.fxml");
+            }
+
+            // Load the program run screen
+            FXMLLoader loader = new FXMLLoader(resourceUrl);
+            Parent root = loader.load();
+            Scene scene = new Scene(root, 1200, 800);
+            scene.getStylesheets().add(getClass().getResource("/styles/main.css").toExternalForm());
+
+            // Get the controller and set the target with context
+            ProgramRunController controller = loader.getController();
+            controller.setTarget(targetName, targetType);
+
+            // Set the degree/level
+            controller.setDegree(degree);
+
+            // Extract and set input values (only x variables)
+            Map<String, Long> inputs = new HashMap<>();
+            for (Map.Entry<String, Long> entry : previousInputs.entrySet()) {
+                if (entry.getKey().startsWith("x")) {
+                    inputs.put(entry.getKey(), entry.getValue());
+                }
+            }
+            controller.setInputs(inputs);
+
+            Stage stage = (Stage) reRunButton.getScene().getWindow();
+            stage.setTitle("S-Emulator - Re-Run - " + targetName);
+            stage.setScene(scene);
+            stage.setResizable(true);
+
+        } catch (IOException e) {
+            System.err.println("Navigation error: " + e.getMessage());
+            e.printStackTrace();
+            showErrorAlert("Navigation Error", "Failed to navigate to execution screen: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected navigation error: " + e.getMessage());
+            e.printStackTrace();
+            showErrorAlert("Navigation Error", "Unexpected error: " + e.getMessage());
+        }
     }
 
     private void showInfoAlert(String title, String message) {
@@ -846,21 +974,29 @@ public class DashboardController implements Initializable {
         private final int level;
         private final long yValue;
         private final int cycles;
+        private final String runId;
+        private final Map<String, Long> finalVariables;
 
-        public RunHistory(int runNumber, String type, String name, String architecture, int level, long yValue,
-                int cycles) {
+        public RunHistory(int runNumber, String runId, String type, String name, String architecture, int level,
+                long yValue, int cycles, Map<String, Long> finalVariables) {
             this.runNumber = runNumber;
+            this.runId = runId;
             this.type = type;
             this.name = name;
             this.architecture = architecture;
             this.level = level;
             this.yValue = yValue;
             this.cycles = cycles;
+            this.finalVariables = finalVariables != null ? new HashMap<>(finalVariables) : new HashMap<>();
         }
 
         // Getters
         public int getRunNumber() {
             return runNumber;
+        }
+
+        public String getRunId() {
+            return runId;
         }
 
         public String getType() {
@@ -885,6 +1021,10 @@ public class DashboardController implements Initializable {
 
         public int getCycles() {
             return cycles;
+        }
+
+        public Map<String, Long> getFinalVariables() {
+            return new HashMap<>(finalVariables);
         }
     }
 
@@ -1026,6 +1166,59 @@ public class DashboardController implements Initializable {
         updateCurrentUserCredits();
 
         System.out.println("Updated users from socket: " + usersData.size() + " users");
+    }
+
+    /**
+     * Update history from WebSocket message
+     */
+    public void updateHistoryFromSocket(String username, com.google.gson.JsonArray historyArray) {
+        // Only update if this is the currently viewed user's history
+        String viewedUser = selectedUser != null ? selectedUser : currentUser;
+        if (!username.equals(viewedUser)) {
+            System.out.println("Ignoring history update for " + username + " (currently viewing " + viewedUser + ")");
+            return;
+        }
+
+        historyData.clear();
+
+        int runNumber = 1;
+        for (int i = 0; i < historyArray.size(); i++) {
+            com.google.gson.JsonObject entryObj = historyArray.get(i).getAsJsonObject();
+
+            String runId = entryObj.get("runId").getAsString();
+            String targetName = entryObj.get("targetName").getAsString();
+            String targetType = entryObj.get("targetType").getAsString();
+            String architecture = entryObj.get("architecture").getAsString();
+            int degree = entryObj.get("degree").getAsInt();
+            long finalYValue = entryObj.get("finalYValue").getAsLong();
+            int cycles = entryObj.get("cycles").getAsInt();
+
+            // Parse finalVariables map
+            Map<String, Long> finalVariables = new HashMap<>();
+            if (entryObj.has("finalVariables")) {
+                com.google.gson.JsonObject varsObj = entryObj.getAsJsonObject("finalVariables");
+                for (String varName : varsObj.keySet()) {
+                    finalVariables.put(varName, varsObj.get(varName).getAsLong());
+                }
+            }
+
+            // Map architecture code to readable name
+            String archName = getArchitectureName(architecture);
+
+            RunHistory history = new RunHistory(
+                    runNumber++,
+                    runId,
+                    targetType,
+                    targetName,
+                    archName,
+                    degree,
+                    finalYValue,
+                    cycles,
+                    finalVariables);
+            historyData.add(history);
+        }
+
+        System.out.println("Updated history from socket for user " + username + ": " + historyData.size() + " entries");
     }
 
     public void cleanup() {

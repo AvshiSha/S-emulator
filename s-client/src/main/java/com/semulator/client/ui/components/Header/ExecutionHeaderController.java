@@ -272,4 +272,18 @@ public class ExecutionHeaderController implements Initializable {
             return 0;
         }
     }
+
+    /**
+     * Set the degree programmatically (for re-run functionality)
+     */
+    public void setDegree(int degree) {
+        if (degree >= 0 && degree <= maxDegree) {
+            this.currentDegree = degree;
+            Platform.runLater(() -> {
+                levelSelector.setValue("Degree " + degree);
+                updateDegreeStatus();
+                expandToCurrentDegree();
+            });
+        }
+    }
 }

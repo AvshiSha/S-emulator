@@ -109,6 +109,9 @@ public class UserUpdateClient {
                     case "PROGRAM_UPDATE":
                         handleProgramUpdate(jsonMessage);
                         break;
+                    case "HISTORY_UPDATE":
+                        handleHistoryUpdate(jsonMessage);
+                        break;
                     default:
                         System.out.println("Unknown message type: " + type);
                 }
@@ -156,6 +159,24 @@ public class UserUpdateClient {
             System.out.println("Program/function update received and processed");
         } catch (Exception e) {
             System.err.println("Error handling program update: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Handle history updates from server
+     */
+    private void handleHistoryUpdate(JsonObject message) {
+        try {
+            // Update history for the specific user
+            if (message.has("username") && message.has("history")) {
+                String username = message.get("username").getAsString();
+                JsonArray historyArray = message.getAsJsonArray("history");
+                dashboardController.updateHistoryFromSocket(username, historyArray);
+            }
+
+            System.out.println("History update received and processed");
+        } catch (Exception e) {
+            System.err.println("Error handling history update: " + e.getMessage());
         }
     }
 
