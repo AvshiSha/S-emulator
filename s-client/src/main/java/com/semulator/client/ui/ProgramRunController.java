@@ -539,6 +539,7 @@ public class ProgramRunController implements Initializable {
                         if (instructionTableComponentController != null && programWithInstructions != null) {
                             // Display instructions directly in the table without re-parsing
                             displayInstructionsInTable(programWithInstructions);
+                            updateLabelVariableListFromInstructions(programWithInstructions);
 
                             // Initialize the header with program info (name and maxDegree)
                             // If there's a pending degree, pass it to setProgramInfo so it doesn't reset to
@@ -656,14 +657,22 @@ public class ProgramRunController implements Initializable {
                     @SuppressWarnings("unchecked")
                     com.google.gson.internal.LinkedTreeMap<String, Object> instr = (com.google.gson.internal.LinkedTreeMap<String, Object>) instrObj;
 
+                    // Extract label field
                     String label = (String) instr.get("label");
                     if (label != null && !label.isEmpty()) {
                         labelsAndVars.add(label);
                     }
 
+                    // Extract variable field (target variable)
                     String variable = (String) instr.get("variable");
                     if (variable != null && !variable.isEmpty()) {
                         labelsAndVars.add(variable);
+                    }
+
+                    // Extract all variables and labels from instruction text
+                    String instruction = (String) instr.get("instruction");
+                    if (instruction != null && !instruction.isEmpty()) {
+                        extractIdentifiersFromInstructionText(instruction, labelsAndVars);
                     }
                 }
             }
@@ -672,6 +681,55 @@ public class ProgramRunController implements Initializable {
         if (executionHeaderController != null) {
             executionHeaderController.updateLabelVariableList(new ArrayList<>(labelsAndVars));
         }
+    }
+
+    /**
+     * Extract all variable and label identifiers from instruction text
+     * Examples: "z1 <- (CONST,x1)" -> extracts z1, x1 (NOT CONST)
+     * "IF x1 != 0 GOTO L1" -> extracts x1, L1
+     * "y <- x2" -> extracts y, x2
+     * "y <- (FUNC,x1,x2)" -> extracts y, x1, x2 (NOT FUNC)
+     */
+    private void extractIdentifiersFromInstructionText(String instructionText, Set<String> identifiers) {
+        // Pattern to match variable/label identifiers:
+        // - Starts with letter (x, y, z, L, etc.)
+        // - Followed by optional digits/underscores
+        // - Can be lowercase or uppercase
+        java.util.regex.Pattern identifierPattern = java.util.regex.Pattern.compile("\\b([a-zA-Z][a-zA-Z0-9_]*)\\b");
+
+        // Pattern to detect function names: identifiers that come right after '('
+        // This matches: (FUNCNAME where FUNCNAME is the function name to exclude
+        java.util.regex.Pattern functionNamePattern = java.util.regex.Pattern.compile("\\(([a-zA-Z][a-zA-Z0-9_]*)");
+
+        // First, collect all function names to exclude
+        Set<String> functionNames = new HashSet<>();
+        java.util.regex.Matcher functionMatcher = functionNamePattern.matcher(instructionText);
+        while (functionMatcher.find()) {
+            functionNames.add(functionMatcher.group(1));
+        }
+
+        // Now extract all identifiers, excluding function names and keywords
+        java.util.regex.Matcher identifierMatcher = identifierPattern.matcher(instructionText);
+        while (identifierMatcher.find()) {
+            String identifier = identifierMatcher.group(1);
+
+            // Filter out function names and common keywords
+            if (!functionNames.contains(identifier) && !isKeyword(identifier)) {
+                identifiers.add(identifier);
+            }
+        }
+    }
+
+    /**
+     * Check if a word is a keyword/operator that should not be added to the
+     * highlight list
+     */
+    private boolean isKeyword(String word) {
+        // Only filter out control flow keywords that are not variables
+        Set<String> keywords = Set.of(
+                "IF", "GOTO", "EXIT",
+                "if", "goto", "exit");
+        return keywords.contains(word);
     }
 
     private Set<String> extractInputVariables(ApiModels.ProgramWithInstructions programData) {
