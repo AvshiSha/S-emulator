@@ -172,9 +172,25 @@ public class ServerState {
                 SProgramImpl impl = (SProgramImpl) program;
                 Map<String, List<SInstruction>> programFunctions = impl.getFunctions();
                 for (String funcName : programFunctions.keySet()) {
-                    // Create a function program for each function
+                    // Create a function program with only the function's instructions
                     SProgramImpl functionProgram = new SProgramImpl(funcName);
-                    functionProgram.loadFromXmlContent(xmlContent);
+
+                    // Get the function's specific instructions
+                    List<SInstruction> functionInstructions = programFunctions.get(funcName);
+
+                    // Add only the function's instructions to the function program
+                    for (SInstruction instruction : functionInstructions) {
+                        functionProgram.addInstruction(instruction);
+                    }
+
+                    // Copy function user strings if any
+                    Map<String, String> functionUserStrings = impl.getFunctionUserStrings();
+                    if (functionUserStrings.containsKey(funcName)) {
+                        // Note: We can't directly set user strings, but this preserves the function
+                        // name
+                        // The function name itself is preserved in the SProgramImpl constructor
+                    }
+
                     functions.put(funcName, functionProgram);
 
                     // Track function metadata
@@ -381,6 +397,66 @@ public class ServerState {
                 instructionDTOs,
                 program.calculateMaxDegree(),
                 new ArrayList<>() // TODO: Get function names from program
+        );
+    }
+
+    public ApiModels.ProgramWithInstructions getFunctionWithInstructions(String functionName) {
+        return getFunctionWithInstructions(functionName, 0);
+    }
+
+    public ApiModels.ProgramWithInstructions getFunctionWithInstructions(String functionName, int degree) {
+        SProgram function = functions.get(functionName);
+        if (function == null) {
+            return null;
+        }
+
+        // Expand function to the requested degree
+        ExpansionResult expansion = function.expandToDegree(degree);
+        List<SInstruction> expandedInstructions = expansion.instructions();
+
+        List<ApiModels.InstructionDTO> instructionDTOs = new ArrayList<>();
+        int rowNumber = 1;
+
+        for (SInstruction instruction : expandedInstructions) {
+            String labelName = "";
+            if (instruction.getLabel() != null) {
+                if (instruction.getLabel().isExit()) {
+                    labelName = "EXIT";
+                } else {
+                    labelName = instruction.getLabel().getLabel();
+                }
+            }
+
+            String variableName = "";
+            if (instruction.getVariable() != null) {
+                variableName = instruction.getVariable().getRepresentation();
+            }
+
+            // Determine command type (B/S)
+            String commandType = getCommandType(instruction);
+
+            // Get instruction text for display
+            String instructionText = getInstructionText(instruction);
+
+            // Determine architecture (placeholder for now - will be implemented later)
+            String architecture = getArchitectureForInstruction(instruction);
+
+            instructionDTOs.add(new ApiModels.InstructionDTO(
+                    rowNumber++,
+                    commandType,
+                    labelName,
+                    instructionText,
+                    instruction.cycles(),
+                    variableName,
+                    architecture,
+                    instruction.getName())); // Original instruction type name
+        }
+
+        return new ApiModels.ProgramWithInstructions(
+                function.getName(),
+                instructionDTOs,
+                function.calculateMaxDegree(),
+                new ArrayList<>() // Functions don't have sub-functions
         );
     }
 

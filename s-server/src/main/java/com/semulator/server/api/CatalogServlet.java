@@ -112,6 +112,15 @@ public class CatalogServlet extends HttpServlet {
 
     private void handleGetFunctions(HttpServletRequest req, HttpServletResponse resp, long sinceVersion,
             long currentVersion) throws IOException {
+
+        // Check for specific function name query parameter
+        String functionName = req.getParameter("name");
+        if (functionName != null && !functionName.trim().isEmpty()) {
+            // Return specific function with instructions
+            handleGetSpecificFunction(req, resp, functionName);
+            return;
+        }
+
         List<ApiModels.FunctionInfo> functions = serverState.getFunctions();
 
         if (sinceVersion > 0) {
@@ -128,6 +137,31 @@ public class CatalogServlet extends HttpServlet {
                     true,
                     functions);
             ServletUtils.writeJson(resp, response);
+        }
+    }
+
+    private void handleGetSpecificFunction(HttpServletRequest req, HttpServletResponse resp, String functionName)
+            throws IOException {
+        try {
+            // Check for degree parameter
+            String degreeParam = req.getParameter("degree");
+            int degree = degreeParam != null ? Integer.parseInt(degreeParam) : 0;
+
+            // Get function with instructions from server state
+            ApiModels.ProgramWithInstructions functionWithInstructions = serverState
+                    .getFunctionWithInstructions(functionName, degree);
+            if (functionWithInstructions != null) {
+                ServletUtils.writeJson(resp, functionWithInstructions);
+            } else {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "FUNCTION_NOT_FOUND",
+                        "Function not found: " + functionName);
+            }
+        } catch (NumberFormatException e) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                    "Invalid degree parameter");
+        } catch (Exception e) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
+                    "Failed to get function: " + e.getMessage());
         }
     }
 }

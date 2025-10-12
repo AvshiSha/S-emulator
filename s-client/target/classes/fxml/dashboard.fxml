@@ -171,7 +171,7 @@
                </TableView>
                <HBox alignment="CENTER_RIGHT" spacing="10">
                   <children>
-                     <Button fx:id="executeFunctionButton" text="Execute Program" 
+                     <Button fx:id="executeFunctionButton" text="Execute Function" 
                              style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
                   </children>
                   <VBox.margin><Insets top="10.0"/></VBox.margin>

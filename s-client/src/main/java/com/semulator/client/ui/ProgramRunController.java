@@ -504,7 +504,8 @@ public class ProgramRunController implements Initializable {
         }
 
         // Load program/function instructions from server
-        apiClient.get("/programs?name=" + encodedName, ApiModels.ProgramWithInstructions.class, null)
+        String endpoint = "PROGRAM".equals(targetType) ? "/programs" : "/functions";
+        apiClient.get(endpoint + "?name=" + encodedName, ApiModels.ProgramWithInstructions.class, null)
                 .thenAccept(programWithInstructions -> {
                     Platform.runLater(() -> {
                         if (instructionTableComponentController != null && programWithInstructions != null) {
@@ -568,7 +569,8 @@ public class ProgramRunController implements Initializable {
         }
 
         // Request expanded instructions from server for specific degree
-        apiClient.get("/programs?name=" + encodedName + "&degree=" + degree,
+        String endpoint = "PROGRAM".equals(targetType) ? "/programs" : "/functions";
+        apiClient.get(endpoint + "?name=" + encodedName + "&degree=" + degree,
                 ApiModels.ProgramWithInstructions.class, null)
                 .thenAccept(programWithInstructions -> {
                     Platform.runLater(() -> {
