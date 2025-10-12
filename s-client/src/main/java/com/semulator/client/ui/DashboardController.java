@@ -805,6 +805,9 @@ public class DashboardController implements Initializable {
             String targetType = "PROGRAM".equals(run.getType()) ? "PROGRAM" : "FUNCTION";
 
             // Navigate to execution screen with the target
+            System.out.println("Re-running execution for: " + run.getName() + " with target type: " + targetType
+                    + " and level: " + run.getLevel());
+            System.out.println("Final variables: " + run.getFinalVariables());
             navigateToExecutionScreenWithContext(run.getName(), targetType, run.getLevel(), run.getFinalVariables());
 
         } catch (Exception e) {
@@ -832,7 +835,10 @@ public class DashboardController implements Initializable {
 
             // Get the controller and set the target with context
             ProgramRunController controller = loader.getController();
-            controller.setTarget(targetName, targetType);
+
+            // IMPORTANT: Set degree and inputs BEFORE setTarget()
+            // because setTarget() calls loadInstructions() immediately
+            // and loadInstructions() needs pendingDegree to be set already!
 
             // Set the degree/level
             controller.setDegree(degree);
@@ -845,6 +851,10 @@ public class DashboardController implements Initializable {
                 }
             }
             controller.setInputs(inputs);
+
+            // Now set the target - this will trigger loadInstructions() with pending values
+            // ready
+            controller.setTarget(targetName, targetType);
 
             Stage stage = (Stage) reRunButton.getScene().getWindow();
             stage.setTitle("S-Emulator - Re-Run - " + targetName);

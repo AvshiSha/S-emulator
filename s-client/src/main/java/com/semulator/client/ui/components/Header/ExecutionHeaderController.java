@@ -81,24 +81,36 @@ public class ExecutionHeaderController implements Initializable {
     }
 
     public void setProgramInfo(String programName, int maxDegree) {
+        setProgramInfoWithDegree(programName, maxDegree, 0);
+    }
+
+    public void setProgramInfoWithDegree(String programName, int maxDegree, int initialDegree) {
         this.programName = programName;
         this.maxDegree = maxDegree;
-        this.currentDegree = 0;
+        this.currentDegree = initialDegree;
 
         // Initialize degree selector
-        updateDegreeSelector();
+        updateDegreeSelector(initialDegree);
 
-        System.out.println("ExecutionHeader: Set program " + programName + " with maxDegree " + maxDegree);
+        System.out.println("ExecutionHeader: Set program " + programName + " with maxDegree " + maxDegree +
+                " and initialDegree " + initialDegree);
     }
 
     private void updateDegreeSelector() {
+        updateDegreeSelector(0);
+    }
+
+    private void updateDegreeSelector(int initialDegree) {
         degreeList.clear();
         for (int i = 0; i <= maxDegree; i++) {
             degreeList.add("Degree " + i);
         }
 
         if (!degreeList.isEmpty()) {
-            levelSelector.setValue("Degree 0");
+            // Set to the specified initial degree (capped at maxDegree)
+            int degree = Math.min(initialDegree, maxDegree);
+            levelSelector.setValue("Degree " + degree);
+            this.currentDegree = degree;
         }
 
         updateDegreeStatus();
@@ -277,10 +289,18 @@ public class ExecutionHeaderController implements Initializable {
      * Set the degree programmatically (for re-run functionality)
      */
     public void setDegree(int degree) {
-        if (degree >= 0 && degree <= maxDegree) {
+        // Validate degree bounds, but allow setting even if maxDegree is 0 (not yet
+        // loaded)
+        if (degree >= 0) {
+            if (maxDegree > 0 && degree > maxDegree) {
+                System.out.println("WARNING: Requested degree " + degree + " exceeds maxDegree " + maxDegree);
+                degree = maxDegree; // Cap at maxDegree
+            }
+
+            final int finalDegree = degree;
             this.currentDegree = degree;
             Platform.runLater(() -> {
-                levelSelector.setValue("Degree " + degree);
+                levelSelector.setValue("Degree " + finalDegree);
                 updateDegreeStatus();
                 expandToCurrentDegree();
             });

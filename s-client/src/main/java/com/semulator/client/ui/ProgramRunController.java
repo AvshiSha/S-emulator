@@ -102,7 +102,8 @@ public class ProgramRunController implements Initializable {
         } catch (Exception e) {
             System.err.println("Error during ProgramRunController initialization: " + e.getMessage());
             e.printStackTrace();
-            throw new RuntimeException("Failed to initialize ProgramRunController", e);
+            // Don't throw RuntimeException to prevent FXML loading failure
+            // Just log the error and continue with partial initialization
         }
     }
 
@@ -119,50 +120,63 @@ public class ProgramRunController implements Initializable {
     }
 
     private void initializeExecutionHeader() {
-        if (executionHeaderController == null)
-            return;
+        try {
+            if (executionHeaderController == null) {
+                System.out.println("ExecutionHeaderController is null during initialization");
+                return;
+            }
 
-        // Set up callbacks for degree changes and label/variable selection
-        executionHeaderController.setOnDegreeChanged(degree -> {
-            // When degree changes, request expanded instructions from server
-            if (degree >= 0 && instructionTableComponentController != null) {
-                loadInstructionsForDegree(degree);
+            // Set up callbacks for degree changes and label/variable selection
+            executionHeaderController.setOnDegreeChanged(degree -> {
+                // When degree changes, request expanded instructions from server
+                if (degree >= 0 && instructionTableComponentController != null) {
+                    loadInstructionsForDegree(degree);
 
-                // Also refresh history chain if an instruction is currently selected
-                var selectedItem = instructionTableComponentController.getInstructionTableView().getSelectionModel()
-                        .getSelectedItem();
-                if (selectedItem != null && historyChainComponentController != null) {
-                    loadHistoryChainFromServer(selectedItem);
+                    // Also refresh history chain if an instruction is currently selected
+                    var selectedItem = instructionTableComponentController.getInstructionTableView().getSelectionModel()
+                            .getSelectedItem();
+                    if (selectedItem != null && historyChainComponentController != null) {
+                        loadHistoryChainFromServer(selectedItem);
+                    }
                 }
-            }
-        });
+            });
 
-        executionHeaderController.setOnLabelVariableSelected(labelOrVariable -> {
-            // When label/variable selected, highlight in instruction table
-            if (labelOrVariable != null && instructionTableComponentController != null) {
-                instructionTableComponentController.highlightRowsContaining(labelOrVariable);
-            }
-        });
+            executionHeaderController.setOnLabelVariableSelected(labelOrVariable -> {
+                // When label/variable selected, highlight in instruction table
+                if (labelOrVariable != null && instructionTableComponentController != null) {
+                    instructionTableComponentController.highlightRowsContaining(labelOrVariable);
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Error initializing ExecutionHeader: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void initializeInstructionsTable() {
-        if (instructionTableComponentController == null) {
-            return;
+        try {
+            if (instructionTableComponentController == null) {
+                System.out.println("InstructionTableComponentController is null during initialization");
+                return;
+            }
+
+            // Initialize the instruction table component
+            instructionTableComponentController.initializeWithHttp();
+
+            // Simple direct table selection - show creation chain like Exercise 2
+            instructionTableComponentController.getInstructionTableView().getSelectionModel().selectedItemProperty()
+                    .addListener((obs, oldSelection, newSelection) -> {
+                        if (newSelection != null && historyChainComponentController != null) {
+                            // Get history chain from server
+                            loadHistoryChainFromServer(newSelection);
+                        } else if (historyChainComponentController != null) {
+                            historyChainComponentController.clearHistory();
+                        }
+                    });
+        } catch (Exception e) {
+            System.err.println("Error initializing InstructionsTable: " + e.getMessage());
+            e.printStackTrace();
         }
-
-        // Initialize the instruction table component
-        instructionTableComponentController.initializeWithHttp();
-
-        // Simple direct table selection - show creation chain like Exercise 2
-        instructionTableComponentController.getInstructionTableView().getSelectionModel().selectedItemProperty()
-                .addListener((obs, oldSelection, newSelection) -> {
-                    if (newSelection != null && historyChainComponentController != null) {
-                        // Get history chain from server
-                        loadHistoryChainFromServer(newSelection);
-                    } else if (historyChainComponentController != null) {
-                        historyChainComponentController.clearHistory();
-                    }
-                });
     }
 
     private void initializeHistoryTable() {
@@ -170,19 +184,25 @@ public class ProgramRunController implements Initializable {
     }
 
     private void initializeDebuggerExecution() {
-        if (debuggerExecutionComponentController == null) {
-            return;
-        }
+        try {
+            if (debuggerExecutionComponentController == null) {
+                System.out.println("DebuggerExecutionComponentController is null during initialization");
+                return;
+            }
 
-        // Initialize the debugger execution component with the API client
-        debuggerExecutionComponentController.initializeWithApiClient(apiClient);
+            // Initialize the debugger execution component with the API client
+            debuggerExecutionComponentController.initializeWithApiClient(apiClient);
 
-        // Wire up instruction table callback for highlighting
-        if (instructionTableComponentController != null) {
-            debuggerExecutionComponentController.setInstructionTableCallback(instructionIndex -> {
-                // Highlight the instruction in the instruction table
-                instructionTableComponentController.highlightCurrentInstruction(instructionIndex);
-            });
+            // Wire up instruction table callback for highlighting
+            if (instructionTableComponentController != null) {
+                debuggerExecutionComponentController.setInstructionTableCallback(instructionIndex -> {
+                    // Highlight the instruction in the instruction table
+                    instructionTableComponentController.highlightCurrentInstruction(instructionIndex);
+                });
+            }
+        } catch (Exception e) {
+            System.err.println("Error initializing DebuggerExecution: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -504,8 +524,16 @@ public class ProgramRunController implements Initializable {
         }
 
         // Load program/function instructions from server
+        // If there's a pending degree (from re-run), request instructions at that
+        // degree
         String endpoint = "PROGRAM".equals(targetType) ? "/programs" : "/functions";
-        apiClient.get(endpoint + "?name=" + encodedName, ApiModels.ProgramWithInstructions.class, null)
+        String url = endpoint + "?name=" + encodedName;
+        if (pendingDegree != null && pendingDegree > 0) {
+            url += "&degree=" + pendingDegree;
+            System.out.println("Loading instructions at degree " + pendingDegree);
+        }
+
+        apiClient.get(url, ApiModels.ProgramWithInstructions.class, null)
                 .thenAccept(programWithInstructions -> {
                     Platform.runLater(() -> {
                         if (instructionTableComponentController != null && programWithInstructions != null) {
@@ -513,9 +541,15 @@ public class ProgramRunController implements Initializable {
                             displayInstructionsInTable(programWithInstructions);
 
                             // Initialize the header with program info (name and maxDegree)
+                            // If there's a pending degree, pass it to setProgramInfo so it doesn't reset to
+                            // 0
                             if (executionHeaderController != null) {
-                                executionHeaderController.setProgramInfo(programWithInstructions.name(),
-                                        programWithInstructions.maxDegree());
+                                int initialDegree = (pendingDegree != null) ? pendingDegree : 0;
+                                executionHeaderController.setProgramInfoWithDegree(
+                                        programWithInstructions.name(),
+                                        programWithInstructions.maxDegree(),
+                                        initialDegree);
+                                pendingDegree = null; // Clear after using
                             }
 
                             // Initialize the debugger execution component with program/function info
@@ -537,10 +571,17 @@ public class ProgramRunController implements Initializable {
 
                                 // Extract input variables from instructions
                                 Set<String> inputVars = extractInputVariables(programWithInstructions);
-                                if (!inputVars.isEmpty()) {
+
+                                // If we have pending inputs (from re-run), don't call setInputVariables
+                                // because setInputs will create fields with the actual values
+                                if (!inputVars.isEmpty() && pendingInputs == null) {
                                     debuggerExecutionComponentController.setInputVariables(new ArrayList<>(inputVars));
                                 }
                             }
+
+                            // Apply any pending inputs (degree was already applied above)
+                            // This will create the input fields with the correct values
+                            applyPendingInputs();
                         } else {
                             System.err.println("DEBUG: Component or program data is null");
                         }
@@ -916,6 +957,10 @@ public class ProgramRunController implements Initializable {
         alert.showAndWait();
     }
 
+    // Re-run context - cached values to apply after program loads
+    private Integer pendingDegree = null;
+    private Map<String, Long> pendingInputs = null;
+
     /**
      * Set the target program or function for execution
      * Called from DashboardController when navigating to execution screen
@@ -944,10 +989,9 @@ public class ProgramRunController implements Initializable {
      */
     public void setDegree(int degree) {
         System.out.println("ProgramRunController: Setting degree to " + degree);
-        // Notify execution header to set the degree
-        if (executionHeaderController != null) {
-            executionHeaderController.setDegree(degree);
-        }
+        // Cache the degree to apply when program loads
+        // It will be applied in setProgramInfoWithDegree() during loadInstructions()
+        this.pendingDegree = degree;
     }
 
     /**
@@ -956,27 +1000,50 @@ public class ProgramRunController implements Initializable {
      */
     public void setInputs(Map<String, Long> inputs) {
         System.out.println("ProgramRunController: Setting inputs - " + inputs);
-        // Convert Map<String, Long> to List<Long> in order (x1, x2, x3, ...)
-        List<Long> inputList = new ArrayList<>();
+        // Cache the inputs to apply after program loads
+        // They will be applied in loadInstructions() after the program is loaded
+        this.pendingInputs = new HashMap<>(inputs);
+    }
 
-        // Extract and sort input variables (x1, x2, x3, ...)
-        List<String> keys = new ArrayList<>(inputs.keySet());
-        keys.sort((a, b) -> {
-            // Extract numbers from x1, x2, etc.
-            int numA = Integer.parseInt(a.replace("x", ""));
-            int numB = Integer.parseInt(b.replace("x", ""));
-            return Integer.compare(numA, numB);
-        });
+    /**
+     * Apply pending inputs after program is loaded
+     */
+    private void applyPendingInputs() {
+        System.out.println("applyPendingInputs called. pendingInputs: " + pendingInputs +
+                ", debuggerComponent: " + (debuggerExecutionComponentController != null ? "ready" : "null"));
 
-        for (String key : keys) {
-            if (key.startsWith("x")) {
-                inputList.add(inputs.get(key));
+        if (pendingInputs != null && debuggerExecutionComponentController != null) {
+            try {
+                // Convert Map<String, Long> to List<Long> in order (x1, x2, x3, ...)
+                List<Long> inputList = new ArrayList<>();
+
+                // Extract and sort input variables (x1, x2, x3, ...)
+                List<String> keys = new ArrayList<>(pendingInputs.keySet());
+                keys.sort((a, b) -> {
+                    // Extract numbers from x1, x2, etc.
+                    int numA = Integer.parseInt(a.replace("x", ""));
+                    int numB = Integer.parseInt(b.replace("x", ""));
+                    return Integer.compare(numA, numB);
+                });
+
+                for (String key : keys) {
+                    if (key.startsWith("x")) {
+                        inputList.add(pendingInputs.get(key));
+                    }
+                }
+
+                System.out.println("About to apply inputs: " + inputList);
+
+                // Apply the inputs directly (we're already in Platform.runLater context)
+                debuggerExecutionComponentController.setInputs(inputList);
+                System.out.println("Applied pending inputs: " + inputList);
+
+                pendingInputs = null; // Clear after applying
+            } catch (Exception e) {
+                System.err.println("Error applying pending inputs: " + e.getMessage());
+                e.printStackTrace();
+                pendingInputs = null; // Clear on error to prevent infinite retries
             }
-        }
-
-        // Notify debugger execution component to set the inputs
-        if (debuggerExecutionComponentController != null) {
-            debuggerExecutionComponentController.setInputs(inputList);
         }
     }
 
