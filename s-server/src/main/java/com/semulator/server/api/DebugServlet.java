@@ -139,6 +139,8 @@ public class DebugServlet extends HttpServlet {
 
             if (finished) {
                 session.state = "FINISHED";
+                // Update program statistics when debug execution completes via step
+                serverState.updateProgramStatistics(session.programName, session.cycles);
             } else {
                 session.state = "PAUSED";
             }
@@ -191,6 +193,9 @@ public class DebugServlet extends HttpServlet {
 
             session.state = "FINISHED";
 
+            // Update program statistics when debug execution completes
+            serverState.updateProgramStatistics(session.programName, session.cycles);
+
             // Create response with final state
             ApiModels.DebugStateResponse stateResponse = createStateResponse(session);
             ApiModels.DebugResumeResponse response = new ApiModels.DebugResumeResponse(
@@ -220,6 +225,12 @@ public class DebugServlet extends HttpServlet {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
                         "Debug session not found");
                 return;
+            }
+
+            // Update program statistics if execution reached the end (state is FINISHED)
+            // Don't update if user stopped early or if no execution happened
+            if ("FINISHED".equals(session.state) && session.cycles > 0) {
+                serverState.updateProgramStatistics(session.programName, session.cycles);
             }
 
             // Remove the debug session

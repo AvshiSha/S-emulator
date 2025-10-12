@@ -290,7 +290,36 @@ public class ServerState {
             user.lastActive = System.currentTimeMillis();
         }
 
+        // Update program run statistics (this will also broadcast the update)
+        updateProgramStatistics(programName, cycles);
+
         incrementVersion();
+    }
+
+    /**
+     * Update program run count and average cost
+     * Public so it can be called from servlets (Debug, Run, etc.)
+     */
+    public void updateProgramStatistics(String programName, int cycles) {
+        // Update run count
+        int currentRuns = programRunCounts.getOrDefault(programName, 0);
+        programRunCounts.put(programName, currentRuns + 1);
+
+        // Update average cost
+        double currentAvgCost = programAvgCosts.getOrDefault(programName, 0.0);
+        double newAvgCost = ((currentAvgCost * currentRuns) + cycles) / (currentRuns + 1);
+        programAvgCosts.put(programName, newAvgCost);
+
+        System.out.println("Updated statistics for " + programName +
+                ": runs=" + (currentRuns + 1) +
+                ", avgCost=" + String.format("%.2f", newAvgCost));
+
+        // Broadcast program update to all connected clients
+        try {
+            com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
+        } catch (Exception e) {
+            System.err.println("Error broadcasting program update: " + e.getMessage());
+        }
     }
 
     public List<ApiModels.HistoryEntry> getUserHistory(String username) {
