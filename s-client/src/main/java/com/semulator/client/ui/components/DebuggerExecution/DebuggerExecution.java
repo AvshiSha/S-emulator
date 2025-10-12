@@ -147,7 +147,6 @@ public class DebuggerExecution {
         updateExecutionStatus("Starting Regular Execution...");
 
         // Start execution in background using server API
-        System.out.println("DEBUG: Starting regular execution for program: " + currentProgramName);
         executionService.restart();
     }
 
@@ -562,8 +561,6 @@ public class DebuggerExecution {
         // Make effectively final for use in lambda
         final Map<String, Long> variables = (serverVariables != null) ? serverVariables : new HashMap<>();
 
-        System.out.println("DEBUG: updateVariablesDisplay called with: " + variables);
-
         Platform.runLater(() -> {
             variablesData.clear();
 
@@ -694,23 +691,15 @@ public class DebuggerExecution {
 
                             // Execute the program using server API (instead of local executor)
                             if (currentProgramName != null) {
-                                System.out.println(
-                                        "DEBUG: ExecutionService - About to execute program: " + currentProgramName);
                                 // Get ordered inputs
                                 List<Long> inputs = getOrderedInputs();
                                 Map<String, Long> inputMap = convertInputsToMap(inputs);
-                                System.out.println(
-                                        "DEBUG: ExecutionService - Inputs: " + inputs + ", InputMap: " + inputMap);
 
                                 // Call server API to run the program
                                 try {
-                                    System.out.println("DEBUG: About to call runPrepare");
                                     apiClient.runPrepare("PROGRAM", currentProgramName, "I", currentDegree, inputMap)
                                             .thenCompose(prepareResponse -> {
-                                                System.out.println(
-                                                        "DEBUG: runPrepare response: " + prepareResponse.supported());
                                                 if (prepareResponse.supported()) {
-                                                    System.out.println("DEBUG: About to call runStart");
                                                     return apiClient.runStart("PROGRAM", currentProgramName, "I",
                                                             currentDegree, inputMap, "admin");
                                                 } else {
@@ -720,8 +709,6 @@ public class DebuggerExecution {
                                                 }
                                             })
                                             .thenCompose(startResponse -> {
-                                                System.out
-                                                        .println("DEBUG: runStart response: " + startResponse.runId());
                                                 // Poll for completion
                                                 return pollForCompletion(startResponse.runId());
                                             })
@@ -734,9 +721,6 @@ public class DebuggerExecution {
                                                 });
                                             })
                                             .exceptionally(ex -> {
-                                                System.out.println(
-                                                        "DEBUG: Exception in execution chain: " + ex.getMessage());
-                                                ex.printStackTrace();
                                                 Platform.runLater(() -> {
                                                     isExecuting.set(false);
                                                     updateButtonStates();
@@ -748,8 +732,6 @@ public class DebuggerExecution {
                                             })
                                             .join(); // Wait for the entire chain to complete
                                 } catch (Exception e) {
-                                    System.out.println("DEBUG: Exception in ExecutionService: " + e.getMessage());
-                                    e.printStackTrace();
                                     Platform.runLater(() -> {
                                         isExecuting.set(false);
                                         updateButtonStates();
@@ -786,14 +768,10 @@ public class DebuggerExecution {
     // Helper method to poll for completion
     private CompletableFuture<Long> pollForCompletion(String runId) {
         return CompletableFuture.supplyAsync(() -> {
-            System.out.println("DEBUG: pollForCompletion started for runId: " + runId);
             while (isExecuting.get() && !Thread.currentThread().isInterrupted()) {
                 try {
-                    System.out.println("DEBUG: About to call runGetStatus for runId: " + runId);
                     com.semulator.client.model.ApiModels.RunStatusResponse statusResponse = apiClient
                             .runGetStatus(runId).join();
-                    System.out.println("DEBUG: Got status response: " + statusResponse.state() + ", cycles: "
-                            + statusResponse.cycles());
 
                     Platform.runLater(() -> {
                         currentCycles.set(statusResponse.cycles());
@@ -801,11 +779,6 @@ public class DebuggerExecution {
 
                         // Display both input and output variables
                         Map<String, Long> variables = new HashMap<>();
-
-                        // for (int i = 0; i < statusResponse.instrByArch().get("z").intValue(); i++) {
-                        // variables.put("z" + (i + 1), (long)
-                        // statusResponse.instrByArch().get("z").intValue());
-                        // }
 
                         // Add input variables
                         List<Long> inputs = getOrderedInputs();
@@ -818,7 +791,6 @@ public class DebuggerExecution {
                             variables.put("y", statusResponse.outputY());
                         }
 
-                        System.out.println("DEBUG: Updating variables display with: " + variables);
                         updateVariablesDisplay(variables);
 
                         updateExecutionStatus("Running... (Cycles: " + statusResponse.cycles() + ")");
@@ -841,8 +813,6 @@ public class DebuggerExecution {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Execution interrupted");
                 } catch (Exception e) {
-                    System.out.println("DEBUG: Exception in polling loop: " + e.getMessage());
-                    e.printStackTrace();
                     throw new RuntimeException("Polling failed: " + e.getMessage());
                 }
             }

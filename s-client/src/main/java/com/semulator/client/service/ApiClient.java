@@ -221,7 +221,6 @@ public class ApiClient {
     }
 
     public CompletableFuture<com.semulator.client.model.ApiModels.RunStatusResponse> runGetStatus(String runId) {
-        System.out.println("DEBUG: ApiClient.runGetStatus called with runId: " + runId);
         return get("/run/status?runId=" + runId, com.semulator.client.model.ApiModels.RunStatusResponse.class);
     }
 

@@ -494,7 +494,6 @@ public class ProgramRunController implements Initializable {
         }
 
         String targetName = selectedProgram != null ? selectedProgram : selectedFunction;
-        System.out.println("DEBUG: Attempting to load instructions for program: '" + targetName + "'");
 
         // URL encode the program name to handle special characters
         String encodedName;
@@ -504,20 +503,11 @@ public class ProgramRunController implements Initializable {
             encodedName = targetName; // Fallback to original name
         }
 
-        System.out.println("DEBUG: API request URL: /programs?name=" + encodedName);
-
         // Load program/function instructions from server
         apiClient.get("/programs?name=" + encodedName, ApiModels.ProgramWithInstructions.class, null)
                 .thenAccept(programWithInstructions -> {
                     Platform.runLater(() -> {
                         if (instructionTableComponentController != null && programWithInstructions != null) {
-                            System.out.println("DEBUG: Displaying instructions directly from server");
-                            System.out.println("DEBUG: Program name: " + programWithInstructions.name());
-                            System.out.println("DEBUG: Instruction count: " +
-                                    (programWithInstructions.instructions() != null
-                                            ? programWithInstructions.instructions().size()
-                                            : 0));
-
                             // Display instructions directly in the table without re-parsing
                             displayInstructionsInTable(programWithInstructions);
 
@@ -576,8 +566,6 @@ public class ProgramRunController implements Initializable {
         } catch (java.io.UnsupportedEncodingException e) {
             encodedName = targetName;
         }
-
-        System.out.println("DEBUG: Loading instructions for degree " + degree);
 
         // Request expanded instructions from server for specific degree
         apiClient.get("/programs?name=" + encodedName + "&degree=" + degree,
@@ -696,9 +684,6 @@ public class ProgramRunController implements Initializable {
         // Clear existing data
         instructionTableComponentController.clearTable();
 
-        System.out.println("DEBUG: Displaying " +
-                (programData.instructions() != null ? programData.instructions().size() : 0) + " instructions");
-
         // Get the table's data collection
         javafx.collections.ObservableList<com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow> tableData = javafx.collections.FXCollections
                 .observableArrayList();
@@ -723,16 +708,12 @@ public class ProgramRunController implements Initializable {
                             rowNumber, commandType, label, instruction, cycles, variable, architecture);
 
                     tableData.add(row);
-
-                    System.out.println("DEBUG: Added instruction #" + rowNumber + ": " + instruction);
                 }
             }
         }
 
         // Set the data in the table
         instructionTableComponentController.setInstructionData(tableData);
-
-        System.out.println("DEBUG: Successfully displayed " + tableData.size() + " instructions in table");
     }
 
     private String convertToXml(ApiModels.ProgramWithInstructions programData) {
@@ -814,7 +795,6 @@ public class ProgramRunController implements Initializable {
         if (instructionTableComponentController != null) {
             // For now, we'll create a simple sample program with basic instructions
             // TODO: Implement proper SProgram creation from server data
-            System.out.println("Loading sample instructions for component integration");
 
             // Clear any existing data
             instructionTableComponentController.clearTable();
@@ -839,7 +819,6 @@ public class ProgramRunController implements Initializable {
     private void validateArchitectureCompatibility() {
         // TODO: Implement architecture compatibility validation with components
         // For now, this is a placeholder
-        System.out.println("Architecture compatibility validation - placeholder");
     }
 
     private boolean isArchitectureSupported(String selectedArch, String instructionArch) {
