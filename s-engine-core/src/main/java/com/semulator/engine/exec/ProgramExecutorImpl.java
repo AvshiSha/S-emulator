@@ -246,7 +246,8 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             java.util.Map<String, java.util.List<com.semulator.engine.model.SInstruction>> functions) {
 
         // Get the function body for the nested function
-        java.util.List<com.semulator.engine.model.SInstruction> nestedFunctionBody = functions.get(call.getFunctionName());
+        java.util.List<com.semulator.engine.model.SInstruction> nestedFunctionBody = functions
+                .get(call.getFunctionName());
         if (nestedFunctionBody == null) {
             throw new IllegalArgumentException("Function '" + call.getFunctionName() + "' not found");
         }
@@ -321,7 +322,8 @@ public class ProgramExecutorImpl implements ProgramExecutor {
 
             // Create a new execution context for the function
             java.util.List<Long> functionInputs = new java.util.ArrayList<>();
-            for (com.semulator.engine.model.FunctionArgument arg : jumpEqualFunctionInstruction.getFunctionArguments()) {
+            for (com.semulator.engine.model.FunctionArgument arg : jumpEqualFunctionInstruction
+                    .getFunctionArguments()) {
                 if (arg.isFunctionCall()) {
                     // For function calls, we need to execute them first
                     functionInputs.add(0L); // Placeholder - function calls should be expanded before execution

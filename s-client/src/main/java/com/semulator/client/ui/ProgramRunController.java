@@ -520,14 +520,19 @@ public class ProgramRunController implements Initializable {
 
                             // Initialize the debugger execution component with program/function info
                             if (debuggerExecutionComponentController != null) {
+                                // Get the current degree from the execution header (user's selection)
+                                int currentDegree = executionHeaderController != null
+                                        ? executionHeaderController.getCurrentDegree()
+                                        : 0;
+
                                 if ("PROGRAM".equals(targetType)) {
                                     debuggerExecutionComponentController.setProgramName(
                                             programWithInstructions.name(),
-                                            programWithInstructions.maxDegree());
+                                            currentDegree);
                                 } else if ("FUNCTION".equals(targetType)) {
                                     debuggerExecutionComponentController.setFunctionName(
                                             programWithInstructions.name(),
-                                            programWithInstructions.maxDegree());
+                                            currentDegree);
                                 }
 
                                 // Extract input variables from instructions

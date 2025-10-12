@@ -3,8 +3,6 @@ package com.semulator.server.api;
 import com.semulator.engine.model.*;
 import com.semulator.engine.model.RunTarget;
 import com.semulator.engine.exec.ExecutionContext;
-import com.semulator.engine.exec.ProgramExecutor;
-import com.semulator.engine.exec.ProgramExecutorImpl;
 import com.semulator.server.model.ApiModels;
 import com.semulator.server.state.ServerState;
 import com.semulator.server.util.ServletUtils;
@@ -330,11 +328,52 @@ public class RunServlet extends HttpServlet {
                     context.updateVariable(var, entry.getValue());
                 }
 
-                // Execute the program
-                ProgramExecutor executor = new ProgramExecutorImpl(program);
-                session.outputY = executor.run(session.inputs.getAll().values().toArray(new Long[0]));
-                session.cycles = executor.getTotalCycles();
-                session.pointer = instructions.size();
+                // Build label-to-instruction map for efficient jumping
+                Map<String, Integer> labelToIndex = new HashMap<>();
+                for (int i = 0; i < instructions.size(); i++) {
+                    SInstruction instruction = instructions.get(i);
+                    Label label = instruction.getLabel();
+                    if (label != null && label != FixedLabel.EMPTY && label != FixedLabel.EXIT) {
+                        labelToIndex.put(label.getLabel(), i);
+                    }
+                }
+
+                // Execute the program manually, accumulating cycles in the server
+                session.cycles = 0;
+                int currentIndex = 0;
+
+                while (currentIndex < instructions.size()) {
+                    SInstruction currentInstruction = instructions.get(currentIndex);
+                    // Accumulate cycles for this instruction (same as debug mode)
+                    session.cycles += currentInstruction.cycles();
+
+                    // Execute the instruction
+                    Label nextLabel = currentInstruction.execute(context);
+
+                    // Determine next instruction
+                    if (nextLabel == null || nextLabel == FixedLabel.EMPTY) {
+                        // Continue to next instruction
+                        currentIndex++;
+                    } else if (nextLabel == FixedLabel.EXIT) {
+                        // Exit execution
+                        break;
+                    } else {
+                        // Jump to labeled instruction
+                        String labelName = nextLabel.getLabel();
+                        Integer targetIndex = labelToIndex.get(labelName);
+                        if (targetIndex != null) {
+                            currentIndex = targetIndex;
+                        } else {
+                            // Label not found, continue to next
+                            currentIndex++;
+                        }
+                    }
+                }
+
+                // Get output value (y variable)
+                Variable yVar = new VariableImpl(VariableType.RESULT, 0);
+                session.outputY = context.getVariableValue(yVar);
+                session.pointer = currentIndex;
                 session.state = "FINISHED";
                 session.instrByArch.put(session.arch.toString(), session.cycles);
 
