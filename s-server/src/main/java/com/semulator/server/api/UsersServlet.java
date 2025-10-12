@@ -47,7 +47,9 @@ public class UsersServlet extends HttpServlet {
     private void handleGetUsers(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
             List<ApiModels.UserInfo> users = serverState.getAllUsers();
-            ServletUtils.writeJson(resp, users);
+            long version = serverState.getCurrentVersion();
+            ApiModels.UsersResponse response = new ApiModels.UsersResponse(users, version, true);
+            ServletUtils.writeJson(resp, response);
         } catch (Exception e) {
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Failed to get users: " + e.getMessage());

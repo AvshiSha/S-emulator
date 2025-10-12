@@ -51,6 +51,18 @@ public class ApiModels {
         }
     }
 
+    public static class UsersResponse {
+        public List<UserInfo> users;
+        public long version;
+        public boolean full;
+
+        public UsersResponse(List<UserInfo> users, long version, boolean full) {
+            this.users = users;
+            this.version = version;
+            this.full = full;
+        }
+    }
+
     public static class TopupRequest {
         public int amount;
     }

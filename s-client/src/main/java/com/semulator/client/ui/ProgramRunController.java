@@ -1024,7 +1024,6 @@ public class ProgramRunController implements Initializable {
      * Called from DashboardController when navigating to execution screen
      */
     public void setTarget(String targetName, String targetType) {
-        System.out.println("ProgramRunController: Setting target - " + targetType + ": " + targetName);
 
         if ("PROGRAM".equals(targetType)) {
             this.selectedProgram = targetName;
