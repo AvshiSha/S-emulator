@@ -15,7 +15,8 @@ public class ApiModels {
         public record LoginResponse(String token, String username) {
         }
 
-        public record UserInfo(String username, int credits, int totalRuns, long lastActive) {
+        public record UserInfo(String username, int credits, int totalRuns, long lastActive,
+                        int mainPrograms, int subfunctions, int creditsUsed) {
         }
 
         public record UsersResponse(List<UserInfo> users, long version, boolean full) {

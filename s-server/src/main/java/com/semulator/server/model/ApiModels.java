@@ -34,12 +34,19 @@ public class ApiModels {
         public int credits;
         public int totalRuns;
         public long lastActive;
+        public int mainPrograms;
+        public int subfunctions;
+        public int creditsUsed;
 
-        public UserInfo(String username, int credits, int totalRuns, long lastActive) {
+        public UserInfo(String username, int credits, int totalRuns, long lastActive,
+                int mainPrograms, int subfunctions, int creditsUsed) {
             this.username = username;
             this.credits = credits;
             this.totalRuns = totalRuns;
             this.lastActive = lastActive;
+            this.mainPrograms = mainPrograms;
+            this.subfunctions = subfunctions;
+            this.creditsUsed = creditsUsed;
         }
     }
 

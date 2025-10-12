@@ -113,7 +113,8 @@ public class ServerState {
         // Only return users who have active tokens (are currently connected)
         return users.values().stream()
                 .filter(u -> hasActiveToken(u.username))
-                .map(u -> new ApiModels.UserInfo(u.username, u.credits, u.totalRuns, u.lastActive))
+                .map(u -> new ApiModels.UserInfo(u.username, u.credits, u.totalRuns, u.lastActive,
+                        u.mainPrograms, u.subfunctions, u.creditsUsed))
                 .toList();
     }
 
@@ -168,9 +169,12 @@ public class ServerState {
             programAvgCosts.put(program.getName(), 0.0);
 
             // Extract and store functions if any
+            int functionCount = 0;
             if (program instanceof SProgramImpl) {
                 SProgramImpl impl = (SProgramImpl) program;
                 Map<String, List<SInstruction>> programFunctions = impl.getFunctions();
+                functionCount = programFunctions.size();
+
                 for (String funcName : programFunctions.keySet()) {
                     // Create a function program with only the function's instructions
                     SProgramImpl functionProgram = new SProgramImpl(funcName);
@@ -199,13 +203,25 @@ public class ServerState {
                 }
             }
 
+            // Update user statistics: increment mainPrograms by 1 and subfunctions by
+            // function count
+            UserRecord user = users.get(ownerUsername);
+            if (user != null) {
+                user.mainPrograms++;
+                user.subfunctions += functionCount;
+                user.lastActive = System.currentTimeMillis();
+                System.out.println("Updated user statistics for " + ownerUsername +
+                        ": mainPrograms=" + user.mainPrograms + ", subfunctions=" + user.subfunctions);
+            }
+
             incrementVersion();
 
-            // Broadcast program update to all connected clients
+            // Broadcast program and user updates to all connected clients
             try {
                 com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
+                com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
             } catch (Exception e) {
-                System.err.println("Error broadcasting program update: " + e.getMessage());
+                System.err.println("Error broadcasting updates: " + e.getMessage());
             }
 
             return program;
@@ -288,12 +304,45 @@ public class ServerState {
         if (user != null) {
             user.totalRuns++;
             user.lastActive = System.currentTimeMillis();
+            System.out.println("Updated user statistics for " + username +
+                    ": totalRuns=" + user.totalRuns);
         }
 
-        // Update program run statistics (this will also broadcast the update)
+        // Update program run statistics (this will also broadcast the program update)
         updateProgramStatistics(programName, cycles);
 
+        // Broadcast user update to all connected clients
+        try {
+            com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
+        } catch (Exception e) {
+            System.err.println("Error broadcasting user update: " + e.getMessage());
+        }
+
         incrementVersion();
+    }
+
+    /**
+     * Increment user's total runs count
+     * Public so it can be called from servlets (Debug, Run, etc.)
+     */
+    public void incrementUserRuns(String username) {
+        UserRecord user = users.get(username);
+        if (user != null) {
+            user.totalRuns++;
+            user.lastActive = System.currentTimeMillis();
+            System.out.println("Incremented run count for " + username + ": totalRuns=" + user.totalRuns);
+
+            // Broadcast user update to all connected clients
+            try {
+                com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
+            } catch (Exception e) {
+                System.err.println("Error broadcasting user update: " + e.getMessage());
+            }
+
+            incrementVersion();
+        } else {
+            System.out.println("User not found: " + username);
+        }
     }
 
     /**
@@ -332,12 +381,18 @@ public class ServerState {
         public int credits;
         public int totalRuns;
         public long lastActive;
+        public int mainPrograms;
+        public int subfunctions;
+        public int creditsUsed;
 
         public UserRecord(String username, int credits, int totalRuns, long lastActive) {
             this.username = username;
             this.credits = credits;
             this.totalRuns = totalRuns;
             this.lastActive = lastActive;
+            this.mainPrograms = 0;
+            this.subfunctions = 0;
+            this.creditsUsed = 0;
         }
     }
 

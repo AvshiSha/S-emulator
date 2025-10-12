@@ -11,6 +11,7 @@ import javafx.event.ActionEvent;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 
+import com.semulator.client.AppContext;
 import com.semulator.client.service.ApiClient;
 import com.semulator.client.model.ApiModels;
 
@@ -709,11 +710,12 @@ public class DebuggerExecution {
 
                                 // Call server API to run the program
                                 try {
+                                    String currentUser = AppContext.getInstance().getCurrentUser();
                                     apiClient.runPrepare(targetType, currentProgramName, "I", currentDegree, inputMap)
                                             .thenCompose(prepareResponse -> {
                                                 if (prepareResponse.supported()) {
                                                     return apiClient.runStart(targetType, currentProgramName, "I",
-                                                            currentDegree, inputMap, "admin");
+                                                            currentDegree, inputMap, currentUser);
                                                 } else {
                                                     throw new RuntimeException(
                                                             "Architecture not supported: "

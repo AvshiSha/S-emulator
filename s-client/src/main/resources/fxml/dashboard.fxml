@@ -76,8 +76,8 @@
                <TableView fx:id="usersTable" VBox.vgrow="ALWAYS">
                   <columns>
                      <TableColumn fx:id="userNameColumn" text="User Name" prefWidth="120"/>
-                     <TableColumn fx:id="mainProgramsColumn" text="Main Programs" prefWidth="100"/>
-                     <TableColumn fx:id="subfunctionsColumn" text="Subfunctions" prefWidth="100"/>
+                     <TableColumn fx:id="mainProgramsColumn" text="Programs" prefWidth="100"/>
+                     <TableColumn fx:id="subfunctionsColumn" text="Functions" prefWidth="100"/>
                      <TableColumn fx:id="userCreditsColumn" text="Credits" prefWidth="80"/>
                      <TableColumn fx:id="creditsUsedColumn" text="Used" prefWidth="70"/>
                      <TableColumn fx:id="runsColumn" text="Runs" prefWidth="60"/>

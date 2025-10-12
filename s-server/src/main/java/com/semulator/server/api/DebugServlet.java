@@ -231,6 +231,9 @@ public class DebugServlet extends HttpServlet {
             // Don't update if user stopped early or if no execution happened
             if ("FINISHED".equals(session.state) && session.cycles > 0) {
                 serverState.updateProgramStatistics(session.programName, session.cycles);
+
+                // Increment user's total runs count
+                serverState.incrementUserRuns(session.username);
             }
 
             // Remove the debug session

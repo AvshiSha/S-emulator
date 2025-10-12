@@ -518,17 +518,12 @@ public class DashboardController implements Initializable {
 
                         // Convert server UserInfo to local UserInfo model
                         for (ApiModels.UserInfo serverUser : response.users()) {
-                            // Calculate additional fields we need for display
-                            int mainPrograms = 0; // TODO: Get from server
-                            int subfunctions = 0; // TODO: Get from server
-                            int creditsUsed = 0; // TODO: Calculate from history
-
                             UserInfo localUser = new UserInfo(
                                     serverUser.username(),
-                                    mainPrograms,
-                                    subfunctions,
+                                    serverUser.mainPrograms(),
+                                    serverUser.subfunctions(),
                                     serverUser.credits(),
-                                    creditsUsed,
+                                    serverUser.creditsUsed(),
                                     serverUser.totalRuns());
                             usersData.add(localUser);
                         }
@@ -990,11 +985,9 @@ public class DashboardController implements Initializable {
             String username = userObj.get("username").getAsString();
             int credits = userObj.get("credits").getAsInt();
             int totalRuns = userObj.get("totalRuns").getAsInt();
-
-            // Calculate additional fields (these would need to be provided by server)
-            int mainPrograms = 0; // TODO: Get from server
-            int subfunctions = 0; // TODO: Get from server
-            int creditsUsed = 0; // TODO: Calculate from history
+            int mainPrograms = userObj.has("mainPrograms") ? userObj.get("mainPrograms").getAsInt() : 0;
+            int subfunctions = userObj.has("subfunctions") ? userObj.get("subfunctions").getAsInt() : 0;
+            int creditsUsed = userObj.has("creditsUsed") ? userObj.get("creditsUsed").getAsInt() : 0;
 
             UserInfo localUser = new UserInfo(
                     username, mainPrograms, subfunctions, credits, creditsUsed, totalRuns);
