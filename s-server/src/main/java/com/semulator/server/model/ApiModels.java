@@ -166,9 +166,9 @@ public class ApiModels {
     // Runs
     public static class RunPrepareRequest {
         public RunTarget target;
-        public Architecture arch;
+        public String arch;
         public int degree;
-        public Inputs inputs;
+        public Map<String, Long> inputs;
     }
 
     public static class RunPrepareResponse {
@@ -191,9 +191,9 @@ public class ApiModels {
 
     public static class RunStartRequest {
         public RunTarget target;
-        public Architecture arch;
+        public String arch;
         public int degree;
-        public Inputs inputs;
+        public Map<String, Long> inputs;
         public String username;
     }
 

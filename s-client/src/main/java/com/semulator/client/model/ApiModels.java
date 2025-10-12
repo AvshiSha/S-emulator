@@ -191,4 +191,47 @@ public class ApiModels {
                         String instructionName,
                         int degree) {
         }
+
+        // Run API Models
+
+        public record RunPrepareRequest(
+                        RunTarget target,
+                        String arch,
+                        int degree,
+                        Map<String, Long> inputs) {
+        }
+
+        public record RunPrepareResponse(
+                        boolean supported,
+                        List<String> unsupported,
+                        Map<String, Integer> instructionCountsByArch,
+                        int estimatedCost,
+                        List<String> messages) {
+        }
+
+        public record RunStartRequest(
+                        RunTarget target,
+                        String arch,
+                        int degree,
+                        Map<String, Long> inputs,
+                        String username) {
+        }
+
+        public record RunStartResponse(String runId) {
+        }
+
+        public record RunStatusResponse(
+                        String state, // RUNNING, FINISHED, ERROR
+                        int cycles,
+                        Long outputY,
+                        String error,
+                        int pointer,
+                        Map<String, Integer> instrByArch) {
+        }
+
+        public record RunCancelRequest(String runId) {
+        }
+
+        public record RunCancelResponse(boolean success, String message) {
+        }
 }

@@ -384,6 +384,10 @@ public class ServerState {
         );
     }
 
+    public SProgram getProgram(String programName) {
+        return programs.get(programName);
+    }
+
     private String getCommandType(SInstruction instruction) {
         // Basic instructions: INCREASE, DECREASE, NEUTRAL, JUMP_NOT_ZERO
         if (instruction instanceof IncreaseInstruction ||

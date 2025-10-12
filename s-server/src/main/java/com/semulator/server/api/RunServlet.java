@@ -1,6 +1,9 @@
 package com.semulator.server.api;
 
 import com.semulator.engine.model.*;
+import com.semulator.engine.exec.ExecutionContext;
+import com.semulator.engine.exec.ProgramExecutor;
+import com.semulator.engine.exec.ProgramExecutorImpl;
 import com.semulator.server.model.ApiModels;
 import com.semulator.server.state.ServerState;
 import com.semulator.server.util.ServletUtils;
@@ -138,9 +141,22 @@ public class RunServlet extends HttpServlet {
             // Generate run ID
             String runId = "run_" + request.username + "_" + System.currentTimeMillis();
 
+            // Convert inputs map to Inputs object
+            Inputs inputs = new Inputs(request.inputs);
+
+            // Convert architecture string to enum
+            Architecture architecture;
+            try {
+                architecture = Architecture.valueOf(request.arch);
+            } catch (IllegalArgumentException e) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "INVALID_ARCHITECTURE",
+                        "Invalid architecture: " + request.arch);
+                return;
+            }
+
             // Create run session
             ServerState.RunSession session = serverState.createRunSession(
-                    runId, request.username, request.target, request.arch, request.degree, request.inputs);
+                    runId, request.username, request.target, architecture, request.degree, inputs);
 
             // Start execution in background (simplified)
             startExecutionAsync(session);
@@ -215,13 +231,13 @@ public class RunServlet extends HttpServlet {
     }
 
     // Helper methods
-    private boolean isArchitectureSupported(Architecture arch) {
-        return arch != null; // Simplified - all architectures supported
+    private boolean isArchitectureSupported(String arch) {
+        return arch != null && (arch.equals("I") || arch.equals("II") || arch.equals("III") || arch.equals("IV"));
     }
 
-    private int getArchitectureCost(Architecture arch) {
+    private int getArchitectureCost(String arch) {
         // Simplified cost calculation
-        switch (arch.toString()) {
+        switch (arch) {
             case "I":
                 return 10;
             case "II":
@@ -235,22 +251,76 @@ public class RunServlet extends HttpServlet {
         }
     }
 
-    private int calculateEstimatedCost(Architecture arch, int degree) {
+    private int calculateEstimatedCost(String arch, int degree) {
         int baseCost = getArchitectureCost(arch);
         return baseCost * (degree + 1); // Cost increases with degree
     }
 
+    private Variable createVariableFromName(String varName) {
+        if (varName.equals("y")) {
+            return new VariableImpl(VariableType.RESULT, 0);
+        } else if (varName.startsWith("x")) {
+            try {
+                int number = Integer.parseInt(varName.substring(1));
+                return new VariableImpl(VariableType.INPUT, number);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid input variable name: " + varName);
+            }
+        } else if (varName.startsWith("z")) {
+            try {
+                int number = Integer.parseInt(varName.substring(1));
+                return new VariableImpl(VariableType.WORK, number);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid work variable name: " + varName);
+            }
+        } else {
+            throw new IllegalArgumentException("Unknown variable type: " + varName);
+        }
+    }
+
     private void startExecutionAsync(ServerState.RunSession session) {
-        // Simplified async execution simulation
+        // Execute the S-program using the engine
         new Thread(() -> {
             try {
-                Thread.sleep(1000); // Simulate execution time
+                // Get the program from server state
+                SProgram program = serverState.getProgram(session.target.getName());
+                if (program == null) {
+                    session.state = "ERROR";
+                    session.error = "Program not found: " + session.target.getName();
+                    return;
+                }
 
-                // Simulate successful execution
+                // Expand program to the requested degree
+                ExpansionResult expansion = program.expandToDegree(session.degree);
+                List<SInstruction> instructions = expansion.instructions();
+
+                // Create execution context with input variables
+                ExecutionContext context = new ExecutionContext() {
+                    private final Map<String, Long> variables = new HashMap<>();
+
+                    @Override
+                    public long getVariableValue(Variable v) {
+                        return variables.getOrDefault(v.getRepresentation(), 0L);
+                    }
+
+                    @Override
+                    public void updateVariable(Variable v, long value) {
+                        variables.put(v.getRepresentation(), value);
+                    }
+                };
+
+                // Set input variables using Variable objects
+                for (Map.Entry<String, Long> entry : session.inputs.getAll().entrySet()) {
+                    Variable var = createVariableFromName(entry.getKey());
+                    context.updateVariable(var, entry.getValue());
+                }
+
+                // Execute the program
+                ProgramExecutor executor = new ProgramExecutorImpl(program);
+                session.outputY = executor.run(session.inputs.getAll().values().toArray(new Long[0]));
+                session.cycles = executor.getTotalCycles();
+                session.pointer = instructions.size();
                 session.state = "FINISHED";
-                session.cycles = 100 + (int) (Math.random() * 900);
-                session.pointer = session.cycles;
-                session.outputY = (long) (Math.random() * 1000);
                 session.instrByArch.put(session.arch.toString(), session.cycles);
 
                 // Add to history
@@ -261,9 +331,6 @@ public class RunServlet extends HttpServlet {
                         session.outputY,
                         session.cycles);
 
-            } catch (InterruptedException e) {
-                session.state = "STOPPED";
-                session.error = "Execution interrupted";
             } catch (Exception e) {
                 session.state = "ERROR";
                 session.error = e.getMessage();

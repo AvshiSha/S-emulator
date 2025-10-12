@@ -18,8 +18,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javafx.concurrent.Service;
+import javafx.concurrent.Task;
 
 /**
  * Debug Execution Panel - Uses server-side debug API for step-by-step execution
@@ -75,6 +79,9 @@ public class DebuggerExecution {
     private AtomicBoolean isPaused = new AtomicBoolean(false);
     private AtomicInteger currentCycles = new AtomicInteger(0);
 
+    // Execution Service
+    private ExecutionService executionService;
+
     // Input Variables Map
     private Map<String, Integer> inputVariables = new HashMap<>();
     private int nextInputNumber = 1;
@@ -113,6 +120,9 @@ public class DebuggerExecution {
         variableNameColumn.setSortable(false);
         variableValueColumn.setSortable(false);
 
+        // Initialize execution service
+        executionService = new ExecutionService();
+
         // Set initial button states
         updateButtonStates();
 
@@ -128,8 +138,17 @@ public class DebuggerExecution {
             return;
         }
 
-        // Regular execution not implemented yet - would use RunServlet
-        showAlert("Not Implemented", "Regular execution via API is not yet implemented. Use Debug mode.");
+        isDebugMode.set(false);
+        isPaused.set(false);
+        isExecuting.set(true);
+        currentCycles.set(0);
+
+        updateButtonStates();
+        updateExecutionStatus("Starting Regular Execution...");
+
+        // Start execution in background using server API
+        System.out.println("DEBUG: Starting regular execution for program: " + currentProgramName);
+        executionService.restart();
     }
 
     @FXML
@@ -180,30 +199,31 @@ public class DebuggerExecution {
 
     @FXML
     private void stopExecution(ActionEvent event) {
-        if (debugSessionId != null) {
-            // Stop debug session on server
+        isExecuting.set(false);
+        isPaused.set(false);
+        isDebugMode.set(false);
+
+        // Stop debug session if active
+        if (debugSessionId != null && isDebugMode.get()) {
             apiClient.debugStop(debugSessionId)
                     .thenAccept(response -> {
                         Platform.runLater(() -> {
-                            cleanupExecution();
+                            debugSessionId = null;
+                            updateExecutionStatus("Debug session stopped");
                         });
                     })
                     .exceptionally(ex -> {
                         Platform.runLater(() -> {
-                            cleanupExecution();
+                            updateExecutionStatus("Error stopping debug session: " + ex.getMessage());
                         });
                         return null;
                     });
-        } else {
-            cleanupExecution();
         }
-    }
 
-    private void cleanupExecution() {
-        isExecuting.set(false);
-        isPaused.set(false);
-        isDebugMode.set(false);
-        debugSessionId = null;
+        // Stop execution service if running
+        if (executionService != null && executionService.isRunning()) {
+            executionService.cancel();
+        }
 
         updateButtonStates();
         updateExecutionStatus("Execution Stopped");
@@ -372,6 +392,18 @@ public class DebuggerExecution {
         }
     }
 
+    /**
+     * Update the current degree for debug execution
+     * Called when user changes degree in the UI
+     */
+    public void updateDegree(int degree) {
+        this.currentDegree = degree;
+
+        if (currentProgramName != null) {
+            updateExecutionStatus("Program Loaded: " + currentProgramName + " (degree " + degree + ")");
+        }
+    }
+
     public void setInputVariables(List<String> inputVarNames) {
         Platform.runLater(() -> {
             // Clear existing input fields
@@ -432,6 +464,17 @@ public class DebuggerExecution {
                 }
             }
         });
+    }
+
+    /**
+     * Convert List<Long> inputs to Map<String, Long> format expected by server
+     */
+    private Map<String, Long> convertInputsToMap(List<Long> inputs) {
+        Map<String, Long> inputMap = new HashMap<>();
+        for (int i = 0; i < inputs.size(); i++) {
+            inputMap.put("x" + (i + 1), inputs.get(i));
+        }
+        return inputMap;
     }
 
     /**
@@ -518,6 +561,8 @@ public class DebuggerExecution {
     private void updateVariablesDisplay(Map<String, Long> serverVariables) {
         // Make effectively final for use in lambda
         final Map<String, Long> variables = (serverVariables != null) ? serverVariables : new HashMap<>();
+
+        System.out.println("DEBUG: updateVariablesDisplay called with: " + variables);
 
         Platform.runLater(() -> {
             variablesData.clear();
@@ -631,4 +676,178 @@ public class DebuggerExecution {
             return isChanged;
         }
     }
+
+    // Execution Service for Background Execution (Exe 2 style)
+    private class ExecutionService extends Service<Void> {
+        @Override
+        protected Task<Void> createTask() {
+            return new Task<Void>() {
+                @Override
+                protected Void call() throws Exception {
+                    try {
+                        while (isExecuting.get() && !isCancelled()) {
+                            if (isPaused.get() && isDebugMode.get()) {
+                                // In debug mode and paused, wait for step command
+                                Thread.sleep(100);
+                                continue;
+                            }
+
+                            // Execute the program using server API (instead of local executor)
+                            if (currentProgramName != null) {
+                                System.out.println(
+                                        "DEBUG: ExecutionService - About to execute program: " + currentProgramName);
+                                // Get ordered inputs
+                                List<Long> inputs = getOrderedInputs();
+                                Map<String, Long> inputMap = convertInputsToMap(inputs);
+                                System.out.println(
+                                        "DEBUG: ExecutionService - Inputs: " + inputs + ", InputMap: " + inputMap);
+
+                                // Call server API to run the program
+                                try {
+                                    System.out.println("DEBUG: About to call runPrepare");
+                                    apiClient.runPrepare("PROGRAM", currentProgramName, "I", currentDegree, inputMap)
+                                            .thenCompose(prepareResponse -> {
+                                                System.out.println(
+                                                        "DEBUG: runPrepare response: " + prepareResponse.supported());
+                                                if (prepareResponse.supported()) {
+                                                    System.out.println("DEBUG: About to call runStart");
+                                                    return apiClient.runStart("PROGRAM", currentProgramName, "I",
+                                                            currentDegree, inputMap, "admin");
+                                                } else {
+                                                    throw new RuntimeException(
+                                                            "Architecture not supported: "
+                                                                    + prepareResponse.unsupported());
+                                                }
+                                            })
+                                            .thenCompose(startResponse -> {
+                                                System.out
+                                                        .println("DEBUG: runStart response: " + startResponse.runId());
+                                                // Poll for completion
+                                                return pollForCompletion(startResponse.runId());
+                                            })
+                                            .thenAccept(result -> {
+                                                Platform.runLater(() -> {
+                                                    // Mark execution as complete
+                                                    isExecuting.set(false);
+                                                    updateButtonStates();
+                                                    updateExecutionStatus("Execution Complete - Result: " + result);
+                                                });
+                                            })
+                                            .exceptionally(ex -> {
+                                                System.out.println(
+                                                        "DEBUG: Exception in execution chain: " + ex.getMessage());
+                                                ex.printStackTrace();
+                                                Platform.runLater(() -> {
+                                                    isExecuting.set(false);
+                                                    updateButtonStates();
+                                                    showAlert("Execution Error",
+                                                            "Failed to execute program: " + ex.getMessage());
+                                                    updateExecutionStatus("Execution Failed");
+                                                });
+                                                return null;
+                                            })
+                                            .join(); // Wait for the entire chain to complete
+                                } catch (Exception e) {
+                                    System.out.println("DEBUG: Exception in ExecutionService: " + e.getMessage());
+                                    e.printStackTrace();
+                                    Platform.runLater(() -> {
+                                        isExecuting.set(false);
+                                        updateButtonStates();
+                                        showAlert("Execution Error", "Failed to execute program: " + e.getMessage());
+                                        updateExecutionStatus("Execution Failed");
+                                    });
+                                }
+
+                                // Exit the loop after starting execution
+                                break;
+                            }
+                        }
+
+                        if (!isCancelled()) {
+                            isExecuting.set(false);
+                            isPaused.set(false);
+                            updateButtonStates();
+                        }
+
+                    } catch (InterruptedException e) {
+                        // Execution was cancelled
+                        isExecuting.set(false);
+                        isPaused.set(false);
+                        updateButtonStates();
+                        updateExecutionStatus("Execution Cancelled");
+                    }
+
+                    return null;
+                }
+            };
+        }
+    }
+
+    // Helper method to poll for completion
+    private CompletableFuture<Long> pollForCompletion(String runId) {
+        return CompletableFuture.supplyAsync(() -> {
+            System.out.println("DEBUG: pollForCompletion started for runId: " + runId);
+            while (isExecuting.get() && !Thread.currentThread().isInterrupted()) {
+                try {
+                    System.out.println("DEBUG: About to call runGetStatus for runId: " + runId);
+                    com.semulator.client.model.ApiModels.RunStatusResponse statusResponse = apiClient
+                            .runGetStatus(runId).join();
+                    System.out.println("DEBUG: Got status response: " + statusResponse.state() + ", cycles: "
+                            + statusResponse.cycles());
+
+                    Platform.runLater(() -> {
+                        currentCycles.set(statusResponse.cycles());
+                        updateCyclesDisplay();
+
+                        // Display both input and output variables
+                        Map<String, Long> variables = new HashMap<>();
+
+                        // for (int i = 0; i < statusResponse.instrByArch().get("z").intValue(); i++) {
+                        // variables.put("z" + (i + 1), (long)
+                        // statusResponse.instrByArch().get("z").intValue());
+                        // }
+
+                        // Add input variables
+                        List<Long> inputs = getOrderedInputs();
+                        for (int i = 0; i < inputs.size(); i++) {
+                            variables.put("x" + (i + 1), inputs.get(i));
+                        }
+
+                        // Add output variable if available
+                        if (statusResponse.outputY() != null) {
+                            variables.put("y", statusResponse.outputY());
+                        }
+
+                        System.out.println("DEBUG: Updating variables display with: " + variables);
+                        updateVariablesDisplay(variables);
+
+                        updateExecutionStatus("Running... (Cycles: " + statusResponse.cycles() + ")");
+                    });
+
+                    // Check if finished
+                    if ("FINISHED".equals(statusResponse.state())) {
+                        Platform.runLater(() -> {
+                            isExecuting.set(false);
+                            updateButtonStates();
+                            updateExecutionStatus("Execution Completed - Result: " + statusResponse.outputY());
+                        });
+                        return statusResponse.outputY();
+                    } else if ("ERROR".equals(statusResponse.state())) {
+                        throw new RuntimeException(statusResponse.error());
+                    }
+
+                    Thread.sleep(500); // Poll every 500ms
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Execution interrupted");
+                } catch (Exception e) {
+                    System.out.println("DEBUG: Exception in polling loop: " + e.getMessage());
+                    e.printStackTrace();
+                    throw new RuntimeException("Polling failed: " + e.getMessage());
+                }
+            }
+            return 0L; // Default return
+        });
+    }
+
 }

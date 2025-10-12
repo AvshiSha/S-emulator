@@ -291,35 +291,6 @@ public class ProgramRunController implements Initializable {
         }
     }
 
-    private void buildDegreeBasedChain(List<com.semulator.engine.model.SInstruction> chain,
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow,
-            int degree) {
-        // try {
-        // // For degree 1: just the selected instruction
-        // if (degree <= 0) {
-        // return;
-        // }
-
-        // // For degree 2: add parent instructions
-        // if (degree >= 1) {
-        // addParentInstructions(chain, selectedRow);
-        // }
-
-        // // For degree 3: add grandparent instructions
-        // if (degree >= 2) {
-        // addGrandparentInstructions(chain, selectedRow);
-        // }
-
-        // // For degree 4: add great-grandparent instructions
-        // if (degree >= 3) {
-        // addGreatGrandparentInstructions(chain, selectedRow);
-        // }
-
-        // } catch (Exception e) {
-        // System.err.println("Error building degree-based chain: " + e.getMessage());
-        // }
-    }
-
     private com.semulator.engine.model.SInstruction createMockInstruction(
             com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow row) {
         try {
@@ -517,16 +488,6 @@ public class ProgramRunController implements Initializable {
             backToDashboardButton.setOnAction(e -> navigateBackToDashboard());
     }
 
-    public void setTarget(String targetName, String targetType) {
-        this.selectedProgram = targetType.equals("PROGRAM") ? targetName : null;
-        this.selectedFunction = targetType.equals("FUNCTION") ? targetName : null;
-        this.targetType = targetType;
-
-        // Load program/function instructions
-        loadInstructions();
-        updateSummaryLine();
-    }
-
     private void loadInstructions() {
         if (selectedProgram == null && selectedFunction == null) {
             return;
@@ -629,8 +590,7 @@ public class ProgramRunController implements Initializable {
 
                             // Update debugger component with new degree
                             if (debuggerExecutionComponentController != null) {
-                                debuggerExecutionComponentController.setProgramName(
-                                        programWithInstructions.name(), degree);
+                                debuggerExecutionComponentController.updateDegree(degree);
                             }
                         }
                     });
@@ -682,6 +642,7 @@ public class ProgramRunController implements Initializable {
                     @SuppressWarnings("unchecked")
                     com.google.gson.internal.LinkedTreeMap<String, Object> instr = (com.google.gson.internal.LinkedTreeMap<String, Object>) instrObj;
 
+                    // Check main variable field
                     String variable = (String) instr.get("variable");
                     if (variable != null && variable.startsWith("x") && variable.length() > 1) {
                         try {
@@ -691,8 +652,41 @@ public class ProgramRunController implements Initializable {
                             // Not a valid input variable
                         }
                     }
+
+                    // Check instruction text for x variables (for cases like function arguments)
+                    String instructionText = (String) instr.get("instructionText");
+
+                    // Also check other possible field names for instruction text
+                    String instruction = (String) instr.get("instruction");
+
+                    String text = (String) instr.get("text");
+
+                    if (instructionText != null) {
+                        // Look for x1, x2, x3, etc. in the instruction text
+                        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\bx\\d+\\b");
+                        java.util.regex.Matcher matcher = pattern.matcher(instructionText);
+                        while (matcher.find()) {
+                            String xVar = matcher.group();
+                            inputVars.add(xVar);
+
+                        }
+                    } else if (instruction != null) {
+                        // Try the instruction field instead
+                        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\bx\\d+\\b");
+                        java.util.regex.Matcher matcher = pattern.matcher(instruction);
+                        while (matcher.find()) {
+                            String xVar = matcher.group();
+                            inputVars.add(xVar);
+
+                        }
+                    }
                 }
             }
+        }
+
+        // If no x variables found, add at least x1 as a default for basic programs
+        if (inputVars.isEmpty()) {
+            inputVars.add("x1");
         }
 
         return inputVars;
@@ -928,6 +922,28 @@ public class ProgramRunController implements Initializable {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    /**
+     * Set the target program or function for execution
+     * Called from DashboardController when navigating to execution screen
+     */
+    public void setTarget(String targetName, String targetType) {
+        System.out.println("ProgramRunController: Setting target - " + targetType + ": " + targetName);
+
+        if ("PROGRAM".equals(targetType)) {
+            this.selectedProgram = targetName;
+            this.selectedFunction = null;
+        } else if ("FUNCTION".equals(targetType)) {
+            this.selectedProgram = null;
+            this.selectedFunction = targetName;
+        }
+
+        this.targetType = targetType;
+
+        // Load the program/function instructions
+        loadInstructions();
+        updateSummaryLine();
     }
 
     // Data Model Classes (now handled by components)

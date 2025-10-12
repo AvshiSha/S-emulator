@@ -5,6 +5,8 @@ import com.google.gson.GsonBuilder;
 import okhttp3.*;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -196,5 +198,36 @@ public class ApiClient {
     public CompletableFuture<com.semulator.client.model.ApiModels.DebugStateResponse> debugGetState(String sessionId) {
         return get("/debug/state?sessionId=" + sessionId,
                 com.semulator.client.model.ApiModels.DebugStateResponse.class);
+    }
+
+    // Run API Methods
+    public CompletableFuture<com.semulator.client.model.ApiModels.RunPrepareResponse> runPrepare(
+            String targetType, String targetName, String architecture, int degree, Map<String, Long> inputs) {
+        com.semulator.client.model.ApiModels.RunTarget target = new com.semulator.client.model.ApiModels.RunTarget(
+                targetType, targetName);
+        com.semulator.client.model.ApiModels.RunPrepareRequest request = new com.semulator.client.model.ApiModels.RunPrepareRequest(
+                target, architecture, degree, inputs);
+        return post("/run/prepare", request, com.semulator.client.model.ApiModels.RunPrepareResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.RunStartResponse> runStart(
+            String targetType, String targetName, String architecture, int degree, Map<String, Long> inputs,
+            String username) {
+        com.semulator.client.model.ApiModels.RunTarget target = new com.semulator.client.model.ApiModels.RunTarget(
+                targetType, targetName);
+        com.semulator.client.model.ApiModels.RunStartRequest request = new com.semulator.client.model.ApiModels.RunStartRequest(
+                target, architecture, degree, inputs, username);
+        return post("/run/start", request, com.semulator.client.model.ApiModels.RunStartResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.RunStatusResponse> runGetStatus(String runId) {
+        System.out.println("DEBUG: ApiClient.runGetStatus called with runId: " + runId);
+        return get("/run/status?runId=" + runId, com.semulator.client.model.ApiModels.RunStatusResponse.class);
+    }
+
+    public CompletableFuture<com.semulator.client.model.ApiModels.RunCancelResponse> runCancel(String runId) {
+        com.semulator.client.model.ApiModels.RunCancelRequest request = new com.semulator.client.model.ApiModels.RunCancelRequest(
+                runId);
+        return post("/run/cancel", request, com.semulator.client.model.ApiModels.RunCancelResponse.class);
     }
 }
