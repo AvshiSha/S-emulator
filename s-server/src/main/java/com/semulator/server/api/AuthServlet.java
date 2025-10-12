@@ -61,11 +61,12 @@ public class AuthServlet extends HttpServlet {
             }
 
             String username = request.username.trim();
-            
+
             // Check if user is already logged in (has active token)
             if (serverState.hasActiveToken(username)) {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_CONFLICT, "USER_ALREADY_LOGGED_IN",
-                        "User '" + username + "' is already logged in. Please logout first or use a different username.");
+                        "User '" + username
+                                + "' is already logged in. Please logout first or use a different username.");
                 return;
             }
 
@@ -73,7 +74,7 @@ public class AuthServlet extends HttpServlet {
 
             if (user == null) {
                 // Create new user with default credits
-                user = serverState.createUser(username, 100);
+                user = serverState.createUser(username, 0);
                 if (user == null) {
                     ServletUtils.writeError(resp, HttpServletResponse.SC_CONFLICT, "CONFLICT",
                             "Username already exists");

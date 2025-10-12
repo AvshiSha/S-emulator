@@ -395,13 +395,23 @@ public class DashboardController implements Initializable {
                 return;
             }
 
-            // TODO: Implement credit charging via API
-            showInfoAlert("Credits Charged",
-                    "Added " + amount + " credits to your account.\nAPI integration will be implemented.");
+            // Get current credits from display
+            int currentCredits = Integer.parseInt(availableCredits.getText());
+
+            // Add the new amount to current credits
+            int newTotal = currentCredits + amount;
+
+            // Update the display immediately
+            availableCredits.setText(String.valueOf(newTotal));
+
+            // Update the local user data to reflect the change
+            updateLocalUserCredits(newTotal);
+
+            // Clear the input field
             creditsInput.clear();
 
-            // Refresh user data to show updated credits
-            refreshUserData();
+            showInfoAlert("Credits Charged",
+                    "Added " + amount + " credits to your account.\nNew total: " + newTotal + " credits.");
 
         } catch (NumberFormatException e) {
             showErrorAlert("Invalid Amount", "Please enter a valid number.");
@@ -517,7 +527,7 @@ public class DashboardController implements Initializable {
                         System.err.println("Failed to load users: " + throwable.getMessage());
                         // Fallback to sample data if API fails
                         usersData.clear();
-                        usersData.add(new UserInfo(currentUser, 1, 2, 100, 75, 15));
+                        usersData.add(new UserInfo(currentUser, 1, 2, 0, 75, 15));
                     });
                     return null;
                 });
@@ -702,6 +712,25 @@ public class DashboardController implements Initializable {
         for (UserInfo user : usersData) {
             if (user.getUserName().equals(currentUser)) {
                 availableCredits.setText(String.valueOf(user.getCredits()));
+                break;
+            }
+        }
+    }
+
+    private void updateLocalUserCredits(int newCredits) {
+        // Update the local user data to reflect the new credit amount
+        for (int i = 0; i < usersData.size(); i++) {
+            UserInfo user = usersData.get(i);
+            if (user.getUserName().equals(currentUser)) {
+                // Create a new UserInfo with updated credits
+                UserInfo updatedUser = new UserInfo(
+                        user.getUserName(),
+                        user.getMainPrograms(),
+                        user.getSubfunctions(),
+                        newCredits,
+                        user.getCreditsUsed(),
+                        user.getRuns());
+                usersData.set(i, updatedUser);
                 break;
             }
         }
