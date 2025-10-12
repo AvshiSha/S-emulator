@@ -46,10 +46,6 @@
             <Label text="Amount:"/>
             <TextField fx:id="creditsInput" promptText="credits" 
                        style="-fx-background-color: #fff; -fx-max-width: 80px;"/>
-            
-            <!-- Logout Button -->
-            <Button fx:id="logoutButton" text="Logout" 
-                    style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold;"/>
          </children>
          <VBox.margin><Insets bottom="20.0"/></VBox.margin>
       </HBox>

@@ -48,8 +48,6 @@ public class DashboardController implements Initializable {
     private Button chargeCreditsButton;
     @FXML
     private TextField creditsInput;
-    @FXML
-    private Button logoutButton;
 
     // Available Users Table (Top-Left)
     @FXML
@@ -189,9 +187,6 @@ public class DashboardController implements Initializable {
 
         // Set up charge credits button
         chargeCreditsButton.setOnAction(e -> handleChargeCredits());
-
-        // Set up logout button
-        logoutButton.setOnAction(e -> handleLogout());
     }
 
     private void initializeUsersTable() {
