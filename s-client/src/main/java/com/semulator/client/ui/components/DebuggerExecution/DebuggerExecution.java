@@ -55,6 +55,12 @@ public class DebuggerExecution {
     @FXML
     private Label currentCyclesLabel;
 
+    // FXML Components - Architecture Selection Panel
+    @FXML
+    private ComboBox<String> architectureComboBox;
+    @FXML
+    private Label architectureCostLabel;
+
     // FXML Components - Execution Inputs Panel
     @FXML
     private VBox inputFieldsContainer;
@@ -71,6 +77,7 @@ public class DebuggerExecution {
     private String targetType = "PROGRAM"; // "PROGRAM" or "FUNCTION"
     private int currentDegree = 0;
     private String debugSessionId = null;
+    private String selectedArchitecture = "I"; // Default to Architecture I
 
     // API Client
     private ApiClient apiClient;
@@ -93,6 +100,9 @@ public class DebuggerExecution {
 
     // Callback for instruction table highlighting
     private java.util.function.Consumer<Integer> instructionTableCallback;
+
+    // Callback for architecture summary updates
+    private java.util.function.Consumer<java.util.Map<String, Integer>> architectureSummaryCallback;
 
     @FXML
     private void initialize() {
@@ -122,6 +132,9 @@ public class DebuggerExecution {
         variableNameColumn.setSortable(false);
         variableValueColumn.setSortable(false);
 
+        // Initialize Architecture Selection ComboBox
+        initializeArchitectureSelection();
+
         // Initialize execution service
         executionService = new ExecutionService();
 
@@ -130,6 +143,37 @@ public class DebuggerExecution {
 
         // Initialize cycles display
         updateCyclesDisplay();
+    }
+
+    private void initializeArchitectureSelection() {
+        // Initialize architecture options with credit costs
+        ObservableList<String> architectureOptions = FXCollections.observableArrayList(
+                "I (cost: 5 credits)",
+                "II (cost: 100 credits)",
+                "III (cost: 500 credits)",
+                "IV (cost: 1000 credits)");
+
+        architectureComboBox.setItems(architectureOptions);
+        architectureComboBox.setValue("I (cost: 5 credits)");
+
+        // Add change listener to update selected architecture and cost
+        architectureComboBox.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue != null) {
+                if (newValue.startsWith("Architecture I")) {
+                    selectedArchitecture = "I";
+                    architectureCostLabel.setText("Cost: 5 credits");
+                } else if (newValue.startsWith("Architecture II")) {
+                    selectedArchitecture = "II";
+                    architectureCostLabel.setText("Cost: 100 credits");
+                } else if (newValue.startsWith("Architecture III")) {
+                    selectedArchitecture = "III";
+                    architectureCostLabel.setText("Cost: 500 credits");
+                } else if (newValue.startsWith("Architecture IV")) {
+                    selectedArchitecture = "IV";
+                    architectureCostLabel.setText("Cost: 1000 credits");
+                }
+            }
+        });
     }
 
     // Execution Command Handlers
@@ -522,6 +566,10 @@ public class DebuggerExecution {
         this.instructionTableCallback = callback;
     }
 
+    public void setArchitectureSummaryCallback(java.util.function.Consumer<java.util.Map<String, Integer>> callback) {
+        this.architectureSummaryCallback = callback;
+    }
+
     private void setupVariableRowHighlighting() {
         variablesTableView.setRowFactory(tv -> {
             TableRow<VariableRow> row = new TableRow<VariableRow>() {
@@ -711,10 +759,19 @@ public class DebuggerExecution {
                                 // Call server API to run the program
                                 try {
                                     String currentUser = AppContext.getInstance().getCurrentUser();
-                                    apiClient.runPrepare(targetType, currentProgramName, "I", currentDegree, inputMap)
+                                    apiClient
+                                            .runPrepare(targetType, currentProgramName, selectedArchitecture,
+                                                    currentDegree, inputMap)
                                             .thenCompose(prepareResponse -> {
+                                                // Update architecture summary in instruction table
+                                                if (architectureSummaryCallback != null) {
+                                                    architectureSummaryCallback
+                                                            .accept(prepareResponse.instructionCountsByArch());
+                                                }
+
                                                 if (prepareResponse.supported()) {
-                                                    return apiClient.runStart(targetType, currentProgramName, "I",
+                                                    return apiClient.runStart(targetType, currentProgramName,
+                                                            selectedArchitecture,
                                                             currentDegree, inputMap, currentUser);
                                                 } else {
                                                     throw new RuntimeException(

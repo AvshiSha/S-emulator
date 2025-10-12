@@ -736,6 +736,24 @@ public class InstructionTable {
     }
 
     /**
+     * Update architecture summary with data from server (e.g., from
+     * RunPrepareResponse)
+     */
+    public void updateArchitectureSummaryFromServer(java.util.Map<String, Integer> instructionCountsByArch) {
+        // This method is a placeholder for the architecture summary functionality
+        // The actual implementation would update the summary labels in the UI
+        System.out.println("Architecture summary update called with: " + instructionCountsByArch);
+
+        // TODO: Implement actual summary update logic here
+        // For now, just log the data that would be displayed
+        if (instructionCountsByArch != null) {
+            for (java.util.Map.Entry<String, Integer> entry : instructionCountsByArch.entrySet()) {
+                System.out.println("Architecture " + entry.getKey() + ": " + entry.getValue() + " commands");
+            }
+        }
+    }
+
+    /**
      * Trigger row pulse animation for a specific instruction index.
      * TODO: Re-enable when animation classes are available
      */

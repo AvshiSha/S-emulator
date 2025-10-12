@@ -1,7 +1,6 @@
 package com.semulator.client.ui.components.InstructionTable;
 
 import com.semulator.client.AppContext;
-import com.semulator.client.model.ApiModels;
 import com.semulator.client.service.ApiClient;
 import javafx.application.Platform;
 import javafx.beans.property.IntegerProperty;
@@ -12,15 +11,14 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
-import javafx.scene.paint.Color;
+import javafx.scene.layout.HBox;
 
 import java.net.URL;
-import java.util.List;
 import java.util.ResourceBundle;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Instruction Table component controller - adapted for HTTP communication
@@ -40,11 +38,32 @@ public class InstructionTableController implements Initializable {
     private TableColumn<InstructionRow, String> instructionTypeColumn;
     @FXML
     private TableColumn<InstructionRow, Integer> cyclesColumn;
+    @FXML
+    private TableColumn<InstructionRow, String> architectureColumn;
+
+    // Architecture Summary Components
+    @FXML
+    private HBox architectureSummaryContainer;
+    @FXML
+    private Label archISummary;
+    @FXML
+    private Label archIISummary;
+    @FXML
+    private Label archIIISummary;
+    @FXML
+    private Label archIVSummary;
 
     private ObservableList<InstructionRow> instructionData = FXCollections.observableArrayList();
     private ApiClient apiClient;
     private String currentHighlightTerm = null;
     private int currentExecutingInstructionIndex = -1;
+
+    // Architecture command counts
+    private int totalCommands = 0;
+    private int archICommands = 0;
+    private int archIICommands = 0;
+    private int archIIICommands = 0;
+    private int archIVCommands = 0;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -52,6 +71,7 @@ public class InstructionTableController implements Initializable {
 
         setupTable();
         setupColumns();
+        initializeArchitectureSummary();
     }
 
     private void setupTable() {
@@ -97,6 +117,46 @@ public class InstructionTableController implements Initializable {
 
         // Cycles
         cyclesColumn.setCellValueFactory(cellData -> cellData.getValue().cyclesProperty().asObject());
+
+        // Architecture
+        architectureColumn.setCellValueFactory(cellData -> cellData.getValue().architectureProperty());
+    }
+
+    private void initializeArchitectureSummary() {
+        // Initialize summary labels with default values
+        updateArchitectureSummary();
+    }
+
+    private void updateArchitectureSummary() {
+        Platform.runLater(() -> {
+            // Update text content
+            archISummary.setText("I: " + archICommands + " commands");
+            archIISummary.setText("II: " + archIICommands + " commands");
+            archIIISummary.setText("III: " + archIIICommands + " commands");
+            archIVSummary.setText("IV: " + archIVCommands + " commands");
+
+            // Update styling based on support
+            updateArchitectureStyling(archISummary, archICommands, totalCommands);
+            updateArchitectureStyling(archIISummary, archIICommands, totalCommands);
+            updateArchitectureStyling(archIIISummary, archIIICommands, totalCommands);
+            updateArchitectureStyling(archIVSummary, archIVCommands, totalCommands);
+        });
+    }
+
+    private void updateArchitectureStyling(Label label, int supportedCommands, int totalCommands) {
+        if (totalCommands == 0) {
+            // No commands loaded yet
+            label.setStyle(
+                    "-fx-font-size: 11px; -fx-text-fill: #666666; -fx-padding: 2px 8px; -fx-background-color: #F0F0F0; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
+        } else if (supportedCommands == totalCommands) {
+            // All commands supported - use default styling (no green highlighting)
+            label.setStyle(
+                    "-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #F5F5F5; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
+        } else {
+            // Some commands not supported - red highlighting
+            label.setStyle(
+                    "-fx-font-size: 11px; -fx-text-fill: #FFFFFF; -fx-padding: 2px 8px; -fx-background-color: #FF6B6B; -fx-border-color: #DC143C; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
+        }
     }
 
     // Public methods for external communication
@@ -153,6 +213,78 @@ public class InstructionTableController implements Initializable {
         instructionData.clear();
         currentExecutingInstructionIndex = -1;
         clearHighlighting();
+
+        // Reset architecture counts
+        totalCommands = 0;
+        archICommands = 0;
+        archIICommands = 0;
+        archIIICommands = 0;
+        archIVCommands = 0;
+        updateArchitectureSummary();
+    }
+
+    public void initializeWithHttp() {
+        // Initialize API client
+        this.apiClient = AppContext.getInstance().getApiClient();
+        System.out.println("InstructionTableController initialized with HTTP client");
+    }
+
+    public TableView<InstructionRow> getInstructionTableView() {
+        return instructionTableView; // Return the table view for external access
+    }
+
+    public void setInstructionData(ObservableList<InstructionRow> data) {
+        instructionData.clear();
+        instructionData.addAll(data);
+        instructionTableView.setItems(instructionData);
+        instructionTableView.refresh();
+
+        // Calculate architecture support after setting new data
+        calculateArchitectureSupport();
+
+        System.out.println("InstructionTableController: Set " + data.size() + " instructions");
+    }
+
+    public void highlightCurrentInstruction(int instructionIndex) {
+        currentExecutingInstructionIndex = instructionIndex;
+        instructionTableView.refresh();
+    }
+
+    public void highlightRowsContaining(String term) {
+        clearHighlighting();
+        currentHighlightTerm = term;
+
+        // Highlight matching rows
+        for (InstructionRow row : instructionData) {
+            if (matchesLabelVariable(row, term)) {
+                row.setHighlighted(true);
+            }
+        }
+
+        // Refresh table display
+        instructionTableView.refresh();
+    }
+
+    /**
+     * Update architecture summary with data from server (e.g., from
+     * RunPrepareResponse)
+     */
+    public void updateArchitectureSummaryFromServer(java.util.Map<String, Integer> instructionCountsByArch) {
+        if (instructionCountsByArch == null) {
+            return;
+        }
+
+        // Update counts from server data
+        archICommands = instructionCountsByArch.getOrDefault("I", 0);
+        archIICommands = instructionCountsByArch.getOrDefault("II", 0);
+        archIIICommands = instructionCountsByArch.getOrDefault("III", 0);
+        archIVCommands = instructionCountsByArch.getOrDefault("IV", 0);
+
+        // Use the highest count as total (since higher architectures support all lower
+        // architecture commands)
+        totalCommands = Math.max(Math.max(archICommands, archIICommands), Math.max(archIIICommands, archIVCommands));
+
+        updateArchitectureSummary();
     }
 
     private void loadInstructionsFromServer(String type, String name) {
@@ -172,13 +304,23 @@ public class InstructionTableController implements Initializable {
         Platform.runLater(() -> {
             instructionData.clear();
 
-            // Add sample instructions
-            instructionData.add(new InstructionRow(1, "B", "", "LOAD R1, #5", 2, "R1"));
-            instructionData.add(new InstructionRow(2, "B", "", "STORE R1, X", 3, "X"));
-            instructionData.add(new InstructionRow(3, "B", "LOOP", "LOAD R2, Y", 2, "R2"));
-            instructionData.add(new InstructionRow(4, "B", "", "ADD R1, R2", 1, "R1"));
-            instructionData.add(new InstructionRow(5, "B", "", "STORE R1, RESULT", 3, "RESULT"));
-            instructionData.add(new InstructionRow(6, "B", "", "BRANCH LOOP", 1, ""));
+            // // Add sample instructions that demonstrate different architecture support
+            // instructionData.add(new InstructionRow(1, "B", "", "INCREASE", 1, "x1"));
+            // instructionData.add(new InstructionRow(2, "B", "", "DECREASE", 1, "x2"));
+            // instructionData.add(new InstructionRow(3, "B", "LOOP", "NEUTRAL", 0, ""));
+            // instructionData.add(new InstructionRow(4, "B", "", "JUMP_NOT_ZERO", 2,
+            // "LOOP"));
+            // instructionData.add(new InstructionRow(5, "S", "", "ZERO_VARIABLE", 1,
+            // "x3"));
+            // instructionData.add(new InstructionRow(6, "S", "", "CONSTANT_ASSIGNMENT", 2,
+            // "x4"));
+            // instructionData.add(new InstructionRow(7, "S", "", "GOTO_LABEL", 1, "END"));
+            // instructionData.add(new InstructionRow(8, "S", "", "ASSIGNMENT", 4, "x5"));
+            // instructionData.add(new InstructionRow(9, "S", "", "JUMP_ZERO", 2, "x6"));
+            // instructionData.add(new InstructionRow(10, "S", "", "QUOTE", 5, "x7"));
+
+            // Calculate architecture support after loading instructions
+            calculateArchitectureSupport();
 
             System.out.println("Loaded " + instructionData.size() + " instructions for " + type + ": " + name);
         });
@@ -195,6 +337,70 @@ public class InstructionTableController implements Initializable {
                 variable.contains(term.toLowerCase());
     }
 
+    private void calculateArchitectureSupport() {
+        // Reset counts
+        totalCommands = instructionData.size();
+        archICommands = 0;
+        archIICommands = 0;
+        archIIICommands = 0;
+        archIVCommands = 0;
+
+        // Count commands supported by each architecture based on the architecture field
+        for (InstructionRow row : instructionData) {
+            String arch = row.getArchitecture();
+
+            // Count how many commands each architecture can support
+            // Architecture hierarchy: I < II < III < IV
+            // Higher architectures support all lower architecture commands
+
+            if ("I".equals(arch)) {
+                archICommands++;
+                archIICommands++;
+                archIIICommands++;
+                archIVCommands++;
+            } else if ("II".equals(arch)) {
+                archIICommands++;
+                archIIICommands++;
+                archIVCommands++;
+            } else if ("III".equals(arch)) {
+                archIIICommands++;
+                archIVCommands++;
+            } else if ("IV".equals(arch)) {
+                archIVCommands++;
+            }
+        }
+
+        updateArchitectureSummary();
+    }
+
+    private boolean isSupportedByArchI(String instructionType) {
+        return instructionType.contains("NEUTRAL") ||
+                instructionType.contains("INCREASE") ||
+                instructionType.contains("DECREASE") ||
+                instructionType.contains("JUMP_NOT_ZERO");
+    }
+
+    private boolean isSupportedByArchII(String instructionType) {
+        return isSupportedByArchI(instructionType) ||
+                instructionType.contains("ZERO") ||
+                instructionType.contains("CONSTANT_ASSIGNMENT") ||
+                instructionType.contains("GOTO_LABEL");
+    }
+
+    private boolean isSupportedByArchIII(String instructionType) {
+        return isSupportedByArchII(instructionType) ||
+                instructionType.contains("ASSIGNMENT") ||
+                instructionType.contains("JUMP_ZERO") ||
+                instructionType.contains("JUMP_EQUAL_CONSTANT") ||
+                instructionType.contains("JUMP_EQUAL_VARIABLE");
+    }
+
+    private boolean isSupportedByArchIV(String instructionType) {
+        return isSupportedByArchIII(instructionType) ||
+                instructionType.contains("QUOTE") ||
+                instructionType.contains("JUMP_EQUAL_FUNCTION");
+    }
+
     // Inner class for instruction row data
     public static class InstructionRow {
         private final IntegerProperty rowNumber;
@@ -203,16 +409,18 @@ public class InstructionTableController implements Initializable {
         private final StringProperty instructionType;
         private final IntegerProperty cycles;
         private final StringProperty variable;
+        private final StringProperty architecture;
         private boolean highlighted = false;
 
         public InstructionRow(int rowNumber, String commandType, String label,
-                String instructionType, int cycles, String variable) {
+                String instructionType, int cycles, String variable, String architecture) {
             this.rowNumber = new SimpleIntegerProperty(rowNumber);
             this.commandType = new SimpleStringProperty(commandType);
             this.label = new SimpleStringProperty(label);
             this.instructionType = new SimpleStringProperty(instructionType);
             this.cycles = new SimpleIntegerProperty(cycles);
             this.variable = new SimpleStringProperty(variable);
+            this.architecture = new SimpleStringProperty(architecture != null ? architecture : "I");
         }
 
         // Property getters
@@ -240,6 +448,10 @@ public class InstructionTableController implements Initializable {
             return variable;
         }
 
+        public StringProperty architectureProperty() {
+            return architecture;
+        }
+
         // Value getters
         public int getRowNumber() {
             return rowNumber.get();
@@ -265,6 +477,10 @@ public class InstructionTableController implements Initializable {
             return variable.get();
         }
 
+        public String getArchitecture() {
+            return architecture.get();
+        }
+
         // Highlighting
         public boolean isHighlighted() {
             return highlighted;
@@ -275,5 +491,3 @@ public class InstructionTableController implements Initializable {
         }
     }
 }
-
-

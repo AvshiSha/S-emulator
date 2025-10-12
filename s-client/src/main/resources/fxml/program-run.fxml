@@ -45,12 +45,6 @@
                   <!-- Instructions Table Component -->
                   <fx:include fx:id="instructionTableComponent" source="../fxml/components/InstructionTable.fxml" VBox.vgrow="ALWAYS" />
                   
-                  <!-- Advanced Summary Line -->
-                  <Label fx:id="summaryLine" text="Architecture Support: I:0 II:0 III:0 IV:0"
-                         style="-fx-background-color: #e0e0e0; -fx-padding: 5; -fx-font-weight: bold;">
-                     <VBox.margin><Insets top="10.0" bottom="10.0"/></VBox.margin>
-                  </Label>
-                  
                   <!-- Selected Instruction History Chain Component -->
                   <fx:include fx:id="historyChainComponent" source="../fxml/components/HistoryChain.fxml" />
                </children>

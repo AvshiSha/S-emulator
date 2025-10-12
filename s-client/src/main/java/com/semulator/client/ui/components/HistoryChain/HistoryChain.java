@@ -24,6 +24,7 @@ import com.semulator.engine.model.FunctionArgument;
 import com.semulator.engine.model.FunctionCall;
 import com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow;
 import com.semulator.client.model.ApiModels;
+import com.semulator.client.ui.components.Architecture;
 
 import java.util.List;
 import java.util.Map;
@@ -103,7 +104,8 @@ public class HistoryChain {
                     item.label(), // Label from server
                     item.instructionText(), // Formatted instruction text from server
                     item.cycles(), // Cycles from server
-                    item.variable()); // Variable from server
+                    item.variable(), // Variable from server
+                    "I"); // Default architecture for history chain
             historyData.add(row);
         }
     }
@@ -132,7 +134,9 @@ public class HistoryChain {
                     getLabelText(instruction.getLabel()), // Label text
                     getInstructionText(instruction, functionUserStrings), // Instruction description
                     instruction.cycles(), // Cycles
-                    variable);
+                    variable,
+                    Architecture.fromInstruction(instruction).getCode()); // Determine architecture from instruction
+                                                                          // type
             historyData.add(row);
         }
     }

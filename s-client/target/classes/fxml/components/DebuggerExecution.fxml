@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TableColumn?>
@@ -113,14 +114,38 @@
                </children>
             </VBox>
             
-            <!-- Right Column: Execution Inputs -->
-            <VBox maxWidth="Infinity" minWidth="300.0" prefWidth="400.0" HBox.hgrow="ALWAYS" style="-fx-background-color: #87CEEB; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+            <!-- Right Column: Architecture Selection and Execution Inputs -->
+            <VBox maxWidth="Infinity" minWidth="300.0" prefWidth="400.0" HBox.hgrow="ALWAYS" spacing="10.0">
                <children>
-                  <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #000000; -fx-padding: 5px;" text="Execution Inputs">
-                     <font>
-                        <Font name="System Bold" size="12.0" />
-                     </font>
-                  </Label>
+                  <!-- Architecture Selection Panel -->
+                  <VBox maxWidth="Infinity" style="-fx-background-color: #87CEEB; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+                     <children>
+                        <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #000000; -fx-padding: 5px;" text="Architecture Selector">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Label>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                           <children>
+                              <ComboBox fx:id="architectureComboBox" minWidth="120.0" prefWidth="150.0" maxWidth="Infinity" HBox.hgrow="ALWAYS" promptText="Select Architecture" />
+                           </children>
+                        </HBox>
+                        <Label fx:id="architectureCostLabel" style="-fx-font-size: 11px; -fx-text-fill: #4169E1; -fx-padding: 2px;" text="">
+                           <font>
+                              <Font name="System" size="10.0" />
+                           </font>
+                        </Label>
+                     </children>
+                  </VBox>
+                  
+                  <!-- Execution Inputs Panel -->
+                  <VBox maxWidth="Infinity" VBox.vgrow="ALWAYS" style="-fx-background-color: #87CEEB; -fx-border-color: #4169E1; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10px;">
+                     <children>
+                        <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #000000; -fx-padding: 5px;" text="Execution Inputs">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Label>
                   
                   <!-- Input Variables Section -->
                   <VBox spacing="5.0">
@@ -168,6 +193,8 @@
                         </HBox>
                      </children>
                   </VBox>
+               </children>
+            </VBox>
                </children>
             </VBox>
          </children>

@@ -3,10 +3,12 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
 
 <VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
-      fx:controller="com.semulator.client.ui.components.InstructionTable.InstructionTable">
+      fx:controller="com.semulator.client.ui.components.InstructionTable.InstructionTableController">
    <children>
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Instruction Table" />
       <TableView fx:id="instructionTableView" maxHeight="Infinity" maxWidth="Infinity" minHeight="200.0" minWidth="250.0" VBox.vgrow="ALWAYS">
@@ -19,5 +21,20 @@
             <TableColumn fx:id="architectureColumn" minWidth="35.0" prefWidth="40.0" text="Architecture" />
          </columns>
       </TableView>
+      
+      <!-- Architecture Summary Line -->
+      <HBox fx:id="architectureSummaryContainer" alignment="CENTER" spacing="15.0" style="-fx-background-color: #F5F5F5; -fx-border-color: #4169E1; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 8px;">
+         <children>
+            <Label style="-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #000000;">
+               <font>
+                  <Font name="System Bold" size="11.0" />
+               </font>
+            </Label>
+            <Label fx:id="archISummary" style="-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #E8F5E8; -fx-border-color: #4CAF50; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;" text="I: 0 commands" />
+            <Label fx:id="archIISummary" style="-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #E8F5E8; -fx-border-color: #4CAF50; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;" text="II: 0 commands" />
+            <Label fx:id="archIIISummary" style="-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #E8F5E8; -fx-border-color: #4CAF50; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;" text="III: 0 commands" />
+            <Label fx:id="archIVSummary" style="-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #E8F5E8; -fx-border-color: #4CAF50; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;" text="IV: 0 commands" />
+         </children>
+      </HBox>
    </children>
 </VBox>

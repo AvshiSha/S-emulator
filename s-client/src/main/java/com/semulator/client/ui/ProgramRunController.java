@@ -53,15 +53,11 @@ public class ProgramRunController implements Initializable {
     @FXML
     private com.semulator.client.ui.components.Header.ExecutionHeaderController executionHeaderController;
     @FXML
-    private com.semulator.client.ui.components.InstructionTable.InstructionTable instructionTableComponentController;
+    private com.semulator.client.ui.components.InstructionTable.InstructionTableController instructionTableComponentController;
     @FXML
     private com.semulator.client.ui.components.HistoryChain.HistoryChain historyChainComponentController;
     @FXML
     private com.semulator.client.ui.components.DebuggerExecution.DebuggerExecution debuggerExecutionComponentController;
-
-    // Summary Line
-    @FXML
-    private Label summaryLine;
 
     // Navigation
     @FXML
@@ -199,6 +195,12 @@ public class ProgramRunController implements Initializable {
                     // Highlight the instruction in the instruction table
                     instructionTableComponentController.highlightCurrentInstruction(instructionIndex);
                 });
+
+                // Wire up architecture summary callback
+                debuggerExecutionComponentController.setArchitectureSummaryCallback(instructionCountsByArch -> {
+                    // Update the architecture summary in the instruction table
+                    instructionTableComponentController.updateArchitectureSummaryFromServer(instructionCountsByArch);
+                });
             }
         } catch (Exception e) {
             System.err.println("Error initializing DebuggerExecution: " + e.getMessage());
@@ -207,7 +209,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private void loadHistoryChainFromServer(
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+            com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow selectedRow) {
         try {
             // Get current degree from the execution header
             int currentDegree = executionHeaderController != null ? executionHeaderController.getCurrentDegree() : 1;
@@ -312,7 +314,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private com.semulator.engine.model.SInstruction createMockInstruction(
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow row) {
+            com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow row) {
         try {
             com.semulator.engine.model.Variable variable = com.semulator.engine.model.Variable.of(row.getVariable());
             com.semulator.engine.model.Label label = new com.semulator.engine.model.LabelImpl(row.getLabel());
@@ -330,7 +332,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private void addBasicInstructionsToChain(List<com.semulator.engine.model.SInstruction> chain,
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+            com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow selectedRow) {
         try {
             // Add basic instructions that would have created this synthetic instruction
             com.semulator.engine.model.Variable var1 = com.semulator.engine.model.Variable.of("z1");
@@ -346,7 +348,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private void addAncestorInstructionsToChain(List<com.semulator.engine.model.SInstruction> chain,
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+            com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow selectedRow) {
         try {
             // Add even older instructions to show the full creation history
             com.semulator.engine.model.Variable inputVar = com.semulator.engine.model.Variable.of("x1");
@@ -362,7 +364,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private void addParentInstructions(List<com.semulator.engine.model.SInstruction> chain,
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+            com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow selectedRow) {
         try {
             // Add parent instructions (degree 2)
             com.semulator.engine.model.Variable var1 = com.semulator.engine.model.Variable.of("z1");
@@ -378,7 +380,7 @@ public class ProgramRunController implements Initializable {
     }
 
     private void addGrandparentInstructions(List<com.semulator.engine.model.SInstruction> chain,
-            com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow selectedRow) {
+            com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow selectedRow) {
         try {
             // Add grandparent instructions (degree 3)
             com.semulator.engine.model.Variable inputVar = com.semulator.engine.model.Variable.of("x1");
@@ -797,7 +799,7 @@ public class ProgramRunController implements Initializable {
         instructionTableComponentController.clearTable();
 
         // Get the table's data collection
-        javafx.collections.ObservableList<com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow> tableData = javafx.collections.FXCollections
+        javafx.collections.ObservableList<com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow> tableData = javafx.collections.FXCollections
                 .observableArrayList();
 
         // Convert server instruction DTOs to table rows
@@ -816,7 +818,7 @@ public class ProgramRunController implements Initializable {
                     String architecture = (String) instr.getOrDefault("architecture", "I");
 
                     // Create instruction row for the table
-                    com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow row = new com.semulator.client.ui.components.InstructionTable.InstructionTable.InstructionRow(
+                    com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow row = new com.semulator.client.ui.components.InstructionTable.InstructionTableController.InstructionRow(
                             rowNumber, commandType, label, instruction, cycles, variable, architecture);
 
                     tableData.add(row);
@@ -919,13 +921,8 @@ public class ProgramRunController implements Initializable {
     }
 
     private void updateSummaryLine() {
-        if (summaryLine == null)
-            return;
-
-        // For now, display a placeholder summary
-        // TODO: Get actual instruction counts from the component
-        String summary = "Architecture Support: I:0 II:0 III:0 IV:0";
-        summaryLine.setText(summary);
+        // Summary line functionality has been moved to the InstructionTable component
+        // This method is kept for compatibility but does nothing
     }
 
     private void validateArchitectureCompatibility() {
