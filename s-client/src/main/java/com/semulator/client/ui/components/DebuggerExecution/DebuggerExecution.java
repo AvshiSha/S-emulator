@@ -104,6 +104,9 @@ public class DebuggerExecution {
     // Callback for architecture summary updates
     private java.util.function.Consumer<java.util.Map<String, Integer>> architectureSummaryCallback;
 
+    // Callback for architecture selection changes
+    private java.util.function.Consumer<String> architectureSelectionCallback;
+
     @FXML
     private void initialize() {
         // This method is called by FXML automatically
@@ -123,6 +126,9 @@ public class DebuggerExecution {
 
         // Set up row highlighting for changed variables
         setupVariableRowHighlighting();
+
+        // Initialize Architecture Selection
+        initializeArchitectureSelection();
 
         // Set up table columns to be resizable
         variableNameColumn.setResizable(true);
@@ -148,29 +154,35 @@ public class DebuggerExecution {
     private void initializeArchitectureSelection() {
         // Initialize architecture options with credit costs
         ObservableList<String> architectureOptions = FXCollections.observableArrayList(
-                "I (cost: 5 credits)",
-                "II (cost: 100 credits)",
-                "III (cost: 500 credits)",
-                "IV (cost: 1000 credits)");
+                "Architecture I",
+                "Architecture II",
+                "Architecture III",
+                "Architecture IV");
 
         architectureComboBox.setItems(architectureOptions);
-        architectureComboBox.setValue("I (cost: 5 credits)");
+        architectureComboBox.setValue("Architecture I (5 credits)");
+        architectureCostLabel.setText("Cost: 5 credits");
 
         // Add change listener to update selected architecture and cost
         architectureComboBox.valueProperty().addListener((obs, oldValue, newValue) -> {
             if (newValue != null) {
-                if (newValue.startsWith("Architecture I")) {
+                if (newValue.equals("Architecture I")) {
                     selectedArchitecture = "I";
                     architectureCostLabel.setText("Cost: 5 credits");
-                } else if (newValue.startsWith("Architecture II")) {
+                } else if (newValue.equals("Architecture II")) {
                     selectedArchitecture = "II";
                     architectureCostLabel.setText("Cost: 100 credits");
-                } else if (newValue.startsWith("Architecture III")) {
+                } else if (newValue.equals("Architecture III")) {
                     selectedArchitecture = "III";
                     architectureCostLabel.setText("Cost: 500 credits");
-                } else if (newValue.startsWith("Architecture IV")) {
+                } else if (newValue.equals("Architecture IV")) {
                     selectedArchitecture = "IV";
                     architectureCostLabel.setText("Cost: 1000 credits");
+                }
+
+                // Notify instruction table of architecture change
+                if (architectureSelectionCallback != null) {
+                    architectureSelectionCallback.accept(selectedArchitecture);
                 }
             }
         });
@@ -568,6 +580,10 @@ public class DebuggerExecution {
 
     public void setArchitectureSummaryCallback(java.util.function.Consumer<java.util.Map<String, Integer>> callback) {
         this.architectureSummaryCallback = callback;
+    }
+
+    public void setArchitectureSelectionCallback(java.util.function.Consumer<String> callback) {
+        this.architectureSelectionCallback = callback;
     }
 
     private void setupVariableRowHighlighting() {

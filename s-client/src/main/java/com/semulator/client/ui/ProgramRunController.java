@@ -118,7 +118,6 @@ public class ProgramRunController implements Initializable {
     private void initializeExecutionHeader() {
         try {
             if (executionHeaderController == null) {
-                System.out.println("ExecutionHeaderController is null during initialization");
                 return;
             }
 
@@ -152,7 +151,6 @@ public class ProgramRunController implements Initializable {
     private void initializeInstructionsTable() {
         try {
             if (instructionTableComponentController == null) {
-                System.out.println("InstructionTableComponentController is null during initialization");
                 return;
             }
 
@@ -182,7 +180,6 @@ public class ProgramRunController implements Initializable {
     private void initializeDebuggerExecution() {
         try {
             if (debuggerExecutionComponentController == null) {
-                System.out.println("DebuggerExecutionComponentController is null during initialization");
                 return;
             }
 
@@ -200,6 +197,12 @@ public class ProgramRunController implements Initializable {
                 debuggerExecutionComponentController.setArchitectureSummaryCallback(instructionCountsByArch -> {
                     // Update the architecture summary in the instruction table
                     instructionTableComponentController.updateArchitectureSummaryFromServer(instructionCountsByArch);
+                });
+
+                // Wire up architecture selection callback
+                debuggerExecutionComponentController.setArchitectureSelectionCallback(selectedArchitecture -> {
+                    // Update the instruction table with the new selected architecture
+                    instructionTableComponentController.updateSelectedArchitecture(selectedArchitecture);
                 });
             }
         } catch (Exception e) {
@@ -532,7 +535,6 @@ public class ProgramRunController implements Initializable {
         String url = endpoint + "?name=" + encodedName;
         if (pendingDegree != null && pendingDegree > 0) {
             url += "&degree=" + pendingDegree;
-            System.out.println("Loading instructions at degree " + pendingDegree);
         }
 
         apiClient.get(url, ApiModels.ProgramWithInstructions.class, null)
@@ -944,7 +946,6 @@ public class ProgramRunController implements Initializable {
     private void updateHistoryChain(Object selectedInstruction) {
         // History chain is now handled by the component
         // This method is kept for compatibility but functionality moved to component
-        System.out.println("History chain update - now handled by component");
     }
 
     // All execution command handling is now done by the DebuggerExecution component
@@ -1042,7 +1043,6 @@ public class ProgramRunController implements Initializable {
      * Called when re-running a previous execution
      */
     public void setDegree(int degree) {
-        System.out.println("ProgramRunController: Setting degree to " + degree);
         // Cache the degree to apply when program loads
         // It will be applied in setProgramInfoWithDegree() during loadInstructions()
         this.pendingDegree = degree;
@@ -1053,7 +1053,6 @@ public class ProgramRunController implements Initializable {
      * Called when re-running a previous execution
      */
     public void setInputs(Map<String, Long> inputs) {
-        System.out.println("ProgramRunController: Setting inputs - " + inputs);
         // Cache the inputs to apply after program loads
         // They will be applied in loadInstructions() after the program is loaded
         this.pendingInputs = new HashMap<>(inputs);
@@ -1063,8 +1062,6 @@ public class ProgramRunController implements Initializable {
      * Apply pending inputs after program is loaded
      */
     private void applyPendingInputs() {
-        System.out.println("applyPendingInputs called. pendingInputs: " + pendingInputs +
-                ", debuggerComponent: " + (debuggerExecutionComponentController != null ? "ready" : "null"));
 
         if (pendingInputs != null && debuggerExecutionComponentController != null) {
             try {
@@ -1086,11 +1083,8 @@ public class ProgramRunController implements Initializable {
                     }
                 }
 
-                System.out.println("About to apply inputs: " + inputList);
-
                 // Apply the inputs directly (we're already in Platform.runLater context)
                 debuggerExecutionComponentController.setInputs(inputList);
-                System.out.println("Applied pending inputs: " + inputList);
 
                 pendingInputs = null; // Clear after applying
             } catch (Exception e) {

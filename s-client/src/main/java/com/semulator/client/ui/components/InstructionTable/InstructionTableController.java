@@ -65,6 +65,9 @@ public class InstructionTableController implements Initializable {
     private int archIIICommands = 0;
     private int archIVCommands = 0;
 
+    // Selected architecture for highlighting
+    private String selectedArchitecture = "I";
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         this.apiClient = AppContext.getInstance().getApiClient();
@@ -136,26 +139,59 @@ public class InstructionTableController implements Initializable {
             archIVSummary.setText("IV: " + archIVCommands + " commands");
 
             // Update styling based on support
-            updateArchitectureStyling(archISummary, archICommands, totalCommands);
-            updateArchitectureStyling(archIISummary, archIICommands, totalCommands);
-            updateArchitectureStyling(archIIISummary, archIIICommands, totalCommands);
-            updateArchitectureStyling(archIVSummary, archIVCommands, totalCommands);
+            updateArchitectureStyling(archISummary, archICommands, totalCommands, "I");
+            updateArchitectureStyling(archIISummary, archIICommands, totalCommands, "II");
+            updateArchitectureStyling(archIIISummary, archIIICommands, totalCommands, "III");
+            updateArchitectureStyling(archIVSummary, archIVCommands, totalCommands, "IV");
         });
     }
 
-    private void updateArchitectureStyling(Label label, int supportedCommands, int totalCommands) {
-        if (totalCommands == 0) {
-            // No commands loaded yet
-            label.setStyle(
-                    "-fx-font-size: 11px; -fx-text-fill: #666666; -fx-padding: 2px 8px; -fx-background-color: #F0F0F0; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
-        } else if (supportedCommands == totalCommands) {
-            // All commands supported - use default styling (no green highlighting)
-            label.setStyle(
-                    "-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #F5F5F5; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
-        } else {
-            // Some commands not supported - red highlighting
+    private void updateArchitectureStyling(Label label, int supportedCommands, int totalCommands,
+            String architectureCode) {
+
+        // Convert architecture codes to numbers for comparison
+        int selectedArchNum = getArchitectureNumber(selectedArchitecture);
+        int currentArchNum = getArchitectureNumber(architectureCode);
+
+        // Your pseudo code logic:
+        // IF the architecture selector is not equal to the architectureCode, and the
+        // architectureCode is bigger than architecture selector, and the number of
+        // commands of the architectureCode is bigger than zero:
+        // paint the architectureCode in red in the summary line.
+        // else if architecture selector is equal to the architectureCode:
+        // paint the architectureCode in white in the summary line.
+        // else
+        // paint the architectureCode in white in the summary line.
+
+        if (!selectedArchitecture.equals(architectureCode) &&
+                currentArchNum > selectedArchNum &&
+                supportedCommands > 0) {
+            // Red highlighting - architecture is higher than selected and has commands
             label.setStyle(
                     "-fx-font-size: 11px; -fx-text-fill: #FFFFFF; -fx-padding: 2px 8px; -fx-background-color: #FF6B6B; -fx-border-color: #DC143C; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
+        } else if (selectedArchitecture.equals(architectureCode)) {
+            // White highlighting - selected architecture
+            label.setStyle(
+                    "-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #FFFFFF; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
+        } else {
+            // White highlighting - default case
+            label.setStyle(
+                    "-fx-font-size: 11px; -fx-text-fill: #000000; -fx-padding: 2px 8px; -fx-background-color: #FFFFFF; -fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-border-radius: 3; -fx-background-radius: 3;");
+        }
+    }
+
+    private int getArchitectureNumber(String architecture) {
+        switch (architecture) {
+            case "I":
+                return 1;
+            case "II":
+                return 2;
+            case "III":
+                return 3;
+            case "IV":
+                return 4;
+            default:
+                return 0;
         }
     }
 
@@ -178,7 +214,6 @@ public class InstructionTableController implements Initializable {
     public void updateDegree(int degree) {
         // TODO: Implement degree-based instruction expansion
         // This would call the server to get expanded instructions for the given degree
-        System.out.println("Updating degree view to: " + degree);
     }
 
     public void highlightLabelVariable(String labelVariable) {
@@ -226,7 +261,6 @@ public class InstructionTableController implements Initializable {
     public void initializeWithHttp() {
         // Initialize API client
         this.apiClient = AppContext.getInstance().getApiClient();
-        System.out.println("InstructionTableController initialized with HTTP client");
     }
 
     public TableView<InstructionRow> getInstructionTableView() {
@@ -242,7 +276,6 @@ public class InstructionTableController implements Initializable {
         // Calculate architecture support after setting new data
         calculateArchitectureSupport();
 
-        System.out.println("InstructionTableController: Set " + data.size() + " instructions");
     }
 
     public void highlightCurrentInstruction(int instructionIndex) {
@@ -287,6 +320,14 @@ public class InstructionTableController implements Initializable {
         updateArchitectureSummary();
     }
 
+    /**
+     * Update the selected architecture and refresh styling
+     */
+    public void updateSelectedArchitecture(String architecture) {
+        this.selectedArchitecture = architecture;
+        updateArchitectureSummary();
+    }
+
     private void loadInstructionsFromServer(String type, String name) {
         // TODO: Implement actual server call
         // This would call something like:
@@ -322,7 +363,6 @@ public class InstructionTableController implements Initializable {
             // Calculate architecture support after loading instructions
             calculateArchitectureSupport();
 
-            System.out.println("Loaded " + instructionData.size() + " instructions for " + type + ": " + name);
         });
     }
 
@@ -355,16 +395,10 @@ public class InstructionTableController implements Initializable {
 
             if ("I".equals(arch)) {
                 archICommands++;
-                archIICommands++;
-                archIIICommands++;
-                archIVCommands++;
             } else if ("II".equals(arch)) {
                 archIICommands++;
-                archIIICommands++;
-                archIVCommands++;
             } else if ("III".equals(arch)) {
                 archIIICommands++;
-                archIVCommands++;
             } else if ("IV".equals(arch)) {
                 archIVCommands++;
             }
