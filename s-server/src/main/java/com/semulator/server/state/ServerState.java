@@ -93,6 +93,14 @@ public class ServerState {
             user.credits = newCredits;
             user.lastActive = System.currentTimeMillis();
             incrementVersion();
+
+            // Broadcast user update to all connected clients
+            try {
+                com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
+            } catch (Exception e) {
+                System.err.println("Error broadcasting user update: " + e.getMessage());
+            }
+
             return true;
         }
         return false;
@@ -102,8 +110,17 @@ public class ServerState {
         UserRecord user = users.get(username);
         if (user != null && user.credits >= amount) {
             user.credits -= amount;
+            user.creditsUsed += amount; // Track credits used
             user.lastActive = System.currentTimeMillis();
             incrementVersion();
+
+            // Broadcast user update to all connected clients
+            try {
+                com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
+            } catch (Exception e) {
+                System.err.println("Error broadcasting user update: " + e.getMessage());
+            }
+
             return true;
         }
         return false;

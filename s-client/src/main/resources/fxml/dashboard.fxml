@@ -12,7 +12,8 @@
    <children>
       <!-- Main Title -->
       <Label text="S-Emulator - Dashboard" 
-             style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333; -fx-padding: 10;">
+             style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333; -fx-padding: 10; -fx-alignment: center;"
+             maxWidth="Infinity"> 
          <VBox.margin><Insets bottom="20.0"/></VBox.margin>
       </Label>
       
@@ -30,7 +31,7 @@
                     style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
             
             <!-- Currently Loaded File Path -->
-            <Label text="Currently Loaded File path:" style="-fx-font-weight: bold;"/>
+            <Label text="File path: " style="-fx-font-weight: bold;"/>
             <TextField fx:id="loadedFilePath" editable="false" 
                        style="-fx-background-color: #fff; -fx-min-width: 300px;"/>
             
@@ -101,10 +102,10 @@
                   <columns>
                      <TableColumn fx:id="programNameColumn" text="Program Name" prefWidth="120"/>
                      <TableColumn fx:id="uploadedByColumn" text="Uploaded By" prefWidth="100"/>
-                     <TableColumn fx:id="instructionCountColumn" text="Instructions" prefWidth="80"/>
-                     <TableColumn fx:id="maxLevelColumn" text="Max Level" prefWidth="70"/>
+                     <TableColumn fx:id="instructionCountColumn" text="Instructions" prefWidth="90"/>
+                     <TableColumn fx:id="maxLevelColumn" text="Max Level" prefWidth="80"/>
                      <TableColumn fx:id="programRunsColumn" text="Runs" prefWidth="60"/>
-                     <TableColumn fx:id="avgCostColumn" text="Avg Cost" prefWidth="70"/>
+                     <TableColumn fx:id="avgCostColumn" text="Avg Cost" prefWidth="80"/>
                   </columns>
                </TableView>
                <HBox alignment="CENTER_RIGHT" spacing="10">
@@ -128,9 +129,9 @@
                <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
                   <columns>
                      <TableColumn fx:id="runNumberColumn" text="Run #" prefWidth="50"/>
-                     <TableColumn fx:id="typeColumn" text="Type" prefWidth="80"/>
-                     <TableColumn fx:id="nameColumn" text="Program/Function" prefWidth="120"/>
-                     <TableColumn fx:id="architectureColumn" text="Architecture" prefWidth="80"/>
+                     <TableColumn fx:id="typeColumn" text="Type" prefWidth="70"/>
+                     <TableColumn fx:id="nameColumn" text="Program/Function" prefWidth="130"/>
+                     <TableColumn fx:id="architectureColumn" text="Architecture" prefWidth="90"/>
                      <TableColumn fx:id="levelColumn" text="Level" prefWidth="50"/>
                      <TableColumn fx:id="yValueColumn" text="y Value" prefWidth="70"/>
                      <TableColumn fx:id="cyclesColumn" text="Cycles" prefWidth="60"/>
@@ -159,10 +160,10 @@
                <TableView fx:id="functionsTable" VBox.vgrow="ALWAYS">
                   <columns>
                      <TableColumn fx:id="functionNameColumn" text="Function Name" prefWidth="120"/>
-                     <TableColumn fx:id="parentProgramColumn" text="Parent Program" prefWidth="100"/>
+                     <TableColumn fx:id="parentProgramColumn" text="Parent Program" prefWidth="110"/>
                      <TableColumn fx:id="functionUploadedByColumn" text="Uploaded By" prefWidth="90"/>
-                     <TableColumn fx:id="functionInstructionCountColumn" text="Instructions" prefWidth="80"/>
-                     <TableColumn fx:id="functionMaxLevelColumn" text="Max Level" prefWidth="70"/>
+                     <TableColumn fx:id="functionInstructionCountColumn" text="Instructions" prefWidth="90"/>
+                     <TableColumn fx:id="functionMaxLevelColumn" text="Max Level" prefWidth="80"/>
                   </columns>
                </TableView>
                <HBox alignment="CENTER_RIGHT" spacing="10">

@@ -681,7 +681,7 @@ public class DashboardController implements Initializable {
                             int runNumber = 1;
                             for (ApiModels.HistoryEntry entry : response.items()) {
                                 // Map architecture number to readable name
-                                String archName = getArchitectureName(entry.architecture());
+                                String archName = entry.architecture();
 
                                 // Create RunHistory object
                                 RunHistory history = new RunHistory(

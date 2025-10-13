@@ -13,12 +13,12 @@
       <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10px;" text="Instruction Table" />
       <TableView fx:id="instructionTableView" maxHeight="Infinity" maxWidth="Infinity" minHeight="200.0" minWidth="250.0" VBox.vgrow="ALWAYS">
          <columns>
-            <TableColumn fx:id="rowNumberColumn" minWidth="35.0" prefWidth="40.0" text="Row #" />
+            <TableColumn fx:id="rowNumberColumn" minWidth="35.0" prefWidth="60.0" text="Row #" />
             <TableColumn fx:id="commandTypeColumn" minWidth="25.0" prefWidth="30.0" text="B/S" />
             <TableColumn fx:id="labelColumn" minWidth="35.0" prefWidth="40.0" text="Label" />
             <TableColumn fx:id="instructionTypeColumn" minWidth="120.0" prefWidth="360.0" text="Command" />
-            <TableColumn fx:id="cyclesColumn" minWidth="35.0" prefWidth="40.0" text="Cycles" />
-            <TableColumn fx:id="architectureColumn" minWidth="35.0" prefWidth="40.0" text="Architecture" />
+            <TableColumn fx:id="cyclesColumn" minWidth="35.0" prefWidth="50.0" text="Cycles" />
+            <TableColumn fx:id="architectureColumn" minWidth="35.0" prefWidth="100.0" text="Architecture" />
          </columns>
       </TableView>
       
