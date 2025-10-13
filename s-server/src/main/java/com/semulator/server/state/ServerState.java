@@ -193,26 +193,9 @@ public class ServerState {
                 functionCount = programFunctions.size();
 
                 for (String funcName : programFunctions.keySet()) {
-                    // Create a function program with only the function's instructions
-                    SProgramImpl functionProgram = new SProgramImpl(funcName);
-
-                    // Get the function's specific instructions
-                    List<SInstruction> functionInstructions = programFunctions.get(funcName);
-
-                    // Add only the function's instructions to the function program
-                    for (SInstruction instruction : functionInstructions) {
-                        functionProgram.addInstruction(instruction);
-                    }
-
-                    // Copy function user strings if any
-                    Map<String, String> functionUserStrings = impl.getFunctionUserStrings();
-                    if (functionUserStrings.containsKey(funcName)) {
-                        // Note: We can't directly set user strings, but this preserves the function
-                        // name
-                        // The function name itself is preserved in the SProgramImpl constructor
-                    }
-
-                    functions.put(funcName, functionProgram);
+                    // CRITICAL FIX: Store the parent program, not a separate function program
+                    // This ensures the function has access to ALL other functions for expansion
+                    functions.put(funcName, program);
 
                     // Track function metadata
                     functionOwners.put(funcName, ownerUsername);
@@ -275,17 +258,31 @@ public class ServerState {
     public List<ApiModels.FunctionInfo> getFunctions() {
         List<ApiModels.FunctionInfo> result = new ArrayList<>();
 
-        for (SProgram function : functions.values()) {
-            String funcName = function.getName();
+        // Build a set of unique entries (since multiple functions map to the same
+        // parent program)
+        for (Map.Entry<String, SProgram> entry : functions.entrySet()) {
+            String funcName = entry.getKey();
+            SProgram parentProgram = entry.getValue();
+
             String owner = functionOwners.getOrDefault(funcName, "unknown");
-            String parentProgram = functionParentPrograms.getOrDefault(funcName, "unknown");
+            String parentProgramName = functionParentPrograms.getOrDefault(funcName, "unknown");
+
+            // Get function instructions from the parent program
+            int instructionCount = 0;
+            if (parentProgram instanceof SProgramImpl) {
+                SProgramImpl impl = (SProgramImpl) parentProgram;
+                List<SInstruction> functionInstructions = impl.getFunctions().get(funcName);
+                if (functionInstructions != null) {
+                    instructionCount = functionInstructions.size();
+                }
+            }
 
             result.add(new ApiModels.FunctionInfo(
                     funcName,
-                    parentProgram,
+                    parentProgramName,
                     owner,
-                    function.getInstructions().size(),
-                    function.calculateMaxDegree()));
+                    instructionCount,
+                    parentProgram.calculateFunctionTemplateDegree(funcName)));
         }
 
         return result;
@@ -514,14 +511,21 @@ public class ServerState {
     }
 
     public ApiModels.ProgramWithInstructions getFunctionWithInstructions(String functionName, int degree) {
-        SProgram function = functions.get(functionName);
-        if (function == null) {
+        System.out
+                .println("*** SERVER: getFunctionWithInstructions called for: " + functionName + ", degree: " + degree);
+
+        SProgram parentProgram = functions.get(functionName);
+        if (parentProgram == null) {
+            System.out.println("*** SERVER: Function not found: " + functionName);
             return null;
         }
 
-        // Expand function to the requested degree
-        ExpansionResult expansion = function.expandToDegree(degree);
+        System.out.println("*** SERVER: Function found in parent program, will expand to degree: " + degree);
+        // Expand the specific function to the requested degree (not the entire
+        // program!)
+        ExpansionResult expansion = parentProgram.expandFunctionToDegree(functionName, degree);
         List<SInstruction> expandedInstructions = expansion.instructions();
+        System.out.println("*** SERVER: Expansion complete! Got " + expandedInstructions.size() + " instructions");
 
         List<ApiModels.InstructionDTO> instructionDTOs = new ArrayList<>();
         int rowNumber = 1;
@@ -561,10 +565,13 @@ public class ServerState {
                     instruction.getName())); // Original instruction type name
         }
 
+        int maxDegree = parentProgram.calculateFunctionTemplateDegree(functionName);
+        System.out.println("*** SERVER: Function maxDegree calculated: " + maxDegree);
+
         return new ApiModels.ProgramWithInstructions(
-                function.getName(),
+                functionName,
                 instructionDTOs,
-                function.calculateMaxDegree(),
+                maxDegree,
                 new ArrayList<>() // Functions don't have sub-functions
         );
     }

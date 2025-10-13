@@ -142,10 +142,13 @@ public class CatalogServlet extends HttpServlet {
 
     private void handleGetSpecificFunction(HttpServletRequest req, HttpServletResponse resp, String functionName)
             throws IOException {
+        System.out.println(">>> API: handleGetSpecificFunction called for: " + functionName);
         try {
             // Check for degree parameter
             String degreeParam = req.getParameter("degree");
             int degree = degreeParam != null ? Integer.parseInt(degreeParam) : 0;
+            
+            System.out.println(">>> API: Requesting function with degree: " + degree);
 
             // Get function with instructions from server state
             ApiModels.ProgramWithInstructions functionWithInstructions = serverState
