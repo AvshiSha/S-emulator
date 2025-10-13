@@ -68,6 +68,9 @@ public class InstructionTableController implements Initializable {
     // Selected architecture for highlighting
     private String selectedArchitecture = "I";
 
+    // Callback for architecture compatibility changes
+    private java.util.function.Consumer<Boolean> architectureCompatibilityCallback;
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         this.apiClient = AppContext.getInstance().getApiClient();
@@ -326,6 +329,72 @@ public class InstructionTableController implements Initializable {
     public void updateSelectedArchitecture(String architecture) {
         this.selectedArchitecture = architecture;
         updateArchitectureSummary();
+        // Notify compatibility change
+        notifyCompatibilityChange();
+    }
+
+    /**
+     * Check if the selected architecture supports all instructions in the program
+     * 
+     * @return true if all instructions are compatible with the selected
+     *         architecture
+     */
+    public boolean isArchitectureCompatible() {
+        int selectedArchNum = getArchitectureNumber(selectedArchitecture);
+
+        // Check if there are any instructions requiring a higher architecture
+        switch (selectedArchNum) {
+            case 1: // Architecture I
+                return (archIICommands == 0 && archIIICommands == 0 && archIVCommands == 0);
+            case 2: // Architecture II
+                return (archIIICommands == 0 && archIVCommands == 0);
+            case 3: // Architecture III
+                return (archIVCommands == 0);
+            case 4: // Architecture IV
+                return true; // Architecture IV supports everything
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Get list of unsupported instruction architectures for the current selection
+     * 
+     * @return List of architecture names that have instructions not supported by
+     *         selected architecture
+     */
+    public java.util.List<String> getUnsupportedArchitectures() {
+        java.util.List<String> unsupported = new java.util.ArrayList<>();
+        int selectedArchNum = getArchitectureNumber(selectedArchitecture);
+
+        if (selectedArchNum < 2 && archIICommands > 0) {
+            unsupported.add("Architecture II");
+        }
+        if (selectedArchNum < 3 && archIIICommands > 0) {
+            unsupported.add("Architecture III");
+        }
+        if (selectedArchNum < 4 && archIVCommands > 0) {
+            unsupported.add("Architecture IV");
+        }
+
+        return unsupported;
+    }
+
+    /**
+     * Set callback for architecture compatibility status changes
+     */
+    public void setArchitectureCompatibilityCallback(java.util.function.Consumer<Boolean> callback) {
+        this.architectureCompatibilityCallback = callback;
+    }
+
+    /**
+     * Notify listeners about compatibility change
+     */
+    private void notifyCompatibilityChange() {
+        if (architectureCompatibilityCallback != null) {
+            boolean compatible = isArchitectureCompatible();
+            architectureCompatibilityCallback.accept(compatible);
+        }
     }
 
     private void loadInstructionsFromServer(String type, String name) {
@@ -405,6 +474,8 @@ public class InstructionTableController implements Initializable {
         }
 
         updateArchitectureSummary();
+        // Notify compatibility change when instruction data changes
+        notifyCompatibilityChange();
     }
 
     private boolean isSupportedByArchI(String instructionType) {

@@ -296,6 +296,16 @@ public class ServerState {
     // History management
     public void addHistoryEntry(String username, String runId, String targetName, String targetType,
             String architecture, int degree, long finalYValue, int cycles, Map<String, Long> finalVariables) {
+        addHistoryEntry(username, runId, targetName, targetType, architecture, degree, finalYValue, cycles,
+                finalVariables, cycles);
+    }
+
+    /**
+     * Add history entry with separate cycles and creditsSpent tracking
+     */
+    public void addHistoryEntry(String username, String runId, String targetName, String targetType,
+            String architecture, int degree, long finalYValue, int cycles, Map<String, Long> finalVariables,
+            int creditsSpent) {
         List<ApiModels.HistoryEntry> history = userHistory.computeIfAbsent(username, k -> new ArrayList<>());
         history.add(new ApiModels.HistoryEntry(runId, targetName, targetType, architecture,
                 degree, finalYValue, cycles, System.currentTimeMillis(), finalVariables));
@@ -309,8 +319,9 @@ public class ServerState {
                     ": totalRuns=" + user.totalRuns);
         }
 
-        // Update program run statistics (this will also broadcast the program update)
-        updateProgramStatistics(targetName, cycles);
+        // Update program run statistics with actual credits spent (this will also
+        // broadcast the program update)
+        updateProgramStatistics(targetName, creditsSpent);
 
         // Broadcast user update to all connected clients
         try {
@@ -357,19 +368,19 @@ public class ServerState {
      * Update program run count and average cost
      * Public so it can be called from servlets (Debug, Run, etc.)
      */
-    public void updateProgramStatistics(String programName, int cycles) {
+    public void updateProgramStatistics(String programName, int creditsSpent) {
         // Update run count
         int currentRuns = programRunCounts.getOrDefault(programName, 0);
         programRunCounts.put(programName, currentRuns + 1);
 
-        // Update average cost
+        // Update average cost (based on actual credits spent, not cycles)
         double currentAvgCost = programAvgCosts.getOrDefault(programName, 0.0);
-        double newAvgCost = ((currentAvgCost * currentRuns) + cycles) / (currentRuns + 1);
+        double newAvgCost = ((currentAvgCost * currentRuns) + creditsSpent) / (currentRuns + 1);
         programAvgCosts.put(programName, newAvgCost);
 
         System.out.println("Updated statistics for " + programName +
                 ": runs=" + (currentRuns + 1) +
-                ", avgCost=" + String.format("%.2f", newAvgCost));
+                ", avgCost=" + String.format("%.2f", newAvgCost) + " credits");
 
         // Broadcast program update to all connected clients
         try {
@@ -415,6 +426,7 @@ public class ServerState {
 
         public String state = "RUNNING";
         public int cycles = 0;
+        public int creditsSpent = 0; // Track actual credits spent during execution
         public int pointer = 0;
         public Long outputY = null;
         public String error = null;
@@ -558,6 +570,10 @@ public class ServerState {
 
     public SProgram getFunction(String functionName) {
         return functions.get(functionName);
+    }
+
+    public double getProgramAverageCost(String programName) {
+        return programAvgCosts.getOrDefault(programName, 0.0);
     }
 
     private String getCommandType(SInstruction instruction) {
@@ -815,6 +831,7 @@ public class ServerState {
         public String state = "READY"; // READY, RUNNING, PAUSED, FINISHED, ERROR
         public int currentInstructionIndex = 0;
         public int cycles = 0;
+        public int creditsSpent = 0; // Track actual credits spent during execution
         public Map<String, Long> variables = new HashMap<>();
         public String error = null;
 

@@ -221,6 +221,19 @@ public class DashboardController implements Initializable {
         programRunsColumn.setCellValueFactory(new PropertyValueFactory<>("runs"));
         avgCostColumn.setCellValueFactory(new PropertyValueFactory<>("avgCost"));
 
+        // Format avgCost column to show 2 decimal places
+        avgCostColumn.setCellFactory(column -> new javafx.scene.control.TableCell<ProgramInfo, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item));
+                }
+            }
+        });
+
         // Set table data
         programsTable.setItems(programsData);
 

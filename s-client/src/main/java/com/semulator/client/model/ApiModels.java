@@ -100,7 +100,7 @@ public class ApiModels {
         }
 
         // Debug - New Debug Execution API
-        public record DebugStartRequest(String programName, int degree, List<Long> inputs) {
+        public record DebugStartRequest(String programName, int degree, List<Long> inputs, String architecture) {
         }
 
         public record DebugStartResponse(boolean success, String message, String sessionId, DebugStateResponse state) {
@@ -131,7 +131,8 @@ public class ApiModels {
                         Map<String, Long> variables,
                         Long outputY,
                         String error,
-                        int totalInstructions) {
+                        int totalInstructions,
+                        Integer remainingCredits) {
         }
 
         // History
@@ -247,7 +248,8 @@ public class ApiModels {
                         Long outputY,
                         String error,
                         int pointer,
-                        Map<String, Integer> instrByArch) {
+                        Map<String, Integer> instrByArch,
+                        Integer remainingCredits) {
         }
 
         public record RunCancelRequest(String runId) {

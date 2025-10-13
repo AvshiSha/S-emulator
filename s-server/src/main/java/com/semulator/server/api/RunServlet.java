@@ -76,14 +76,30 @@ public class RunServlet extends HttpServlet {
             instructionCountsByArch.put("III", 30);
             instructionCountsByArch.put("IV", 40);
 
-            // Estimate cost based on degree and architecture
-            int estimatedCost = calculateEstimatedCost(request.arch, request.degree);
+            // Calculate architecture cost (only upfront cost)
+            // Execution will be charged per instruction based on actual cycles
+            int archCost = getArchitectureCost(request.arch);
+
+            // Get average execution cost for this program (if available)
+            double avgExecutionCost = serverState.getProgramAverageCost(request.target.getName());
 
             List<String> messages = new ArrayList<>();
             messages.add("Run prepared successfully");
+            messages.add("Architecture cost: " + archCost + " credits (charged upfront)");
+            messages.add("Execution cost: charged per instruction based on cycles");
+            if (avgExecutionCost > 0) {
+                messages.add("Average execution cost: " + String.format("%.2f", avgExecutionCost)
+                        + " credits (based on history)");
+                messages.add("Total estimated: " + (archCost + (int) Math.ceil(avgExecutionCost)) + " credits");
+            } else {
+                messages.add("No history available - first run of this program");
+            }
             if (request.degree > 0) {
                 messages.add("Expansion degree: " + request.degree);
             }
+
+            // Return architecture cost as the estimated cost (for backwards compatibility)
+            int estimatedCost = archCost;
 
             ApiModels.RunPrepareResponse response = new ApiModels.RunPrepareResponse(
                     supported,
@@ -118,15 +134,22 @@ public class RunServlet extends HttpServlet {
                 return;
             }
 
-            // Calculate costs
+            // Calculate architecture cost (execution cost will be charged per instruction)
             int archCost = getArchitectureCost(request.arch);
-            int estimatedCost = calculateEstimatedCost(request.arch, request.degree);
-            int totalCost = archCost + estimatedCost;
 
-            // Check if user has sufficient credits
-            if (user.credits < totalCost) {
+            // Get average cost for this program (if available)
+            double avgCost = serverState.getProgramAverageCost(request.target.getName());
+            int estimatedTotalCost = archCost + (int) Math.ceil(avgCost);
+
+            // Check if user has sufficient credits for architecture cost + estimated
+            // execution cost
+            // (Actual execution costs will be deducted per instruction based on cycles)
+            if (user.credits < estimatedTotalCost) {
                 ServletUtils.writeError(resp, HttpServletResponse.SC_PAYMENT_REQUIRED, "INSUFFICIENT_CREDITS",
-                        "Insufficient credits. Required: " + totalCost + ", Available: " + user.credits);
+                        "Insufficient credits. Required: " + estimatedTotalCost +
+                                " (Architecture: " + archCost + " + Estimated Execution: " + (int) Math.ceil(avgCost)
+                                + "), Available: "
+                                + user.credits);
                 return;
             }
 
@@ -136,6 +159,9 @@ public class RunServlet extends HttpServlet {
                         "Failed to charge architecture cost");
                 return;
             }
+
+            System.out.println("[CREDIT] Deducted architecture cost: " + archCost + " credits for " + request.username +
+                    " (Estimated execution: " + (int) Math.ceil(avgCost) + " credits)");
 
             // Generate run ID
             String runId = "run_" + request.username + "_" + System.currentTimeMillis();
@@ -185,13 +211,18 @@ public class RunServlet extends HttpServlet {
                 return;
             }
 
+            // Get current user credits
+            ServerState.UserRecord user = serverState.getUser(session.username);
+            Integer remainingCredits = (user != null) ? user.credits : 0;
+
             ApiModels.RunStatusResponse response = new ApiModels.RunStatusResponse(
                     session.state,
                     session.cycles,
                     session.instrByArch,
                     session.pointer,
                     session.outputY,
-                    session.error);
+                    session.error,
+                    remainingCredits);
 
             ServletUtils.writeJson(resp, response);
 
@@ -235,24 +266,18 @@ public class RunServlet extends HttpServlet {
     }
 
     private int getArchitectureCost(String arch) {
-        // Simplified cost calculation
         switch (arch) {
             case "I":
-                return 10;
+                return 5;
             case "II":
-                return 20;
+                return 100;
             case "III":
-                return 30;
+                return 500;
             case "IV":
-                return 40;
+                return 1000;
             default:
-                return 10;
+                return 5;
         }
-    }
-
-    private int calculateEstimatedCost(String arch, int degree) {
-        int baseCost = getArchitectureCost(arch);
-        return baseCost * (degree + 1); // Cost increases with degree
     }
 
     private Variable createVariableFromName(String varName) {
@@ -340,12 +365,40 @@ public class RunServlet extends HttpServlet {
 
                 // Execute the program manually, accumulating cycles in the server
                 session.cycles = 0;
+                session.creditsSpent = session.arch.getCost(); // Track actual credits spent
                 int currentIndex = 0;
 
                 while (currentIndex < instructions.size()) {
                     SInstruction currentInstruction = instructions.get(currentIndex);
+
+                    // Get the cycle cost for this specific instruction
+                    int cycleCost = currentInstruction.cycles();
+
+                    // Check if user has enough credits for this instruction's cycle cost
+                    ServerState.UserRecord user = serverState.getUser(session.username);
+                    if (user == null || user.credits < cycleCost) {
+                        session.state = "ERROR";
+                        session.error = "Out of credits! Execution stopped at cycle " + session.cycles +
+                                ". Required: " + cycleCost + ", Available: " + (user != null ? user.credits : 0);
+                        System.out.println("[CREDIT] Run stopped - User out of credits: " + session.username);
+                        break;
+                    }
+
+                    // Deduct credits based on instruction's actual cycle cost
+                    if (!serverState.deductCredits(session.username, cycleCost)) {
+                        session.state = "ERROR";
+                        session.error = "Failed to deduct credits for cycle";
+                        break;
+                    }
+
+                    // Track credits spent
+                    session.creditsSpent += cycleCost;
+
+                    System.out.println("[CREDIT] Deducted " + cycleCost + " credits for instruction. User: " +
+                            session.username + ", Remaining: " + (user.credits - cycleCost));
+
                     // Accumulate cycles for this instruction (same as debug mode)
-                    session.cycles += currentInstruction.cycles();
+                    session.cycles += cycleCost;
 
                     // Execute the instruction
                     Label nextLabel = currentInstruction.execute(context);
@@ -410,7 +463,7 @@ public class RunServlet extends HttpServlet {
                 // Determine target type
                 String targetType = session.target.getType() == RunTarget.Type.PROGRAM ? "PROGRAM" : "FUNCTION";
 
-                // Add to history
+                // Add to history (pass both cycles for display and creditsSpent for statistics)
                 serverState.addHistoryEntry(
                         session.username,
                         session.runId,
@@ -420,7 +473,8 @@ public class RunServlet extends HttpServlet {
                         session.degree,
                         session.outputY,
                         session.cycles,
-                        finalVariables);
+                        finalVariables,
+                        session.creditsSpent);
 
             } catch (Exception e) {
                 session.state = "ERROR";

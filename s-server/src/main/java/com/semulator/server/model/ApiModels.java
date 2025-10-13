@@ -232,15 +232,17 @@ public class ApiModels {
         public int pointer;
         public Long outputY;
         public String error;
+        public Integer remainingCredits;
 
         public RunStatusResponse(String state, int cycles, Map<String, Integer> instrByArch,
-                int pointer, Long outputY, String error) {
+                int pointer, Long outputY, String error, Integer remainingCredits) {
             this.state = state;
             this.cycles = cycles;
             this.instrByArch = instrByArch;
             this.pointer = pointer;
             this.outputY = outputY;
             this.error = error;
+            this.remainingCredits = remainingCredits;
         }
     }
 
@@ -274,6 +276,7 @@ public class ApiModels {
         public String programName;
         public int degree;
         public List<Long> inputs;
+        public String architecture;
     }
 
     public static class DebugStartResponse {
@@ -344,9 +347,11 @@ public class ApiModels {
         public Long outputY;
         public String error;
         public int totalInstructions;
+        public Integer remainingCredits;
 
         public DebugStateResponse(String state, int currentInstructionIndex, int cycles,
-                Map<String, Long> variables, Long outputY, String error, int totalInstructions) {
+                Map<String, Long> variables, Long outputY, String error, int totalInstructions,
+                Integer remainingCredits) {
             this.state = state;
             this.currentInstructionIndex = currentInstructionIndex;
             this.cycles = cycles;
@@ -354,6 +359,7 @@ public class ApiModels {
             this.outputY = outputY;
             this.error = error;
             this.totalInstructions = totalInstructions;
+            this.remainingCredits = remainingCredits;
         }
     }
 

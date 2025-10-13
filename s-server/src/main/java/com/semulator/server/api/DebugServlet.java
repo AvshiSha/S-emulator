@@ -80,8 +80,40 @@ public class DebugServlet extends HttpServlet {
                 request.inputs = java.util.Collections.emptyList();
             }
 
-            // Get username from session/token (for now, use "admin" as default)
-            String username = "admin";
+            // Extract username from Authorization token
+            String username = getUsernameFromRequest(req);
+            if (username == null) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED",
+                        "Authentication required. Please provide a valid token.");
+                return;
+            }
+
+            // Check user exists and has sufficient credits
+            ServerState.UserRecord user = serverState.getUser(username);
+            if (user == null) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "User not found");
+                return;
+            }
+
+            // Get architecture from request (client sends the selected architecture)
+            String requiredArchitecture = request.architecture != null ? request.architecture : "I";
+            int archCost = getArchitectureCost(requiredArchitecture);
+
+            // Check if user has sufficient credits for architecture cost
+            if (user.credits < archCost) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_PAYMENT_REQUIRED, "INSUFFICIENT_CREDITS",
+                        "Insufficient credits. Required: " + archCost + ", Available: " + user.credits);
+                return;
+            }
+
+            // Deduct architecture cost
+            if (!serverState.deductCredits(username, archCost)) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_PAYMENT_REQUIRED, "INSUFFICIENT_CREDITS",
+                        "Failed to charge architecture cost");
+                return;
+            }
+
+            System.out.println("[CREDIT] Deducted architecture cost: " + archCost + " credits for " + username);
 
             // Create debug session
             String sessionId = "debug_" + UUID.randomUUID().toString();
@@ -89,6 +121,8 @@ public class DebugServlet extends HttpServlet {
                     sessionId, username, request.programName, request.degree, request.inputs);
 
             if (session == null) {
+                // Refund architecture cost if session creation fails
+                serverState.updateUserCredits(username, user.credits + archCost);
                 ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND",
                         "Program not found: " + request.programName);
                 return;
@@ -134,13 +168,52 @@ public class DebugServlet extends HttpServlet {
                 return;
             }
 
+            // Get the current instruction to determine cycle cost
+            if (session.currentInstructionIndex >= session.instructions.size()) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                        "No more instructions to execute");
+                return;
+            }
+
+            SInstruction currentInstruction = session.instructions.get(session.currentInstructionIndex);
+            int cycleCost = currentInstruction.cycles();
+
+            // Check and deduct credits based on instruction cycles
+            ServerState.UserRecord user = serverState.getUser(session.username);
+            if (user == null) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_NOT_FOUND, "NOT_FOUND", "User not found");
+                return;
+            }
+
+            if (user.credits < cycleCost) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_PAYMENT_REQUIRED, "INSUFFICIENT_CREDITS",
+                        "Out of credits! Execution stopped. Required: " + cycleCost + ", Available: " + user.credits);
+                session.state = "ERROR";
+                session.error = "Out of credits";
+                return;
+            }
+
+            // Deduct credits based on instruction cycles
+            if (!serverState.deductCredits(session.username, cycleCost)) {
+                ServletUtils.writeError(resp, HttpServletResponse.SC_PAYMENT_REQUIRED, "INSUFFICIENT_CREDITS",
+                        "Failed to deduct credits for cycle");
+                return;
+            }
+
+            // Track credits spent
+            session.creditsSpent += cycleCost;
+
+            System.out.println(
+                    "[CREDIT] Deducted " + cycleCost + " credits for step. User: " + session.username + ", Remaining: "
+                            + (user.credits - cycleCost));
+
             // Execute one instruction
             boolean finished = executeSingleStep(session);
 
             if (finished) {
                 session.state = "FINISHED";
                 // Update program statistics when debug execution completes via step
-                serverState.updateProgramStatistics(session.programName, session.cycles);
+                serverState.updateProgramStatistics(session.programName, session.creditsSpent);
             } else {
                 session.state = "PAUSED";
             }
@@ -194,7 +267,7 @@ public class DebugServlet extends HttpServlet {
             session.state = "FINISHED";
 
             // Update program statistics when debug execution completes
-            serverState.updateProgramStatistics(session.programName, session.cycles);
+            serverState.updateProgramStatistics(session.programName, session.creditsSpent);
 
             // Create response with final state
             ApiModels.DebugStateResponse stateResponse = createStateResponse(session);
@@ -231,12 +304,12 @@ public class DebugServlet extends HttpServlet {
             // FINISHED)
             // Don't update if user stopped early or if no execution happened
             if ("FINISHED".equals(session.state) && session.cycles > 0) {
-                serverState.updateProgramStatistics(session.programName, session.cycles);
+                serverState.updateProgramStatistics(session.programName, session.creditsSpent);
 
                 // Increment user's total runs count
                 serverState.incrementUserRuns(session.username);
 
-                // Add to history
+                // Add to history (pass both cycles for display and creditsSpent for statistics)
                 Long finalYValue = session.variables.get("y");
                 serverState.addHistoryEntry(
                         session.username,
@@ -247,7 +320,8 @@ public class DebugServlet extends HttpServlet {
                         session.degree,
                         finalYValue != null ? finalYValue : 0L,
                         session.cycles,
-                        session.variables);
+                        session.variables,
+                        session.creditsSpent);
             }
 
             // Remove the debug session
@@ -350,6 +424,10 @@ public class DebugServlet extends HttpServlet {
         // Get output value (y variable)
         Long outputY = session.variables.get("y");
 
+        // Get current user credits
+        ServerState.UserRecord user = serverState.getUser(session.username);
+        Integer remainingCredits = (user != null) ? user.credits : 0;
+
         return new ApiModels.DebugStateResponse(
                 session.state,
                 session.currentInstructionIndex,
@@ -357,6 +435,51 @@ public class DebugServlet extends HttpServlet {
                 session.variables,
                 outputY,
                 session.error,
-                session.instructions.size());
+                session.instructions.size(),
+                remainingCredits);
+    }
+
+    /**
+     * Get architecture cost based on architecture type
+     */
+    private int getArchitectureCost(String architecture) {
+        switch (architecture) {
+            case "I":
+                return 5;
+            case "II":
+                return 100;
+            case "III":
+                return 500;
+            case "IV":
+                return 1000;
+            default:
+                return 5;
+        }
+    }
+
+    /**
+     * Extract username from Authorization header token
+     * 
+     * @param req The HTTP request
+     * @return username if authenticated, null if not authenticated
+     */
+    private String getUsernameFromRequest(HttpServletRequest req) {
+        // Get Authorization header
+        String authHeader = req.getHeader("Authorization");
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            // Extract token (skip "Bearer " prefix)
+            String token = authHeader.substring(7);
+
+            // Get username from token
+            String username = serverState.getUsernameFromToken(token);
+
+            if (username != null && !username.trim().isEmpty()) {
+                return username;
+            }
+        }
+
+        // No valid authentication found
+        return null;
     }
 }

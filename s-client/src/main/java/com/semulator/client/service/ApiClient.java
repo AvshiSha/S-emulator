@@ -171,9 +171,9 @@ public class ApiClient {
 
     // Debug API methods
     public CompletableFuture<com.semulator.client.model.ApiModels.DebugStartResponse> debugStart(
-            String programName, int degree, java.util.List<Long> inputs) {
+            String programName, int degree, java.util.List<Long> inputs, String architecture) {
         com.semulator.client.model.ApiModels.DebugStartRequest request = new com.semulator.client.model.ApiModels.DebugStartRequest(
-                programName, degree, inputs);
+                programName, degree, inputs, architecture);
         return post("/debug/start", request, com.semulator.client.model.ApiModels.DebugStartResponse.class);
     }
 

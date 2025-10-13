@@ -107,6 +107,13 @@ public class DebuggerExecution {
     // Callback for architecture selection changes
     private java.util.function.Consumer<String> architectureSelectionCallback;
 
+    // Architecture compatibility state
+    private boolean isArchitectureCompatible = true;
+    private java.util.List<String> unsupportedArchitectures = new java.util.ArrayList<>();
+
+    // Current user credits
+    private int currentUserCredits = 0;
+
     @FXML
     private void initialize() {
         // This method is called by FXML automatically
@@ -196,6 +203,7 @@ public class DebuggerExecution {
             return;
         }
 
+        // The server will handle credit deduction automatically
         isDebugMode.set(false);
         isPaused.set(false);
         isExecuting.set(true);
@@ -205,6 +213,7 @@ public class DebuggerExecution {
         updateExecutionStatus("Starting Regular Execution...");
 
         // Start execution in background using server API
+        // Server will deduct architecture cost and per-cycle credits automatically
         executionService.restart();
     }
 
@@ -215,6 +224,7 @@ public class DebuggerExecution {
             return;
         }
 
+        // Server will handle credit deduction automatically
         isDebugMode.set(true);
         isPaused.set(true);
         isExecuting.set(true);
@@ -227,7 +237,8 @@ public class DebuggerExecution {
         List<Long> inputs = getOrderedInputs();
 
         // Start debug session via API
-        apiClient.debugStart(currentProgramName, currentDegree, inputs)
+        // Server will deduct architecture cost automatically
+        apiClient.debugStart(currentProgramName, currentDegree, inputs, selectedArchitecture)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
                         if (response.success()) {
@@ -235,19 +246,32 @@ public class DebuggerExecution {
                             updateExecutionStatus("Debug Mode Started - Use Step Over to execute instructions");
                             updateFromDebugState(response.state());
 
+                            // Credits already updated in updateFromDebugState() - no extra fetch needed!
+
                             // Highlight the first instruction
                             if (instructionTableCallback != null) {
                                 instructionTableCallback.accept(response.state().currentInstructionIndex());
                             }
                         } else {
-                            showAlert("Debug Start Failed", response.message());
+                            // Check if it's an insufficient credits error
+                            if (response.message().contains("Insufficient credits")) {
+                                showAlert("Insufficient Credits",
+                                        response.message() + "\n\nPlease load more credits and try again.");
+                            } else {
+                                showAlert("Debug Start Failed", response.message());
+                            }
                             stopExecution(null);
                         }
                     });
                 })
                 .exceptionally(ex -> {
                     Platform.runLater(() -> {
-                        showAlert("Debug Start Error", "Failed to start debug session: " + ex.getMessage());
+                        String errorMsg = ex.getMessage();
+                        if (errorMsg != null && errorMsg.toLowerCase().contains("credit")) {
+                            showAlert("Insufficient Credits", errorMsg + "\n\nPlease load more credits and try again.");
+                        } else {
+                            showAlert("Debug Start Error", "Failed to start debug session: " + errorMsg);
+                        }
                         stopExecution(null);
                     });
                     return null;
@@ -329,11 +353,14 @@ public class DebuggerExecution {
         updateExecutionStatus("Executing step...");
 
         // Execute one step on server
+        // Server will handle credit deduction automatically
         apiClient.debugStep(debugSessionId)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
                         if (response.success()) {
                             updateFromDebugState(response.state());
+
+                            // Credits already updated in updateFromDebugState() - instant update!
 
                             // Check if finished
                             if ("FINISHED".equals(response.state().state())) {
@@ -342,10 +369,23 @@ public class DebuggerExecution {
                                 isPaused.set(false);
                                 isDebugMode.set(false);
                                 updateButtonStates();
+                            } else if ("ERROR".equals(response.state().state())) {
+                                // Check if error is due to out of credits
+                                String error = response.state().error();
+                                if (error != null && error.toLowerCase().contains("credit")) {
+                                    showAlert("Out of Credits",
+                                            "You have run out of credits!\n\n" +
+                                                    "Execution has been stopped. Please load more credits and try again.");
+                                    navigateBackToDashboard();
+                                } else {
+                                    showAlert("Execution Error", error);
+                                }
+                                stopExecution(null);
                             } else {
                                 updateExecutionStatus("Step executed - Instruction " +
                                         response.state().currentInstructionIndex() + " of " +
-                                        response.state().totalInstructions());
+                                        response.state().totalInstructions() +
+                                        " | Credits: " + currentUserCredits);
                             }
 
                             // Highlight current instruction
@@ -353,16 +393,49 @@ public class DebuggerExecution {
                                 instructionTableCallback.accept(response.state().currentInstructionIndex());
                             }
                         } else {
-                            showAlert("Step Failed", response.message());
+                            // Check if it's an out of credits error
+                            String message = response.message();
+                            if (message != null && message.toLowerCase().contains("credit")) {
+                                showAlert("Out of Credits",
+                                        "You have run out of credits!\n\n" +
+                                                "Execution has been stopped. Please load more credits and try again.");
+                                navigateBackToDashboard();
+                            } else {
+                                showAlert("Step Failed", message);
+                            }
+                            stopExecution(null);
                         }
                     });
                 })
                 .exceptionally(ex -> {
                     Platform.runLater(() -> {
-                        showAlert("Step Error", "Failed to execute step: " + ex.getMessage());
+                        String errorMsg = ex.getMessage();
+                        if (errorMsg != null && errorMsg.toLowerCase().contains("credit")) {
+                            showAlert("Out of Credits",
+                                    "You have run out of credits!\n\n" +
+                                            "Execution has been stopped. Please load more credits and try again.");
+                            navigateBackToDashboard();
+                        } else {
+                            showAlert("Step Error", "Failed to execute step: " + errorMsg);
+                        }
+                        stopExecution(null);
                     });
                     return null;
                 });
+    }
+
+    /**
+     * Navigate back to dashboard (programs screen)
+     * This should be called when user runs out of credits
+     */
+    private void navigateBackToDashboard() {
+        // This method should trigger navigation back to dashboard
+        // Implementation depends on navigation framework being used
+        // For now, just log it
+        System.out.println("Navigating back to dashboard due to insufficient credits");
+
+        // In a real implementation, this would be something like:
+        // AppContext.getInstance().navigateToDashboard();
     }
 
     /**
@@ -375,6 +448,11 @@ public class DebuggerExecution {
 
         // Update variables display
         updateVariablesDisplay(state.variables());
+
+        // Update credits from response (fast, no extra network call!)
+        if (state.remainingCredits() != null) {
+            currentUserCredits = state.remainingCredits();
+        }
     }
 
     /**
@@ -447,6 +525,8 @@ public class DebuggerExecution {
 
         if (programName != null) {
             updateExecutionStatus("Program Loaded: " + programName + " (degree " + degree + ")");
+            // Fetch current credits when program is loaded
+            fetchCurrentCredits();
         }
     }
 
@@ -457,6 +537,8 @@ public class DebuggerExecution {
 
         if (functionName != null) {
             updateExecutionStatus("Function Loaded: " + functionName + " (degree " + degree + ")");
+            // Fetch current credits when function is loaded
+            fetchCurrentCredits();
         }
     }
 
@@ -586,6 +668,59 @@ public class DebuggerExecution {
         this.architectureSelectionCallback = callback;
     }
 
+    /**
+     * Called when architecture compatibility status changes
+     * 
+     * @param compatible  true if selected architecture supports all instructions
+     * @param unsupported list of architecture names that have unsupported
+     *                    instructions
+     */
+    public void onArchitectureCompatibilityChanged(boolean compatible, java.util.List<String> unsupported) {
+        Platform.runLater(() -> {
+            this.isArchitectureCompatible = compatible;
+            this.unsupportedArchitectures = unsupported != null ? unsupported : new java.util.ArrayList<>();
+
+            updateButtonStates();
+
+            if (!compatible && !unsupported.isEmpty()) {
+                updateExecutionStatus("⚠ Program contains instructions requiring: " + String.join(", ", unsupported));
+            } else if (compatible && currentProgramName != null) {
+                updateExecutionStatus("Ready to execute");
+            }
+        });
+    }
+
+    /**
+     * Fetch current user credits from server
+     */
+    private void fetchCurrentCredits() {
+        String currentUser = AppContext.getInstance().getCurrentUser();
+        apiClient.get("/users", com.semulator.client.model.ApiModels.UsersResponse.class, null)
+                .thenAccept(response -> {
+                    Platform.runLater(() -> {
+                        // Find current user's credits
+                        for (com.semulator.client.model.ApiModels.UserInfo user : response.users()) {
+                            if (user.username().equals(currentUser)) {
+                                currentUserCredits = user.credits();
+                                break;
+                            }
+                        }
+                    });
+                })
+                .exceptionally(throwable -> {
+                    Platform.runLater(() -> {
+                        System.err.println("Failed to fetch credits: " + throwable.getMessage());
+                    });
+                    return null;
+                });
+    }
+
+    // Credit deduction is now handled entirely by the server
+    // The server (DebugServlet) deducts:
+    // - Architecture cost when starting a debug session
+    // - 1 credit per cycle when executing steps
+    // The client just fetches and displays the current credit balance
+
     private void setupVariableRowHighlighting() {
         variablesTableView.setRowFactory(tv -> {
             TableRow<VariableRow> row = new TableRow<VariableRow>() {
@@ -615,8 +750,12 @@ public class DebuggerExecution {
         boolean paused = isPaused.get();
         boolean debugMode = isDebugMode.get();
 
-        startRegularButton.setDisable(executing);
-        startDebugButton.setDisable(executing);
+        // Disable execution buttons if architecture is not compatible or if no program
+        // is loaded
+        boolean canStart = !executing && isArchitectureCompatible && (currentProgramName != null);
+
+        startRegularButton.setDisable(!canStart);
+        startDebugButton.setDisable(!canStart);
         stopButton.setDisable(!executing);
         resumeButton.setDisable(!executing || !paused);
         stepOverButton.setDisable(!executing || !paused || !debugMode);
@@ -812,7 +951,8 @@ public class DebuggerExecution {
                                                     isExecuting.set(false);
                                                     updateButtonStates();
                                                     showAlert("Execution Error",
-                                                            "Failed to execute program 1: " + ex.getMessage());
+                                                            "Failed to execute program" + currentProgramName + ": "
+                                                                    + ex.getMessage());
                                                     updateExecutionStatus("Execution Failed");
                                                 });
                                                 return null;
@@ -880,7 +1020,13 @@ public class DebuggerExecution {
 
                         updateVariablesDisplay(variables);
 
-                        updateExecutionStatus("Running... (Cycles: " + statusResponse.cycles() + ")");
+                        // Update credits from response - instant, no extra network call!
+                        if (statusResponse.remainingCredits() != null) {
+                            currentUserCredits = statusResponse.remainingCredits();
+                        }
+
+                        updateExecutionStatus("Running... (Cycles: " + statusResponse.cycles() + " | Credits: "
+                                + currentUserCredits + ")");
                     });
 
                     // Check if finished
@@ -892,7 +1038,17 @@ public class DebuggerExecution {
                         });
                         return statusResponse.outputY();
                     } else if ("ERROR".equals(statusResponse.state())) {
-                        throw new RuntimeException(statusResponse.error());
+                        // Check if error is due to insufficient credits
+                        String errorMsg = statusResponse.error();
+                        if (errorMsg != null && errorMsg.toLowerCase().contains("credit")) {
+                            Platform.runLater(() -> {
+                                showAlert("Out of Credits",
+                                        "You have run out of credits during execution!\n\n" +
+                                                "Please load more credits and try again.");
+                                navigateBackToDashboard();
+                            });
+                        }
+                        throw new RuntimeException(errorMsg);
                     }
 
                     Thread.sleep(500); // Poll every 500ms

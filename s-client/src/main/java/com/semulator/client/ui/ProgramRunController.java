@@ -204,6 +204,13 @@ public class ProgramRunController implements Initializable {
                     // Update the instruction table with the new selected architecture
                     instructionTableComponentController.updateSelectedArchitecture(selectedArchitecture);
                 });
+
+                // Wire up architecture compatibility callback
+                instructionTableComponentController.setArchitectureCompatibilityCallback(compatible -> {
+                    // Notify debugger execution component about compatibility status
+                    debuggerExecutionComponentController.onArchitectureCompatibilityChanged(compatible,
+                            instructionTableComponentController.getUnsupportedArchitectures());
+                });
             }
         } catch (Exception e) {
             System.err.println("Error initializing DebuggerExecution: " + e.getMessage());
