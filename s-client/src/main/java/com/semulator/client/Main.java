@@ -25,7 +25,9 @@ public class Main extends Application {
 
             primaryStage.setTitle("S-Emulator Client - Login");
             primaryStage.setScene(scene);
-            primaryStage.setResizable(false);
+            primaryStage.setResizable(true);
+            primaryStage.setMinWidth(400);
+            primaryStage.setMinHeight(300);
             primaryStage.show();
 
             // Set reference to main stage for navigation

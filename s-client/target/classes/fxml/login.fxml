@@ -6,22 +6,24 @@
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.semulator.client.ui.LoginController">
+<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.semulator.client.ui.LoginController" 
+      alignment="CENTER" VBox.vgrow="ALWAYS">
    <children>
-      <VBox fx:id="loginContainer" alignment="CENTER" spacing="20.0">
+      <VBox fx:id="loginContainer" alignment="CENTER" spacing="20.0" maxWidth="400.0" minWidth="300.0">
          <children>
-            <Label fx:id="titleLabel" text="S-Emulator Login" />
-            <TextField fx:id="usernameField" promptText="Enter your username" />
-            <Button fx:id="loginButton" text="Login" />
-            <Label fx:id="errorLabel" text="Error message" visible="false" />
+            <Label fx:id="titleLabel" text="S-Emulator Login" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333;" />
+            <TextField fx:id="usernameField" promptText="Enter your username" prefWidth="250.0" maxWidth="300.0" />
+            <Button fx:id="loginButton" text="Login" prefWidth="120.0" style="-fx-font-size: 14px; -fx-padding: 8 16 8 16;" />
+            <Label fx:id="errorLabel" text="Error message" visible="false" style="-fx-text-fill: #d32f2f; -fx-font-weight: bold;" 
+                   wrapText="true" textAlignment="CENTER" />
          </children>
          <padding>
-            <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+            <Insets bottom="30.0" left="30.0" right="30.0" top="30.0" />
          </padding>
       </VBox>
    </children>
    <padding>
-      <Insets bottom="80.0" left="80.0" right="100.0" top="80.0" />
+      <Insets bottom="50.0" left="50.0" right="50.0" top="50.0" />
    </padding>
 </VBox>
 
