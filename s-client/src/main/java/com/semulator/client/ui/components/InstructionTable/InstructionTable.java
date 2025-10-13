@@ -527,19 +527,17 @@ public class InstructionTable {
     }
 
     private String getArchitectureForInstruction(SInstruction instruction) {
-        // TODO: Implement architecture detection logic
-        // For now, return a placeholder based on instruction type
         if (instruction instanceof IncreaseInstruction
                 || instruction instanceof DecreaseInstruction
                 || instruction instanceof NoOpInstruction
-                || instruction instanceof JumpNotZeroInstruction
-                || instruction instanceof ZeroVariableInstruction) {
+                || instruction instanceof JumpNotZeroInstruction) {
             return "I"; // Basic instructions support Architecture I
-        } else if (instruction instanceof AssignVariableInstruction
-                || instruction instanceof AssignConstantInstruction
-                || instruction instanceof GotoLabelInstruction) {
+        } else if (instruction instanceof AssignConstantInstruction
+                || instruction instanceof GotoLabelInstruction
+                || instruction instanceof ZeroVariableInstruction) {
             return "II"; // Assignment and goto instructions support Architecture II
-        } else if (instruction instanceof JumpZeroInstruction
+        } else if (instruction instanceof AssignVariableInstruction ||
+                instruction instanceof JumpZeroInstruction
                 || instruction instanceof JumpEqualConstantInstruction
                 || instruction instanceof JumpEqualVariableInstruction) {
             return "III"; // Jump instructions support Architecture III

@@ -69,12 +69,9 @@ public class RunServlet extends HttpServlet {
             List<String> unsupported = supported ? List.of()
                     : List.of("Architecture " + request.arch + " not supported");
 
-            // Calculate instruction counts by architecture (simplified)
-            Map<String, Integer> instructionCountsByArch = new HashMap<>();
-            instructionCountsByArch.put("I", 10);
-            instructionCountsByArch.put("II", 20);
-            instructionCountsByArch.put("III", 30);
-            instructionCountsByArch.put("IV", 40);
+            // Calculate instruction counts by architecture based on actual program
+            Map<String, Integer> instructionCountsByArch = calculateInstructionCountsByArchitecture(
+                    request.target, request.degree);
 
             // Calculate architecture cost (only upfront cost)
             // Execution will be charged per instruction based on actual cycles
@@ -277,6 +274,110 @@ public class RunServlet extends HttpServlet {
                 return 1000;
             default:
                 return 5;
+        }
+    }
+
+    /**
+     * Calculate the count of instructions supported by each architecture level.
+     * Counts how many instructions require each architecture (I, II, III, IV).
+     */
+    private Map<String, Integer> calculateInstructionCountsByArchitecture(RunTarget target, int degree) {
+        // Reset counts
+        Map<String, Integer> counts = new HashMap<>();
+        counts.put("I", 0);
+        counts.put("II", 0);
+        counts.put("III", 0);
+        counts.put("IV", 0);
+
+        try {
+            // Get the program or function
+            SProgram program = null;
+            if (target.getType() == RunTarget.Type.PROGRAM) {
+                program = serverState.getProgram(target.getName());
+            } else if (target.getType() == RunTarget.Type.FUNCTION) {
+                program = serverState.getFunction(target.getName());
+            }
+
+            if (program == null) {
+                return counts; // Return zeros if program not found
+            }
+
+            // Expand the program to the requested degree
+            ExpansionResult expansion = program.expandToDegree(degree);
+            List<SInstruction> instructions = expansion.instructions();
+
+            // Count commands by architecture - same logic as client
+            // Architecture hierarchy: I < II < III < IV
+            for (SInstruction instruction : instructions) {
+                String arch = getArchitectureForInstruction(instruction.getName());
+
+                System.out.println("Instruction: " + instruction.getName() + " - Architecture: " + arch);
+
+                if ("I".equals(arch)) {
+                    counts.put("I", counts.get("I") + 1);
+                    System.out.println("I: " + instruction.getName());
+                } else if ("II".equals(arch)) {
+                    counts.put("II", counts.get("II") + 1);
+                    System.out.println("II: " + instruction.getName());
+                } else if ("III".equals(arch)) {
+                    counts.put("III", counts.get("III") + 1);
+                    System.out.println("III: " + instruction.getName());
+                } else if ("IV".equals(arch)) {
+                    counts.put("IV", counts.get("IV") + 1);
+                    System.out.println("IV: " + instruction.getName());
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error calculating instruction counts: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return counts;
+    }
+
+    /**
+     * Determine which architecture level is required for a given instruction.
+     * Based on the instruction degree mapping from SProgramImpl.
+     */
+    private String getArchitectureForInstruction(String instructionName) {
+        switch (instructionName) {
+            // Degree 0 - Architecture I (Basic instructions)
+            case "NEUTRAL":
+            case "INCREASE":
+            case "DECREASE":
+            case "JUMP_NOT_ZERO":
+                return "I";
+
+            // Degree 1 - Architecture II
+            case "ZERO":
+            case "ASSIGNC":
+            case "CONSTANT_ASSIGNMENT":
+            case "ZERO_VARIABLE":
+            case "GOTO":
+            case "GOTO_LABEL":
+                return "II";
+
+            // Degree 2 - Architecture III
+            case "ASSIGN":
+            case "ASSIGNMENT":
+            case "ASSIGN_VARIABLE":
+            case "IFZ":
+            case "JUMP_ZERO":
+            case "IFEQC":
+            case "JUMP_EQUAL_CONSTANT":
+            case "IFEQV":
+            case "JUMP_EQUAL_VARIABLE":
+                return "III";
+
+            // Degree 3+ - Architecture IV
+            case "QUOTE":
+            case "JUMP_EQUAL_FUNCTION":
+                return "IV";
+
+            default:
+                // Default to Architecture I for unknown instructions
+                return "I";
         }
     }
 

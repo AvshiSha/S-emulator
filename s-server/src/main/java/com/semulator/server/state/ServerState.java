@@ -656,22 +656,29 @@ public class ServerState {
     }
 
     private String getArchitectureForInstruction(SInstruction instruction) {
-        // Architecture classification (placeholder - will be refined)
+        // Architecture classification matching the instruction degree mapping
+        // Architecture I - Degree 0: Basic instructions
         if (instruction instanceof IncreaseInstruction ||
                 instruction instanceof DecreaseInstruction ||
                 instruction instanceof NoOpInstruction ||
                 instruction instanceof JumpNotZeroInstruction) {
             return "I";
-        } else if (instruction instanceof ZeroVariableInstruction ||
-                instruction instanceof AssignVariableInstruction ||
+        }
+        // Architecture II - Degree 1: Zero, Constant Assignment, Goto
+        else if (instruction instanceof ZeroVariableInstruction ||
                 instruction instanceof AssignConstantInstruction ||
                 instruction instanceof GotoLabelInstruction) {
             return "II";
-        } else if (instruction instanceof JumpZeroInstruction ||
+        }
+        // Architecture III - Degree 2: Variable Assignment, Jump Zero, Jump Equal
+        else if (instruction instanceof AssignVariableInstruction ||
+                instruction instanceof JumpZeroInstruction ||
                 instruction instanceof JumpEqualConstantInstruction ||
                 instruction instanceof JumpEqualVariableInstruction) {
             return "III";
-        } else if (instruction instanceof QuoteInstruction ||
+        }
+        // Architecture IV - Degree 3+: Quote and Function comparisons
+        else if (instruction instanceof QuoteInstruction ||
                 instruction instanceof JumpEqualFunctionInstruction) {
             return "IV";
         }
