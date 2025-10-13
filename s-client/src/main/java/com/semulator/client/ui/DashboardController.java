@@ -362,6 +362,7 @@ public class DashboardController implements Initializable {
                                     // Refresh data to show new program
                                     refreshProgramsData();
                                     refreshFunctionsData();
+                                    refreshUserData(); // Also refresh user data to update credits
                                 } else {
                                     showErrorAlert("Upload Failed", response.message());
                                 }
@@ -395,23 +396,33 @@ public class DashboardController implements Initializable {
                 return;
             }
 
-            // Get current credits from display
-            int currentCredits = Integer.parseInt(availableCredits.getText());
+            // Send topup request to server
+            ApiModels.TopupRequest topupRequest = new ApiModels.TopupRequest(amount);
 
-            // Add the new amount to current credits
-            int newTotal = currentCredits + amount;
+            apiClient.post("/users/" + currentUser + "/credits/topup", topupRequest, ApiModels.TopupResponse.class)
+                    .thenAccept(response -> {
+                        Platform.runLater(() -> {
+                            // Update the display with the server's response
+                            availableCredits.setText(String.valueOf(response.newBalance()));
 
-            // Update the display immediately
-            availableCredits.setText(String.valueOf(newTotal));
+                            // Update the local user data to reflect the change
+                            updateLocalUserCredits(response.newBalance());
 
-            // Update the local user data to reflect the change
-            updateLocalUserCredits(newTotal);
+                            // Clear the input field
+                            creditsInput.clear();
 
-            // Clear the input field
-            creditsInput.clear();
-
-            showInfoAlert("Credits Charged",
-                    "Added " + amount + " credits to your account.\nNew total: " + newTotal + " credits.");
+                            showInfoAlert("Credits Charged",
+                                    "Added " + amount + " credits to your account.\nNew total: " + response.newBalance()
+                                            + " credits.");
+                        });
+                    })
+                    .exceptionally(throwable -> {
+                        Platform.runLater(() -> {
+                            showErrorAlert("Charge Failed",
+                                    "Failed to charge credits: " + throwable.getMessage());
+                        });
+                        return null;
+                    });
 
         } catch (NumberFormatException e) {
             showErrorAlert("Invalid Amount", "Please enter a valid number.");
