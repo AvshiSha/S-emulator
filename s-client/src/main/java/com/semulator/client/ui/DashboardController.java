@@ -480,10 +480,10 @@ public class DashboardController implements Initializable {
                 // Make a synchronous logout call to ensure it completes before closing
                 apiClient.post("/auth/logout", null, String.class)
                         .thenAccept(response -> {
-                            System.out.println("User logged out successfully on window close");
+                            // Logout successful
                         })
                         .exceptionally(throwable -> {
-                            System.err.println("Failed to logout on window close: " + throwable.getMessage());
+                            // Logout failed
                             return null;
                         });
 
@@ -494,7 +494,7 @@ public class DashboardController implements Initializable {
                     Thread.currentThread().interrupt();
                 }
             } catch (Exception e) {
-                System.err.println("Error during logout on window close: " + e.getMessage());
+                // Error during logout
             }
         }
 
@@ -509,7 +509,6 @@ public class DashboardController implements Initializable {
         // History updates are now handled via WebSocket broadcasts
         // No polling needed - real-time updates for users, programs, functions, and
         // history
-        System.out.println("Auto-refresh disabled - using WebSocket for real-time updates");
     }
 
     private void loadInitialData() {
@@ -548,7 +547,6 @@ public class DashboardController implements Initializable {
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println("Failed to load users: " + throwable.getMessage());
                         // Fallback to sample data if API fails
                         usersData.clear();
                         usersData.add(new UserInfo(currentUser, 1, 2, 0, 75, 15));
@@ -565,16 +563,11 @@ public class DashboardController implements Initializable {
         apiClient.get("/programs", ApiModels.DeltaResponse.class, null)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
-                        System.out.println("DEBUG: Received programs response: " + response);
                         programsData.clear();
 
                         // Convert server ProgramInfo to local ProgramInfo model
                         if (response.items() != null) {
-                            System.out.println("DEBUG: Found " + response.items().size() + " programs");
                             for (Object item : response.items()) {
-                                System.out.println("DEBUG: Processing item: " + item + " (type: "
-                                        + item.getClass().getName() + ")");
-
                                 // Handle LinkedTreeMap objects from Gson deserialization
                                 if (item instanceof com.google.gson.internal.LinkedTreeMap) {
                                     @SuppressWarnings("unchecked")
@@ -587,20 +580,16 @@ public class DashboardController implements Initializable {
                                     int runs = ((Double) map.get("runs")).intValue();
                                     double avgCost = ((Double) map.get("avgCost")).doubleValue();
 
-                                    System.out.println("DEBUG: Creating local program: " + name);
                                     ProgramInfo localProgram = new ProgramInfo(
                                             name, uploadedBy, instructionCount, maxDegree, runs, avgCost);
                                     programsData.add(localProgram);
                                 }
                             }
-                        } else {
-                            System.out.println("DEBUG: No items in response");
                         }
                     });
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println("Failed to load programs: " + throwable.getMessage());
                         // Fallback to sample data if API fails
                         programsData.clear();
                         programsData.add(new ProgramInfo("fibonacci", "user1", 15, 4, 25, 2.5));
@@ -619,16 +608,11 @@ public class DashboardController implements Initializable {
         apiClient.get("/functions", ApiModels.DeltaResponse.class, null)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
-                        System.out.println("DEBUG: Received functions response: " + response);
                         functionsData.clear();
 
                         // Convert server FunctionInfo to local FunctionInfo model
                         if (response.items() != null) {
-                            System.out.println("DEBUG: Found " + response.items().size() + " functions");
                             for (Object item : response.items()) {
-                                System.out.println("DEBUG: Processing function item: " + item + " (type: "
-                                        + item.getClass().getName() + ")");
-
                                 // Handle LinkedTreeMap objects from Gson deserialization
                                 if (item instanceof com.google.gson.internal.LinkedTreeMap) {
                                     @SuppressWarnings("unchecked")
@@ -640,20 +624,16 @@ public class DashboardController implements Initializable {
                                     int instructionCount = ((Double) map.get("instructionCount")).intValue();
                                     int maxDegree = ((Double) map.get("maxDegree")).intValue();
 
-                                    System.out.println("DEBUG: Creating local function: " + name);
                                     FunctionInfo localFunction = new FunctionInfo(
                                             name, parentProgram, uploadedBy, instructionCount, maxDegree);
                                     functionsData.add(localFunction);
                                 }
                             }
-                        } else {
-                            System.out.println("DEBUG: No function items in response");
                         }
                     });
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println("Failed to load functions: " + throwable.getMessage());
                         // Fallback to sample data if API fails
                         functionsData.clear();
                         functionsData.add(new FunctionInfo("add", "fibonacci", "user1", 5, 2));
@@ -701,7 +681,6 @@ public class DashboardController implements Initializable {
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println("Failed to load user history: " + throwable.getMessage());
                         historyData.clear();
                     });
                     return null;
@@ -785,12 +764,8 @@ public class DashboardController implements Initializable {
             stage.setResizable(true);
 
         } catch (IOException e) {
-            System.err.println("Navigation error: " + e.getMessage());
-            e.printStackTrace();
             showErrorAlert("Navigation Error", "Failed to navigate to execution screen: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("Unexpected navigation error: " + e.getMessage());
-            e.printStackTrace();
             showErrorAlert("Navigation Error", "Unexpected error: " + e.getMessage());
         }
     }
@@ -853,14 +828,9 @@ public class DashboardController implements Initializable {
             String targetType = "PROGRAM".equals(run.getType()) ? "PROGRAM" : "FUNCTION";
 
             // Navigate to execution screen with the target
-            System.out.println("Re-running execution for: " + run.getName() + " with target type: " + targetType
-                    + " and level: " + run.getLevel());
-            System.out.println("Final variables: " + run.getFinalVariables());
             navigateToExecutionScreenWithContext(run.getName(), targetType, run.getLevel(), run.getFinalVariables());
 
         } catch (Exception e) {
-            System.err.println("Re-run error: " + e.getMessage());
-            e.printStackTrace();
             showErrorAlert("Re-run Error", "Failed to re-run execution: " + e.getMessage());
         }
     }
@@ -910,12 +880,8 @@ public class DashboardController implements Initializable {
             stage.setResizable(true);
 
         } catch (IOException e) {
-            System.err.println("Navigation error: " + e.getMessage());
-            e.printStackTrace();
             showErrorAlert("Navigation Error", "Failed to navigate to execution screen: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("Unexpected navigation error: " + e.getMessage());
-            e.printStackTrace();
             showErrorAlert("Navigation Error", "Unexpected error: " + e.getMessage());
         }
     }
@@ -1144,8 +1110,6 @@ public class DashboardController implements Initializable {
                     name, uploadedBy, instructionCount, maxDegree, runs, avgCost);
             programsData.add(localProgram);
         }
-
-        System.out.println("Updated programs from WebSocket: " + programsData.size() + " programs");
     }
 
     /**
@@ -1167,8 +1131,6 @@ public class DashboardController implements Initializable {
                     name, parentProgram, uploadedBy, instructionCount, maxDegree);
             functionsData.add(localFunction);
         }
-
-        System.out.println("Updated functions from WebSocket: " + functionsData.size() + " functions");
     }
 
     /**
@@ -1194,8 +1156,6 @@ public class DashboardController implements Initializable {
 
         // Update current user's credits in header
         updateCurrentUserCredits();
-
-        System.out.println("Updated users from WebSocket: " + usersData.size() + " users");
     }
 
     /**
@@ -1222,8 +1182,6 @@ public class DashboardController implements Initializable {
 
         // Update current user's credits in header
         updateCurrentUserCredits();
-
-        System.out.println("Updated users from socket: " + usersData.size() + " users");
     }
 
     /**
@@ -1233,7 +1191,6 @@ public class DashboardController implements Initializable {
         // Only update if this is the currently viewed user's history
         String viewedUser = selectedUser != null ? selectedUser : currentUser;
         if (!username.equals(viewedUser)) {
-            System.out.println("Ignoring history update for " + username + " (currently viewing " + viewedUser + ")");
             return;
         }
 
@@ -1275,8 +1232,6 @@ public class DashboardController implements Initializable {
                     finalVariables);
             historyData.add(history);
         }
-
-        System.out.println("Updated history from socket for user " + username + ": " + historyData.size() + " entries");
     }
 
     public void cleanup() {

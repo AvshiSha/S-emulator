@@ -1498,7 +1498,7 @@ public class SProgramImpl implements SProgram {
         for (Element functionEl : functionElements) {
             String functionName = functionEl.getAttribute("name").trim();
             if (functionName.isEmpty()) {
-                System.out.println("S-Function missing name attribute");
+                // S-Function missing name attribute
                 continue;
             }
 
@@ -1510,7 +1510,7 @@ public class SProgramImpl implements SProgram {
 
             Element functionInstructions = getSingleChild(functionEl, "S-Instructions");
             if (functionInstructions == null) {
-                System.out.println("S-Function '" + functionName + "' missing S-Instructions");
+                // S-Function missing S-Instructions
                 continue;
             }
 
@@ -1743,13 +1743,13 @@ public class SProgramImpl implements SProgram {
     private boolean validateXmlFile(Document doc) {
         Element root = doc.getDocumentElement();
         if (root == null) {
-            System.out.println("Empty XML document.");
+            // Empty XML document
             return false;
         }
 
         // checking if the name of the program is "S-program" mandatory
         if (!"S-Program".equals(root.getTagName())) {
-            System.out.println("Root element must be <S-Program>, found <" + root.getTagName() + ">.");
+            // Root element must be <S-Program>
             return false;
         }
 
@@ -1757,13 +1757,13 @@ public class SProgramImpl implements SProgram {
         // and always gives you a trimmed string (leading and trailing spaces removed).
         String progName = trimOrNull(root.getAttribute("name"));
         if (progName == null || progName.isEmpty()) {
-            System.out.println("Attribute 'name' on <S-program> is mandatory and must not be empty.");
+            // Attribute 'name' on <S-program> is mandatory and must not be empty
             return false;
         }
 
         Element sInstructions = getSingleChild(root, "S-Instructions");
         if (sInstructions == null) {
-            System.out.println("Missing mandatory <S-instructions> element under <S-program>.");
+            // Missing mandatory <S-instructions> element under <S-program>
             return false;
         }
 
@@ -1825,27 +1825,27 @@ public class SProgramImpl implements SProgram {
         // (1) Ensure this element does not contain nested S-Instruction elements
         List<Element> nested = childElements(instEl, "S-Instruction");
         if (!nested.isEmpty()) {
-            System.out.println(where + "Must define exactly one instruction; nested <S-Instruction> found.");
+            // Must define exactly one instruction
             ok = false;
         }
 
         // (2) type attribute: mandatory, case-sensitive
         String type = instEl.hasAttribute("type") ? instEl.getAttribute("type").trim() : null;
         if (type == null || type.isEmpty()) {
-            System.out.println(where + "Missing mandatory attribute 'type' (must be 'basic' or 'synthetic').");
+            // Missing mandatory attribute 'type'
             ok = false;
         } else if (!type.equals("basic") && !type.equals("synthetic")) {
-            System.out.println(where + "Invalid type='" + type + "'. Allowed: 'basic' | 'synthetic' (case-sensitive).");
+            // Invalid type
             ok = false;
         }
 
         // (3) name attribute: mandatory.
         String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : null;
         if (instrName == null || instrName.isEmpty()) {
-            System.out.println(where + "Missing mandatory attribute 'name'.");
+            // Missing mandatory attribute 'name'
             ok = false;
         } else if (!ALLOWED_NAMES.contains(instrName)) {
-            System.out.println(where + "Unknown instruction name '" + instrName + "'. Allowed: " + ALLOWED_NAMES + ".");
+            // Unknown instruction name
             ok = false;
         }
 
@@ -1853,10 +1853,10 @@ public class SProgramImpl implements SProgram {
         // mismatches)
         if (ok && type != null && instrName != null && !type.isEmpty() && !instrName.isEmpty()) {
             if (type.equals("basic") && !BASIC.contains(instrName)) {
-                System.out.println(where + "Instruction '" + instrName + "' is synthetic but type='basic' given.");
+                // Instruction is synthetic but type='basic' given
                 ok = false;
             } else if (type.equals("synthetic") && !SYNTHETIC.contains(instrName)) {
-                System.out.println(where + "Instruction '" + instrName + "' is basic but type='synthetic' given.");
+                // Instruction is basic but type='synthetic' given
                 ok = false;
             }
         }
@@ -1873,11 +1873,11 @@ public class SProgramImpl implements SProgram {
 
         List<Element> vars = childElements(instEl, "S-Variable");
         if (vars.isEmpty()) {
-            System.out.println(where + "Missing mandatory <S-Variable> element.");
+            // Missing mandatory <S-Variable> element
             return false;
         }
         if (vars.size() > 1) {
-            System.out.println(where + "Multiple <S-Variable> elements found; expected exactly one.");
+            // Multiple <S-Variable> elements found
             ok = false;
         }
 
@@ -1889,12 +1889,11 @@ public class SProgramImpl implements SProgram {
             return ok; // ריק מותר (לפי ההערות שלך)
         }
         if (val.chars().anyMatch(Character::isWhitespace)) {
-            System.out.println(where + "<S-Variable> must not contain spaces. Got: '" + val + "'");
+            // <S-Variable> must not contain spaces
             ok = false;
         }
         if (!(val.equals("y") || val.matches("^[xz][0-9]+$"))) {
-            System.out.println(where
-                    + "<S-Variable> must be 'y' or match ^[xz][0-9]+$ (case-sensitive, no spaces). Got: '" + val + "'");
+            // <S-Variable> must be 'y' or match ^[xz][0-9]+$
             ok = false;
         }
 
@@ -1910,7 +1909,7 @@ public class SProgramImpl implements SProgram {
             return true; // אופציונלי
         }
         if (labels.size() > 1) {
-            System.out.println(where + "Multiple <S-Label> elements found; expected at most one.");
+            // Multiple <S-Label> elements found
             ok = false;
         }
 
@@ -1919,16 +1918,15 @@ public class SProgramImpl implements SProgram {
         String val = (raw == null) ? "" : raw.trim();
 
         if (val.isEmpty()) {
-            System.out.println(where + "<S-Label> must not be empty when present.");
+            // <S-Label> must not be empty when present
             ok = false;
         } else {
             if (val.chars().anyMatch(Character::isWhitespace)) {
-                System.out.println(where + "<S-Label> must not contain spaces. Got: '" + val + "'");
+                // <S-Label> must not contain spaces
                 ok = false;
             }
             if (!val.matches("^L[0-9]+$")) {
-                System.out.println(
-                        where + "<S-Label> must match ^L[0-9]+$ (uppercase L followed by digits). Got: '" + val + "'");
+                // <S-Label> must match ^L[0-9]+$
                 ok = false;
             }
         }
@@ -1946,7 +1944,7 @@ public class SProgramImpl implements SProgram {
         // Find direct containers
         List<Element> containers = childElements(instEl, "S-Instruction-Arguments");
         if (containers.size() > 1) {
-            System.out.println(where + "Multiple <S-Instruction-Arguments> blocks found; expected at most one.");
+            // Multiple <S-Instruction-Arguments> blocks found
             ok = false;
         }
         Element container = containers.isEmpty() ? null : containers.get(0);
@@ -1963,12 +1961,12 @@ public class SProgramImpl implements SProgram {
                 instrName.equals("JUMP_EQUAL_FUNCTION") ||
                 instrName.equals("QUOTE");
         if (!usesArgs && container != null) {
-            System.out.println(where + "Unexpected <S-Instruction-Arguments> for instruction '" + instrName + "'.");
+            // Unexpected <S-Instruction-Arguments>
             ok = false;
             // keep validating to surface more issues
         }
         if (usesArgs && container == null) {
-            System.out.println(where + "Missing <S-Instruction-Arguments> for instruction '" + instrName + "'.");
+            // Missing <S-Instruction-Arguments>
             return false;
         }
         if (container == null)
@@ -1977,7 +1975,7 @@ public class SProgramImpl implements SProgram {
         // Collect arguments
         List<Element> args = childElements(container, "S-Instruction-Argument");
         if (args.isEmpty()) {
-            System.out.println(where + "<S-Instruction-Arguments> must contain at least one <S-Instruction-Argument>.");
+            // <S-Instruction-Arguments> must contain at least one <S-Instruction-Argument>
             ok = false;
         }
         return ok;
@@ -2037,8 +2035,7 @@ public class SProgramImpl implements SProgram {
                 }
                 if (v.isEmpty()) {
                     // Already covered by other checks usually; still helpful to surface
-                    System.out.println(where + "Label argument '" + n + "' for instruction '" + instrName
-                            + "' must not be empty.");
+                    // Label argument invalid
                     ok = false;
                     continue;
                 }
@@ -2051,7 +2048,7 @@ public class SProgramImpl implements SProgram {
                 // Ensure it is syntactically an L# label (you already enforce this on
                 // <S-Label>).
                 if (!v.matches("^L[0-9]+$")) {
-                    System.out.println(where + "Label argument '" + n + "' must match ^L[0-9]+$ (got '" + v + "').");
+                    // Label argument must match ^L[0-9]+$
                     ok = false;
                     continue;
                 }
@@ -2059,8 +2056,7 @@ public class SProgramImpl implements SProgram {
                 // Cross-reference: does this referenced label appear anywhere as a declared
                 // line label?
                 if (!declared.contains(v)) {
-                    System.out.println(where + "References label '" + v + "' via argument '" + n +
-                            "' but no such <S-Label> exists in the program.");
+                    // References label via argument but label not found
                     ok = false;
                 }
             }

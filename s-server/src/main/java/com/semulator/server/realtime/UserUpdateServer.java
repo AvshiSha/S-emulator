@@ -38,7 +38,7 @@ public class UserUpdateServer {
         executorService.submit(() -> {
             try {
                 serverSocket = new ServerSocket(PORT);
-                System.out.println("User update server started on port " + PORT);
+                // User update server started
 
                 while (running) {
                     try {
@@ -46,18 +46,18 @@ public class UserUpdateServer {
                         ClientConnection client = new ClientConnection(clientSocket);
                         clients.add(client);
                         executorService.submit(client);
-                        System.out.println("Client connected: " + clientSocket.getRemoteSocketAddress());
+                        // Client connected
 
                         // Broadcast current user list to all clients when a new client connects
                         broadcastUserUpdate();
                     } catch (IOException e) {
                         if (running) {
-                            System.err.println("Error accepting client: " + e.getMessage());
+                            // Error accepting client
                         }
                     }
                 }
             } catch (IOException e) {
-                System.err.println("Error starting user update server: " + e.getMessage());
+                // Error starting user update server
             }
         });
     }
@@ -77,7 +77,7 @@ public class UserUpdateServer {
             clients.clear();
             executorService.shutdown();
         } catch (IOException e) {
-            System.err.println("Error stopping user update server: " + e.getMessage());
+            // Error stopping user update server
         }
     }
 
@@ -85,16 +85,12 @@ public class UserUpdateServer {
      * Broadcast user update to all connected clients
      */
     public static void broadcastUserUpdate() {
-        System.out.println("broadcastUserUpdate called. Connected clients: " + clients.size());
-
         if (clients.isEmpty()) {
-            System.out.println("No clients connected, skipping broadcast");
             return;
         }
 
         try {
             var users = serverState.getAllUsers();
-            System.out.println("Broadcasting update for " + users.size() + " users");
 
             JsonObject update = new JsonObject();
             update.addProperty("type", "USER_UPDATE");
@@ -109,10 +105,8 @@ public class UserUpdateServer {
                 client.send(message);
             }
 
-            System.out.println("✓ Broadcasted user update to " + clients.size() + " clients");
         } catch (Exception e) {
-            System.err.println("✗ Error broadcasting user update: " + e.getMessage());
-            e.printStackTrace();
+            // Error broadcasting user update
         }
     }
 
@@ -120,18 +114,13 @@ public class UserUpdateServer {
      * Broadcast program/function update to all connected clients
      */
     public static void broadcastProgramUpdate() {
-        System.out.println("broadcastProgramUpdate called. Connected clients: " + clients.size());
-
         if (clients.isEmpty()) {
-            System.out.println("No clients connected, skipping broadcast");
             return;
         }
 
         try {
             var programs = serverState.getPrograms();
             var functions = serverState.getFunctions();
-            System.out.println(
-                    "Broadcasting update for " + programs.size() + " programs and " + functions.size() + " functions");
 
             JsonObject update = new JsonObject();
             update.addProperty("type", "PROGRAM_UPDATE");
@@ -147,10 +136,8 @@ public class UserUpdateServer {
                 client.send(message);
             }
 
-            System.out.println("✓ Broadcasted program update to " + clients.size() + " clients");
         } catch (Exception e) {
-            System.err.println("✗ Error broadcasting program update: " + e.getMessage());
-            e.printStackTrace();
+            // Error broadcasting program update
         }
     }
 
@@ -158,18 +145,12 @@ public class UserUpdateServer {
      * Broadcast history update for a specific user to all connected clients
      */
     public static void broadcastHistoryUpdate(String username) {
-        System.out.println(
-                "broadcastHistoryUpdate called for user: " + username + ". Connected clients: " + clients.size());
-
         if (clients.isEmpty()) {
-            System.out.println("No clients connected, skipping broadcast");
             return;
         }
 
         try {
             var history = serverState.getUserHistory(username);
-            System.out.println(
-                    "Broadcasting history update for user " + username + " with " + history.size() + " entries");
 
             JsonObject update = new JsonObject();
             update.addProperty("type", "HISTORY_UPDATE");
@@ -185,10 +166,8 @@ public class UserUpdateServer {
                 client.send(message);
             }
 
-            System.out.println("✓ Broadcasted history update to " + clients.size() + " clients");
         } catch (Exception e) {
-            System.err.println("✗ Error broadcasting history update: " + e.getMessage());
-            e.printStackTrace();
+            // Error broadcasting history update
         }
     }
 
@@ -218,10 +197,10 @@ public class UserUpdateServer {
                 String line;
                 while (connected && (line = in.readLine()) != null) {
                     // Handle client messages if needed
-                    System.out.println("Received from client: " + line);
+                    // Received from client
                 }
             } catch (IOException e) {
-                System.err.println("Client connection error: " + e.getMessage());
+                // Client connection error
             } finally {
                 close();
             }
@@ -237,9 +216,8 @@ public class UserUpdateServer {
                 update.addProperty("timestamp", System.currentTimeMillis());
 
                 send(gson.toJson(update) + "\n");
-                System.out.println("Sent initial user data to client");
             } catch (Exception e) {
-                System.err.println("Error sending initial data: " + e.getMessage());
+                // Error sending initial data
             }
         }
 
@@ -261,7 +239,7 @@ public class UserUpdateServer {
                 if (socket != null && !socket.isClosed())
                     socket.close();
             } catch (IOException e) {
-                System.err.println("Error closing client connection: " + e.getMessage());
+                // Error closing client connection
             }
         }
     }

@@ -51,14 +51,9 @@ public class UploadServlet extends HttpServlet {
             String xmlContent = uploadRequest.content;
 
             // Debug: Log the first 200 characters of the XML content
-            System.out.println(xmlContent.substring(0, Math.min(200, xmlContent.length())));
 
             // Debug: Check for BOM or invisible characters at the beginning
             byte[] bytes = xmlContent.getBytes("UTF-8");
-            for (int i = 0; i < Math.min(10, bytes.length); i++) {
-                System.out.print(bytes[i] + " ");
-            }
-            System.out.println();
 
             // Debug: Check if XML starts with BOM
             if (xmlContent.startsWith("\uFEFF")) {

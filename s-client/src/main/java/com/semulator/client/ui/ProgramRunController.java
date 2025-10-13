@@ -96,8 +96,6 @@ public class ProgramRunController implements Initializable {
             startStatusUpdateTimer();
 
         } catch (Exception e) {
-            System.err.println("Error during ProgramRunController initialization: " + e.getMessage());
-            e.printStackTrace();
             // Don't throw RuntimeException to prevent FXML loading failure
             // Just log the error and continue with partial initialization
         }
@@ -143,8 +141,7 @@ public class ProgramRunController implements Initializable {
                 }
             });
         } catch (Exception e) {
-            System.err.println("Error initializing ExecutionHeader: " + e.getMessage());
-            e.printStackTrace();
+            // Error initializing ExecutionHeader
         }
     }
 
@@ -168,8 +165,7 @@ public class ProgramRunController implements Initializable {
                         }
                     });
         } catch (Exception e) {
-            System.err.println("Error initializing InstructionsTable: " + e.getMessage());
-            e.printStackTrace();
+            // Error initializing InstructionsTable
         }
     }
 
@@ -213,8 +209,7 @@ public class ProgramRunController implements Initializable {
                 });
             }
         } catch (Exception e) {
-            System.err.println("Error initializing DebuggerExecution: " + e.getMessage());
-            e.printStackTrace();
+            // Error initializing DebuggerExecution
         }
     }
 
@@ -336,7 +331,6 @@ public class ProgramRunController implements Initializable {
                 return new com.semulator.engine.model.NoOpInstruction(variable, label);
             }
         } catch (Exception e) {
-            System.err.println("Error creating mock instruction: " + e.getMessage());
             return null;
         }
     }
@@ -353,7 +347,7 @@ public class ProgramRunController implements Initializable {
             chain.add(new com.semulator.engine.model.DecreaseInstruction(var2,
                     new com.semulator.engine.model.LabelImpl("L2")));
         } catch (Exception e) {
-            System.err.println("Error adding basic instructions: " + e.getMessage());
+            // Error adding basic instructions
         }
     }
 
@@ -369,7 +363,7 @@ public class ProgramRunController implements Initializable {
             chain.add(new com.semulator.engine.model.AssignConstantInstruction(workVar, 5,
                     new com.semulator.engine.model.LabelImpl("L4")));
         } catch (Exception e) {
-            System.err.println("Error adding ancestor instructions: " + e.getMessage());
+            // Error adding ancestor instructions
         }
     }
 
@@ -385,7 +379,7 @@ public class ProgramRunController implements Initializable {
             chain.add(new com.semulator.engine.model.DecreaseInstruction(var2,
                     new com.semulator.engine.model.LabelImpl("L2")));
         } catch (Exception e) {
-            System.err.println("Error adding parent instructions: " + e.getMessage());
+            // Error adding parent instructions
         }
     }
 
@@ -401,7 +395,7 @@ public class ProgramRunController implements Initializable {
             chain.add(new com.semulator.engine.model.AssignConstantInstruction(workVar, 5,
                     new com.semulator.engine.model.LabelImpl("L4")));
         } catch (Exception e) {
-            System.err.println("Error adding grandparent instructions: " + e.getMessage());
+            // Error adding grandparent instructions
         }
     }
 
@@ -417,7 +411,7 @@ public class ProgramRunController implements Initializable {
             chain.add(new com.semulator.engine.model.ZeroVariableInstruction(inputVar2,
                     new com.semulator.engine.model.LabelImpl("L6")));
         } catch (Exception e) {
-            System.err.println("Error adding great-grandparent instructions: " + e.getMessage());
+            // Error adding great-grandparent instructions
         }
     }
 
@@ -450,7 +444,7 @@ public class ProgramRunController implements Initializable {
             }
 
         } catch (Exception e) {
-            System.err.println("Error building creation chain from server: " + e.getMessage());
+            // Error building creation chain from server
         }
     }
 
@@ -473,7 +467,6 @@ public class ProgramRunController implements Initializable {
             return createParentInstruction(currentName, currentVar, currentLabel, degree);
 
         } catch (Exception e) {
-            System.err.println("Error finding parent instruction: " + e.getMessage());
             return null;
         }
     }
@@ -509,7 +502,6 @@ public class ProgramRunController implements Initializable {
                             new com.semulator.engine.model.LabelImpl("L" + degree));
             }
         } catch (Exception e) {
-            System.err.println("Error creating parent instruction: " + e.getMessage());
             return null;
         }
     }
@@ -594,8 +586,6 @@ public class ProgramRunController implements Initializable {
                             // Apply any pending inputs (degree was already applied above)
                             // This will create the input fields with the correct values
                             applyPendingInputs();
-                        } else {
-                            System.err.println("DEBUG: Component or program data is null");
                         }
 
                         updateSummaryLine();
@@ -604,12 +594,6 @@ public class ProgramRunController implements Initializable {
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println("DEBUG: Server request failed for program: '" + targetName + "'");
-                        System.err.println("DEBUG: Error details: " + throwable.getMessage());
-                        if (throwable.getCause() != null) {
-                            System.err.println("DEBUG: Root cause: " + throwable.getCause().getMessage());
-                        }
-
                         // Fallback to sample data if server request fails
                         loadSampleInstructions();
                         showErrorAlert("Load Warning", "Failed to load instructions from server, using sample data: "
@@ -651,8 +635,7 @@ public class ProgramRunController implements Initializable {
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println(
-                                "Failed to load instructions for degree " + degree + ": " + throwable.getMessage());
+                        // Failed to load instructions for degree
                     });
                     return null;
                 });
@@ -987,7 +970,6 @@ public class ProgramRunController implements Initializable {
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
                         // Keep current display on error
-                        System.err.println("Failed to update credits: " + throwable.getMessage());
                     });
                     return null;
                 });
@@ -1095,8 +1077,6 @@ public class ProgramRunController implements Initializable {
 
                 pendingInputs = null; // Clear after applying
             } catch (Exception e) {
-                System.err.println("Error applying pending inputs: " + e.getMessage());
-                e.printStackTrace();
                 pendingInputs = null; // Clear on error to prevent infinite retries
             }
         }

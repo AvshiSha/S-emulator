@@ -13,13 +13,13 @@ public class UserUpdateServerListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
-        System.out.println("Starting user update server...");
+        // Starting user update server
         UserUpdateServer.start();
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        System.out.println("Stopping user update server...");
+        // Stopping user update server
         UserUpdateServer.stop();
     }
 }

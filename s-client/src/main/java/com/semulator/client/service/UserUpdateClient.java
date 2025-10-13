@@ -35,13 +35,11 @@ public class UserUpdateClient {
      */
     public void connect() {
         try {
-            System.out.println("Attempting to connect to " + SERVER_HOST + ":" + SERVER_PORT + "...");
             socket = new Socket(SERVER_HOST, SERVER_PORT);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
             connected = true;
-            System.out.println("✓ Connected to user update server successfully!");
 
             // Start reader thread
             readerThread = new Thread(this::readMessages);
@@ -49,8 +47,7 @@ public class UserUpdateClient {
             readerThread.start();
 
         } catch (IOException e) {
-            System.err.println("✗ Failed to connect to user update server: " + e.getMessage());
-            e.printStackTrace();
+            // Failed to connect
         }
     }
 
@@ -69,7 +66,7 @@ public class UserUpdateClient {
             if (readerThread != null)
                 readerThread.interrupt();
         } catch (IOException e) {
-            System.err.println("Error disconnecting: " + e.getMessage());
+            // Error disconnecting
         }
     }
 
@@ -84,9 +81,7 @@ public class UserUpdateClient {
                 onMessage(message);
             }
         } catch (IOException e) {
-            if (connected) {
-                System.err.println("Connection lost: " + e.getMessage());
-            }
+            // Connection lost
         }
     }
 
@@ -95,10 +90,8 @@ public class UserUpdateClient {
      */
     private void onMessage(String message) {
         try {
-            System.out.println("Received message: " + message.substring(0, Math.min(100, message.length())) + "...");
             JsonObject jsonMessage = gson.fromJson(message, JsonObject.class);
             String type = jsonMessage.get("type").getAsString();
-            System.out.println("Message type: " + type);
 
             Platform.runLater(() -> {
                 switch (type) {
@@ -113,12 +106,11 @@ public class UserUpdateClient {
                         handleHistoryUpdate(jsonMessage);
                         break;
                     default:
-                        System.out.println("Unknown message type: " + type);
+                        // Unknown message type
                 }
             });
         } catch (Exception e) {
-            System.err.println("✗ Error processing message: " + e.getMessage());
-            e.printStackTrace();
+            // Error processing message
         }
     }
 
@@ -132,10 +124,8 @@ public class UserUpdateClient {
                 JsonArray usersArray = message.getAsJsonArray("users");
                 dashboardController.updateUsersFromSocket(usersArray);
             }
-
-            System.out.println("User update received and processed");
         } catch (Exception e) {
-            System.err.println("Error handling user update: " + e.getMessage());
+            // Error handling user update
         }
     }
 
@@ -155,10 +145,8 @@ public class UserUpdateClient {
                 JsonArray functionsArray = message.getAsJsonArray("functions");
                 dashboardController.updateFunctionsFromSocket(functionsArray);
             }
-
-            System.out.println("Program/function update received and processed");
         } catch (Exception e) {
-            System.err.println("Error handling program update: " + e.getMessage());
+            // Error handling program update
         }
     }
 
@@ -173,10 +161,8 @@ public class UserUpdateClient {
                 JsonArray historyArray = message.getAsJsonArray("history");
                 dashboardController.updateHistoryFromSocket(username, historyArray);
             }
-
-            System.out.println("History update received and processed");
         } catch (Exception e) {
-            System.err.println("Error handling history update: " + e.getMessage());
+            // Error handling history update
         }
     }
 

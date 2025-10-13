@@ -144,8 +144,6 @@ public class HeaderController implements Initializable {
 
     private void uploadFile(File file) {
         try {
-            System.out.println("Starting file upload: " + file.getAbsolutePath());
-
             // Show progress
             progressBar.setVisible(true);
             progressLabel.setVisible(true);
@@ -153,12 +151,8 @@ public class HeaderController implements Initializable {
             progressBar.setProgress(0.5);
 
             // Read file content
-            System.out.println("Reading file content...");
             String xmlContent = Files.readString(file.toPath());
             String username = AppContext.getInstance().getCurrentUser();
-
-            System.out.println("File content length: " + xmlContent.length());
-            System.out.println("Uploading to server for user: " + username);
 
             // Upload to server
             apiClient.post("/upload", xmlContent, ApiModels.LoadResult.class)
@@ -263,17 +257,14 @@ public class HeaderController implements Initializable {
 
     private void notifyInstructionTableUpdate(String selectedProgramFunction) {
         // TODO: Implement communication with InstructionTable component
-        System.out.println("Selected program/function: " + selectedProgramFunction);
     }
 
     private void notifyDegreeUpdate(int degree) {
         // TODO: Implement communication with InstructionTable component
-        System.out.println("Selected degree: " + degree);
     }
 
     private void notifyLabelVariableHighlight(String labelVariable) {
         // TODO: Implement communication with InstructionTable component
-        System.out.println("Selected label/variable: " + labelVariable);
     }
 
     private void showError(String message) {

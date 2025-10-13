@@ -157,9 +157,6 @@ public class RunServlet extends HttpServlet {
                 return;
             }
 
-            System.out.println("[CREDIT] Deducted architecture cost: " + archCost + " credits for " + request.username +
-                    " (Estimated execution: " + (int) Math.ceil(avgCost) + " credits)");
-
             // Generate run ID
             String runId = "run_" + request.username + "_" + System.currentTimeMillis();
 
@@ -311,26 +308,19 @@ public class RunServlet extends HttpServlet {
             for (SInstruction instruction : instructions) {
                 String arch = getArchitectureForInstruction(instruction.getName());
 
-                System.out.println("Instruction: " + instruction.getName() + " - Architecture: " + arch);
-
                 if ("I".equals(arch)) {
                     counts.put("I", counts.get("I") + 1);
-                    System.out.println("I: " + instruction.getName());
                 } else if ("II".equals(arch)) {
                     counts.put("II", counts.get("II") + 1);
-                    System.out.println("II: " + instruction.getName());
                 } else if ("III".equals(arch)) {
                     counts.put("III", counts.get("III") + 1);
-                    System.out.println("III: " + instruction.getName());
                 } else if ("IV".equals(arch)) {
                     counts.put("IV", counts.get("IV") + 1);
-                    System.out.println("IV: " + instruction.getName());
                 }
             }
 
         } catch (Exception e) {
-            System.err.println("Error calculating instruction counts: " + e.getMessage());
-            e.printStackTrace();
+            // Error calculating instruction counts
         }
 
         return counts;
@@ -481,7 +471,6 @@ public class RunServlet extends HttpServlet {
                         session.state = "ERROR";
                         session.error = "Out of credits! Execution stopped at cycle " + session.cycles +
                                 ". Required: " + cycleCost + ", Available: " + (user != null ? user.credits : 0);
-                        System.out.println("[CREDIT] Run stopped - User out of credits: " + session.username);
                         break;
                     }
 
@@ -494,9 +483,6 @@ public class RunServlet extends HttpServlet {
 
                     // Track credits spent
                     session.creditsSpent += cycleCost;
-
-                    System.out.println("[CREDIT] Deducted " + cycleCost + " credits for instruction. User: " +
-                            session.username + ", Remaining: " + (user.credits - cycleCost));
 
                     // Accumulate cycles for this instruction (same as debug mode)
                     session.cycles += cycleCost;

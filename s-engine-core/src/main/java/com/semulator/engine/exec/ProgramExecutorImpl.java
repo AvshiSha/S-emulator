@@ -203,7 +203,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
                             long nestedResult = executeNestedFunctionCall(call, context, functions);
                             functionInputs.add(nestedResult);
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            // Error during execution
                             functionInputs.add(0L);
                         }
                     } else {
@@ -217,7 +217,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                // Error during execution
                 throw e;
             }
 
@@ -232,7 +232,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             return FixedLabel.EMPTY;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            // Error during execution
             // Fallback: assign 0 to the target variable
             context.updateVariable(quoteInstruction.getVariable(), 0L);
             return FixedLabel.EMPTY;
@@ -294,7 +294,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             }
 
         } catch (Exception e) {
-            System.err.println("Error executing jump equal function instruction: " + e.getMessage());
+            // Error executing jump equal function instruction
             // Fallback: don't jump
             return FixedLabel.EMPTY;
         }
@@ -344,7 +344,7 @@ public class ProgramExecutorImpl implements ProgramExecutor {
             return executeFunctionBody(functionInstructions, functionContext);
 
         } catch (Exception e) {
-            System.err.println("Error executing function for jump equal: " + e.getMessage());
+            // Error executing function for jump equal
             return 0L; // Fallback
         }
     }

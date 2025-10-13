@@ -431,8 +431,6 @@ public class DebuggerExecution {
     private void navigateBackToDashboard() {
         // This method should trigger navigation back to dashboard
         // Implementation depends on navigation framework being used
-        // For now, just log it
-        System.out.println("Navigating back to dashboard due to insufficient credits");
 
         // In a real implementation, this would be something like:
         // AppContext.getInstance().navigateToDashboard();
@@ -709,7 +707,7 @@ public class DebuggerExecution {
                 })
                 .exceptionally(throwable -> {
                     Platform.runLater(() -> {
-                        System.err.println("Failed to fetch credits: " + throwable.getMessage());
+                        // Failed to fetch credits
                     });
                     return null;
                 });

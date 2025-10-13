@@ -211,8 +211,7 @@ public class Header {
         })
         .exceptionally(throwable -> {
           Platform.runLater(() -> {
-            System.err.println("Failed to load programs: " + throwable.getMessage());
-            throwable.printStackTrace();
+            // Failed to load programs
           });
           return null;
         });
@@ -230,8 +229,7 @@ public class Header {
         })
         .exceptionally(throwable -> {
           Platform.runLater(() -> {
-            System.err.println("Failed to load functions: " + throwable.getMessage());
-            throwable.printStackTrace();
+            // Failed to load functions
           });
           return null;
         });
@@ -437,15 +435,13 @@ public class Header {
               }
 
             } catch (Exception e) {
-              System.err.println("Failed to create program with real instructions: " + e.getMessage());
-              e.printStackTrace();
+              // Failed to create program with real instructions
             }
           });
         })
         .exceptionally(throwable -> {
           Platform.runLater(() -> {
-            System.err.println("Failed to load program instructions: " + throwable.getMessage());
-            throwable.printStackTrace();
+            // Failed to load program instructions
           });
           return null;
         });
@@ -517,7 +513,6 @@ public class Header {
         }
       };
     } catch (Exception e) {
-      System.err.println("Error converting instruction map: " + e.getMessage());
       return null;
     }
   }
@@ -840,20 +835,12 @@ public class Header {
             try {
               // Add comprehensive error handling and validation
               if (expandedProgram == null) {
-                System.err.println("Error: Expanded program is null, skipping UI update");
                 return;
               }
 
               List<SInstruction> instructions = expandedProgram.getInstructions();
               if (instructions == null || instructions.isEmpty()) {
-                System.err.println("Error: Expanded program has no instructions, skipping UI update");
                 return;
-              }
-
-              // Additional validation for large datasets
-              if (instructions.size() > 2000) {
-                System.err.println("Warning: Very large instruction set (" + instructions.size() +
-                    " instructions) may cause UI performance issues");
               }
 
               // CRITICAL FIX: Completely disable the table before updating to prevent
@@ -861,7 +848,7 @@ public class Header {
               try {
                 instructionTable.setTableEnabled(false);
               } catch (Exception disableException) {
-                System.err.println("Error disabling table: " + disableException.getMessage());
+                // Error disabling table
               }
 
               // Update the instruction table with comprehensive error handling
@@ -871,23 +858,18 @@ public class Header {
               try {
                 instructionTable.setTableEnabled(true);
               } catch (Exception enableException) {
-                System.err.println("Error re-enabling table: " + enableException.getMessage());
+                // Error re-enabling table
               }
 
             } catch (Exception e) {
-              System.err.println("Critical error updating instruction table: " + e.getMessage());
-              e.printStackTrace();
-
               // Try to recover by clearing the table
               try {
                 instructionTable.clearTable();
               } catch (Exception clearException) {
-                System.err.println("Error clearing table during recovery: " + clearException.getMessage());
+                // Error clearing table during recovery
               }
             }
           });
-        } else {
-          System.err.println("Warning: Instruction table is null, cannot update UI");
         }
 
         // Handle program/function selector - preserve current selection during
@@ -939,8 +921,6 @@ public class Header {
         updateDegreeDisplay();
         updateLevelSelectorState();
       } catch (Exception e) {
-
-        e.printStackTrace();
         showErrorAlert("Expansion Error", "Failed to display expanded program: " + e.getMessage());
         // Revert to previous degree
         if (degree > currentDegree) {
@@ -953,7 +933,6 @@ public class Header {
       }
 
     } catch (Exception e) {
-      e.printStackTrace();
       showErrorAlert("Expansion Error", "Failed to expand to degree " + degree + ": " + e.getMessage());
       // Revert to previous degree
       if (degree > currentDegree) {

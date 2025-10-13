@@ -144,7 +144,7 @@ public class InstructionTable {
                 currentProgram = null;
                 // Don't re-enable the table for empty programs
             } catch (Exception e) {
-                System.err.println("Error clearing empty program: " + e.getMessage());
+                // Error clearing empty program
             }
             return;
         }
@@ -162,7 +162,7 @@ public class InstructionTable {
                 currentProgram = null;
                 // Don't re-enable the table for empty programs
             } catch (Exception e) {
-                System.err.println("Error clearing empty program: " + e.getMessage());
+                // Error clearing empty program
             }
             return;
         }
@@ -183,7 +183,7 @@ public class InstructionTable {
             try {
                 instructionTableView.getSelectionModel().clearSelection();
             } catch (Exception selectionException) {
-                System.err.println("Warning: Could not clear selection: " + selectionException.getMessage());
+                // Could not clear selection
             }
 
             // Clear data in a synchronized manner
@@ -194,7 +194,7 @@ public class InstructionTable {
             currentExecutingInstructionIndex = -1; // Clear current instruction highlighting
             currentProgram = program; // Store program reference
         } catch (Exception e) {
-            System.err.println("Error clearing instruction table data: " + e.getMessage());
+            // Error clearing instruction table data
             return;
         }
 
@@ -216,7 +216,6 @@ public class InstructionTable {
                 try {
                     SInstruction instruction = instructions.get(i);
                     if (instruction == null) {
-                        System.err.println("Warning: Null instruction at index " + i);
                         continue;
                     }
 
@@ -238,7 +237,6 @@ public class InstructionTable {
                             getArchitectureForInstruction(instruction)); // Architecture
                     instructionData.add(row);
                 } catch (Exception e) {
-                    System.err.println("Error processing instruction at index " + i + ": " + e.getMessage());
                     // Continue processing other instructions
                 }
             }
@@ -281,24 +279,22 @@ public class InstructionTable {
 
                                                 // Allow the event to proceed only if all checks pass
                                             } catch (Exception e) {
-                                                System.err.println("Error in mouse event filter: " + e.getMessage());
                                                 event.consume();
                                             }
                                         });
 
                             } catch (Exception e) {
-                                System.err.println("Error re-enabling table: " + e.getMessage());
+                                // Error re-enabling table
                             }
                         }
 
                         @Override
                         protected void failed() {
-                            System.err.println("Error in table enable task: " + getException().getMessage());
                             // Try to re-enable anyway
                             try {
                                 instructionTableView.setDisable(false);
                             } catch (Exception e) {
-                                System.err.println("Failed to re-enable table: " + e.getMessage());
+                                // Failed to re-enable table
                             }
                         }
                     };
@@ -312,23 +308,20 @@ public class InstructionTable {
 
                     enableService.start();
                 } catch (Exception e) {
-                    System.err.println("Error setting up table enable task: " + e.getMessage());
                     // Fallback: try to enable immediately
                     try {
                         instructionTableView.setDisable(false);
                     } catch (Exception enableException) {
-                        System.err.println("Failed to enable table in fallback: " + enableException.getMessage());
+                        // Failed to enable table in fallback
                     }
                 }
             });
         } catch (Exception e) {
-            System.err.println("Error processing instruction list: " + e.getMessage());
-            e.printStackTrace();
             // Make sure to re-enable the table even if there's an error
             try {
                 instructionTableView.setDisable(false);
             } catch (Exception enableException) {
-                System.err.println("Failed to enable table after error: " + enableException.getMessage());
+                // Failed to enable table after error
             }
         }
 
@@ -336,8 +329,7 @@ public class InstructionTable {
         try {
             instructionTableView.refresh();
         } catch (Exception e) {
-            System.err.println("Error refreshing instruction table: " + e.getMessage());
-            e.printStackTrace();
+            // Error refreshing instruction table
         }
     }
 
@@ -351,7 +343,6 @@ public class InstructionTable {
         instructionData.addAll(data);
         instructionTableView.setItems(instructionData);
         instructionTableView.refresh();
-        System.out.println("InstructionTable: Set " + data.size() + " instructions");
     }
 
     public void setTableEnabled(boolean enabled) {
@@ -372,8 +363,7 @@ public class InstructionTable {
             }
 
         } catch (Exception e) {
-            System.err.println("Error setting table enabled state: " + e.getMessage());
-            e.printStackTrace();
+            // Error setting table enabled state
         }
     }
 
@@ -381,7 +371,6 @@ public class InstructionTable {
         try {
             return !instructionTableView.isDisable();
         } catch (Exception e) {
-            System.err.println("Error checking table enabled state: " + e.getMessage());
             return false;
         }
     }
@@ -420,18 +409,15 @@ public class InstructionTable {
                                         callback.accept(null);
                                     }
                                 } catch (Exception e) {
-                                    System.err.println("Error in delayed selection listener: " + e.getMessage());
                                     // Don't rethrow - just log the error
                                 }
                             });
                         } catch (Exception e) {
-                            System.err.println("Error in selection listener: " + e.getMessage());
                             // Don't rethrow - just log the error
                         }
                     });
         } catch (Exception e) {
-            System.err.println("Error setting up selection listener: " + e.getMessage());
-            e.printStackTrace();
+            // Error setting up selection listener
         }
     }
 
@@ -740,15 +726,8 @@ public class InstructionTable {
     public void updateArchitectureSummaryFromServer(java.util.Map<String, Integer> instructionCountsByArch) {
         // This method is a placeholder for the architecture summary functionality
         // The actual implementation would update the summary labels in the UI
-        System.out.println("Architecture summary update called with: " + instructionCountsByArch);
 
         // TODO: Implement actual summary update logic here
-        // For now, just log the data that would be displayed
-        if (instructionCountsByArch != null) {
-            for (java.util.Map.Entry<String, Integer> entry : instructionCountsByArch.entrySet()) {
-                System.out.println("Architecture " + entry.getKey() + ": " + entry.getValue() + " commands");
-            }
-        }
     }
 
     /**

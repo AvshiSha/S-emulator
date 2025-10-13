@@ -34,7 +34,7 @@ public class Main extends Application {
             AppContext.getInstance().setMainStage(primaryStage);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            // Error during startup
         }
     }
 

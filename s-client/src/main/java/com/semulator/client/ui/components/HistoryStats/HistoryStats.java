@@ -98,7 +98,6 @@ public class HistoryStats implements Initializable {
                     rerunButton.setDisable(true);
                 }
             } catch (Exception e) {
-                System.err.println("Error in HistoryStats selection listener: " + e.getMessage());
                 // Don't rethrow - just log the error
             }
         });
@@ -195,8 +194,7 @@ public class HistoryStats implements Initializable {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error in rerunSelectedRun: " + e.getMessage());
-            e.printStackTrace();
+            // Error in rerunSelectedRun
         }
     }
 
@@ -272,8 +270,7 @@ public class HistoryStats implements Initializable {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error in onThemeSelected: " + e.getMessage());
-            e.printStackTrace();
+            // Error in onThemeSelected
         }
     }
 
@@ -297,8 +294,7 @@ public class HistoryStats implements Initializable {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error in onFontSizeSelected: " + e.getMessage());
-            e.printStackTrace();
+            // Error in onFontSizeSelected
         }
     }
 

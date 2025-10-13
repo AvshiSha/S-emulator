@@ -113,8 +113,6 @@ public class DebugServlet extends HttpServlet {
                 return;
             }
 
-            System.out.println("[CREDIT] Deducted architecture cost: " + archCost + " credits for " + username);
-
             // Create debug session
             String sessionId = "debug_" + UUID.randomUUID().toString();
             ServerState.DebugSession session = serverState.createDebugSession(
@@ -139,7 +137,6 @@ public class DebugServlet extends HttpServlet {
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Failed to start debug session: " + e.getMessage());
         }
@@ -203,10 +200,6 @@ public class DebugServlet extends HttpServlet {
             // Track credits spent
             session.creditsSpent += cycleCost;
 
-            System.out.println(
-                    "[CREDIT] Deducted " + cycleCost + " credits for step. User: " + session.username + ", Remaining: "
-                            + (user.credits - cycleCost));
-
             // Execute one instruction
             boolean finished = executeSingleStep(session);
 
@@ -226,7 +219,6 @@ public class DebugServlet extends HttpServlet {
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Step execution failed: " + e.getMessage());
         }
@@ -277,7 +269,6 @@ public class DebugServlet extends HttpServlet {
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Resume execution failed: " + e.getMessage());
         }
@@ -333,7 +324,6 @@ public class DebugServlet extends HttpServlet {
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Stop failed: " + e.getMessage());
         }
@@ -360,7 +350,6 @@ public class DebugServlet extends HttpServlet {
             ServletUtils.writeJson(resp, response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Get state failed: " + e.getMessage());
         }

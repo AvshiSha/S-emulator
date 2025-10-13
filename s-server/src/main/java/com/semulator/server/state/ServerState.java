@@ -81,7 +81,7 @@ public class ServerState {
         try {
             com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
         } catch (Exception e) {
-            System.err.println("Error broadcasting user update: " + e.getMessage());
+            // Error broadcasting user update
         }
 
         return user;
@@ -98,7 +98,7 @@ public class ServerState {
             try {
                 com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
             } catch (Exception e) {
-                System.err.println("Error broadcasting user update: " + e.getMessage());
+                // Error broadcasting user update
             }
 
             return true;
@@ -118,7 +118,7 @@ public class ServerState {
             try {
                 com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
             } catch (Exception e) {
-                System.err.println("Error broadcasting user update: " + e.getMessage());
+                // Error broadcasting user update
             }
 
             return true;
@@ -227,8 +227,6 @@ public class ServerState {
                 user.mainPrograms++;
                 user.subfunctions += functionCount;
                 user.lastActive = System.currentTimeMillis();
-                System.out.println("Updated user statistics for " + ownerUsername +
-                        ": mainPrograms=" + user.mainPrograms + ", subfunctions=" + user.subfunctions);
             }
 
             incrementVersion();
@@ -238,13 +236,12 @@ public class ServerState {
                 com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
                 com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
             } catch (Exception e) {
-                System.err.println("Error broadcasting updates: " + e.getMessage());
+                // Error broadcasting updates
             }
 
             return program;
 
         } catch (Exception e) {
-            e.printStackTrace();
             throw e;
         }
     }
@@ -332,8 +329,6 @@ public class ServerState {
         if (user != null) {
             user.totalRuns++;
             user.lastActive = System.currentTimeMillis();
-            System.out.println("Updated user statistics for " + username +
-                    ": totalRuns=" + user.totalRuns);
         }
 
         // Update program run statistics with actual credits spent (this will also
@@ -344,14 +339,14 @@ public class ServerState {
         try {
             com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
         } catch (Exception e) {
-            System.err.println("Error broadcasting user update: " + e.getMessage());
+            // Error broadcasting user update
         }
 
         // Broadcast history update to all connected clients
         try {
             com.semulator.server.realtime.UserUpdateServer.broadcastHistoryUpdate(username);
         } catch (Exception e) {
-            System.err.println("Error broadcasting history update: " + e.getMessage());
+            // Error broadcasting history update
         }
 
         incrementVersion();
@@ -366,18 +361,15 @@ public class ServerState {
         if (user != null) {
             user.totalRuns++;
             user.lastActive = System.currentTimeMillis();
-            System.out.println("Incremented run count for " + username + ": totalRuns=" + user.totalRuns);
 
             // Broadcast user update to all connected clients
             try {
                 com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
             } catch (Exception e) {
-                System.err.println("Error broadcasting user update: " + e.getMessage());
+                // Error broadcasting user update
             }
 
             incrementVersion();
-        } else {
-            System.out.println("User not found: " + username);
         }
     }
 
@@ -395,15 +387,11 @@ public class ServerState {
         double newAvgCost = ((currentAvgCost * currentRuns) + creditsSpent) / (currentRuns + 1);
         programAvgCosts.put(programName, newAvgCost);
 
-        System.out.println("Updated statistics for " + programName +
-                ": runs=" + (currentRuns + 1) +
-                ", avgCost=" + String.format("%.2f", newAvgCost) + " credits");
-
         // Broadcast program update to all connected clients
         try {
             com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
         } catch (Exception e) {
-            System.err.println("Error broadcasting program update: " + e.getMessage());
+            // Error broadcasting program update
         }
     }
 

@@ -91,9 +91,6 @@ public class ExecutionHeaderController implements Initializable {
 
         // Initialize degree selector
         updateDegreeSelector(initialDegree);
-
-        System.out.println("ExecutionHeader: Set program " + programName + " with maxDegree " + maxDegree +
-                " and initialDegree " + initialDegree);
     }
 
     private void updateDegreeSelector() {
@@ -122,34 +119,28 @@ public class ExecutionHeaderController implements Initializable {
 
     private void onLevelSelected() {
         String selected = levelSelector.getValue();
-        System.out.println("DEBUG ExecutionHeader: onLevelSelected called with: " + selected);
 
         if (selected == null || selected.isEmpty()) {
-            System.out.println("DEBUG ExecutionHeader: Selection is null or empty");
             return;
         }
 
         // Parse degree from "Degree X"
         try {
             int degree = Integer.parseInt(selected.replace("Degree ", ""));
-            System.out.println("DEBUG ExecutionHeader: Parsed degree: " + degree + ", current: " + currentDegree);
 
             if (degree != currentDegree) {
                 currentDegree = degree;
                 expandToCurrentDegree();
                 updateDegreeStatus();
-            } else {
-                System.out.println("DEBUG ExecutionHeader: Degree unchanged, skipping");
             }
         } catch (NumberFormatException e) {
-            System.err.println("Failed to parse degree: " + selected);
+            // Failed to parse degree
         }
     }
 
     private void expandToCurrentDegree() {
         // Simply notify the parent controller about the degree change
         // The parent will request expanded instructions from the server
-        System.out.println("ExecutionHeader: Degree changed to " + currentDegree);
         notifyDegreeChanged();
     }
 
@@ -269,7 +260,6 @@ public class ExecutionHeaderController implements Initializable {
         });
 
         labelVariableList.addAll(sortedList);
-        System.out.println("ExecutionHeader: Updated label/variable list with " + labelsAndVariables.size() + " items");
     }
 
     private Integer extractNumber(String variable) {
@@ -293,7 +283,6 @@ public class ExecutionHeaderController implements Initializable {
         // loaded)
         if (degree >= 0) {
             if (maxDegree > 0 && degree > maxDegree) {
-                System.out.println("WARNING: Requested degree " + degree + " exceeds maxDegree " + maxDegree);
                 degree = maxDegree; // Cap at maxDegree
             }
 
