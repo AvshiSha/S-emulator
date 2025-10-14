@@ -58,12 +58,13 @@
                 <configuration>
                     <warSourceDirectory>web</warSourceDirectory>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <!-- Archive configuration to include all dependencies -->
+                    <archive>
+                        <addMavenDescriptor>false</addMavenDescriptor>
+                    </archive>
+                    <!-- Exclude only provided scope dependencies -->
                     <packagingExcludes>
-                        WEB-INF/lib/jakarta.websocket*.jar,
-                        WEB-INF/lib/tyrus*.jar,
-                        WEB-INF/lib/grizzly*.jar,
-                        WEB-INF/lib/jakarta.activation*.jar,
-                        WEB-INF/lib/jakarta.xml.bind*.jar
+                        WEB-INF/lib/jakarta.servlet-api*.jar
                     </packagingExcludes>
                 </configuration>
             </plugin>

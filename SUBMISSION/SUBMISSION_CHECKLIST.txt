@@ -1,0 +1,189 @@
+================================================================================
+EXERCISE SUBMISSION CHECKLIST
+================================================================================
+
+Date: October 14, 2025
+Package Location: S-emulator/SUBMISSION/
+
+================================================================================
+REQUIREMENTS VERIFICATION
+================================================================================
+
+[✓] Requirement 1: Single WAR file for Tomcat deployment
+    File: s-emulator.war (432 KB)
+    Location: SUBMISSION/s-emulator.war
+    
+    Verified contents:
+    - WEB-INF/lib/s-engine-core-1.0-SNAPSHOT.jar (97 KB)
+    - WEB-INF/lib/gson-2.10.1.jar (277 KB)
+    - All servlet classes compiled
+    - web.xml configuration
+    - No external dependencies required
+    
+    Deployment path: tomcat/webapps/s-emulator.war
+    Access URL: http://localhost:8080/s-emulator
+
+[✓] Requirement 2: Client directory with all JARs and batch file
+    Directory: s-client/
+    Batch file: run.bat (at root of SUBMISSION)
+    Location: SUBMISSION/s-client/ and SUBMISSION/run.bat
+    
+    Contents:
+    - s-client/s-client.jar (222 KB) - Main application
+    - s-client/lib/ directory with 18 dependencies (12.5 MB total)
+      * s-engine-core-1.0-SNAPSHOT.jar
+      * gson-2.10.1.jar
+      * okhttp-4.12.0.jar and dependencies
+      * JavaFX 21 (all modules + Windows natives)
+      * Kotlin stdlib (for OkHttp)
+    - run.bat (975 bytes) - Launch script at root for easy access
+    
+    No external dependencies required - fully self-contained
+
+[✓] Requirement 3: Automatic server recognition
+    Server URL: Hard-coded in ApiClient.java
+    Value: http://localhost:8080/s-emulator/api
+    WAR name: s-emulator (matches expected name)
+    
+    No configuration needed - client automatically connects to:
+    - Server: localhost:8080
+    - Context path: /s-emulator
+    - API endpoint: /s-emulator/api
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+SUBMISSION/
+├── README.txt                          (3 KB) - Deployment instructions
+├── SUBMISSION_CHECKLIST.txt            (This file)
+├── s-emulator.war                      (432 KB) - Server WAR with all deps
+├── run.bat                             (975 bytes) - Client launch script
+└── s-client/                           - Client application directory
+    ├── s-client.jar                    (222 KB) - Main application
+    └── lib/                            - All dependencies (18 JARs)
+        ├── s-engine-core-1.0-SNAPSHOT.jar
+        ├── gson-2.10.1.jar
+        ├── javafx-* (9 JARs - ~9.4 MB)
+        ├── okhttp-4.12.0.jar
+        ├── okio-* (3 JARs)
+        └── kotlin-* (5 JARs - OkHttp dependencies)
+
+Total package size: ~13 MB (22 files + 1 directory)
+
+================================================================================
+DEPLOYMENT TESTING STEPS
+================================================================================
+
+Step 1: Deploy Server
+  1. Copy s-emulator.war to {TOMCAT_HOME}/webapps/
+  2. Start/restart Tomcat
+  3. Wait for auto-deployment
+  4. Verify: http://localhost:8080/s-emulator should show index page
+
+Step 2: Run Client
+  1. From SUBMISSION directory, double-click run.bat
+     (Or run from command line: run.bat)
+  2. Client should start and show login screen
+  3. Login with any username
+
+Step 3: Verify Connectivity
+  1. After login, dashboard should load
+  2. User list should appear (with your username)
+  3. Can upload programs
+  4. Can execute and debug programs
+  5. Chat functionality works
+
+================================================================================
+TECHNICAL SPECIFICATIONS
+================================================================================
+
+Server (s-emulator.war):
+- Java Version: 17
+- Servlet API: Jakarta Servlet 6.0 (Tomcat 10.1+)
+- Build Tool: Maven 3.x
+- Dependencies: All bundled in WEB-INF/lib
+- Architecture: REST API + WebSocket for real-time updates
+
+Client (s-client/):
+- Java Version: 17
+- UI Framework: JavaFX 21
+- HTTP Client: OkHttp 4.12.0
+- JSON: Gson 2.10.1
+- Platform: Windows (native libraries included)
+- Batch file: run.bat with classpath auto-configuration
+
+================================================================================
+WHAT WAS CONFIGURED
+================================================================================
+
+Server POM (s-server/pom.xml):
+- Maven WAR plugin configured to include all dependencies
+- Packaged s-engine-core as dependency (not provided)
+- Packaged gson as dependency
+- Only jakarta.servlet-api marked as provided (Tomcat has it)
+
+Client POM (s-client/pom.xml):
+- Maven JAR plugin with manifest classpath
+- Maven Dependency plugin to copy all JARs to lib/
+- Maven Assembly plugin to create distribution
+- Assembly descriptor created at src/assembly/distribution.xml
+
+Client Batch File (run.bat):
+- Auto-detects Java installation
+- Builds classpath from main JAR + all lib/*.jar
+- Uses delayed expansion for proper classpath handling
+- Launches with main class: com.semulator.client.Main
+
+Server Configuration:
+- Base URL in ApiClient.java: http://localhost:8080/s-emulator/api
+- Matches WAR finalName: s-emulator
+- No environment-specific configuration needed
+
+================================================================================
+BUILD COMMANDS USED
+================================================================================
+
+To rebuild from source:
+
+1. Navigate to project root:
+   cd C:\Users\user\IdeaProjects\S-emulator
+
+2. Clean and build everything:
+   mvn clean package
+
+3. Outputs created:
+   - s-server/target/s-emulator.war
+   - s-client/target/s-client.zip
+   - s-client/target/s-client/ (directory)
+
+4. Submission package assembled from:
+   - WAR: s-server/target/s-emulator.war
+   - Client: s-client/target/s-client/s-client/
+
+================================================================================
+NOTES
+================================================================================
+
+- The WAR file is completely self-contained with all dependencies
+- The client is completely self-contained with all dependencies
+- No external configuration files needed
+- Assumes standard Tomcat installation on localhost:8080
+- Assumes Java 17+ installed and in PATH for client
+- Client tested on Windows (batch file and JavaFX natives for Windows)
+- For non-Windows deployment, would need different JavaFX natives
+
+================================================================================
+SUBMISSION READY: ✓
+================================================================================
+
+All requirements met. Package is ready for submission.
+
+To submit:
+1. Copy entire SUBMISSION folder, OR
+2. Copy s-emulator.war and s-client folder separately
+
+Both the WAR and client directory can be tested independently.
+
+================================================================================
+

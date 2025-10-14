@@ -1,4 +1,5 @@
 com\semulator\server\model\ApiModels$UploadRequest.class
+com\semulator\server\model\ApiModels$UsersResponse.class
 com\semulator\server\util\ServletUtils.class
 com\semulator\server\api\RunServlet.class
 com\semulator\server\api\AuthServlet$LogoutResponse.class
@@ -35,6 +36,7 @@ com\semulator\server\model\ApiModels$ProgramWithInstructions.class
 com\semulator\server\model\ApiModels$UserInfo.class
 com\semulator\server\model\ApiModels$RunPrepareResponse.class
 com\semulator\server\realtime\UserUpdateServer.class
+com\semulator\server\model\ApiModels$ChatMessage.class
 com\semulator\server\state\ServerState.class
 com\semulator\server\model\ApiModels$InstructionDTO.class
 com\semulator\server\api\UsersServlet.class
@@ -53,6 +55,7 @@ com\semulator\server\filter\CorsFilter.class
 com\semulator\server\model\ApiModels$HistoryChainItem.class
 com\semulator\server\model\ApiModels$TopupResponse.class
 com\semulator\server\api\HistoryServlet.class
+com\semulator\server\model\ApiModels$ChatHistoryResponse.class
 com\semulator\server\model\ApiModels$DebugStepRequest.class
 com\semulator\server\api\DebugServlet.class
 com\semulator\server\model\ApiModels$DebugResumeRequest.class
