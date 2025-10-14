@@ -77,6 +77,8 @@ Server (WAR):
 - Jakarta Servlet API 6.0
 - Includes complete engine implementation
 - All dependencies packaged in WEB-INF/lib
+- REST API with delta fetching support
+- HTTP polling for real-time updates (no separate ports needed)
 
 Client (s-client/):
 - Java 17
@@ -84,6 +86,8 @@ Client (s-client/):
 - HTTP client using OkHttp 4.12.0
 - JSON processing using Gson 2.10.1
 - All platform-specific native libraries included (Windows)
+- Polling-based real-time updates every 2 seconds
+- All communication through port 8080 (HTTP)
 
 ================================================================================
 TESTING

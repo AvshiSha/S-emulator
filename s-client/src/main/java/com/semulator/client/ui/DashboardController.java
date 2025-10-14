@@ -3,7 +3,7 @@ package com.semulator.client.ui;
 import com.semulator.client.AppContext;
 import com.semulator.client.model.ApiModels;
 import com.semulator.client.service.ApiClient;
-import com.semulator.client.service.UserUpdateClient;
+import com.semulator.client.service.PollingService;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -135,7 +135,7 @@ public class DashboardController implements Initializable {
 
     // State Management
     private ApiClient apiClient;
-    private UserUpdateClient userUpdateClient;
+    private PollingService pollingService;
     private String currentUser;
     private String selectedUser = null; // For history view
     private String selectedProgram = null;
@@ -148,8 +148,9 @@ public class DashboardController implements Initializable {
         this.apiClient = AppContext.getInstance().getApiClient();
         this.currentUser = AppContext.getInstance().getCurrentUser();
 
-        // Initialize user update socket client
-        this.userUpdateClient = new UserUpdateClient(this);
+        // Initialize polling service for real-time updates
+        this.pollingService = new PollingService(apiClient);
+        setupPollingCallbacks();
 
         // Initialize UI components
         initializeHeaderBar();
@@ -173,8 +174,8 @@ public class DashboardController implements Initializable {
         // Start auto-refresh
         startAutoRefresh();
 
-        // Connect to user update socket
-        userUpdateClient.connect();
+        // Start polling for real-time updates
+        pollingService.start(currentUser);
     }
 
     private void initializeHeaderBar() {
@@ -561,25 +562,32 @@ public class DashboardController implements Initializable {
             return;
         }
 
-        apiClient.get("/auth/users", ApiModels.UsersResponse.class, null)
+        apiClient.get("/users", ApiModels.DeltaResponse.class)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
-                        usersData.clear();
+                        if (response != null && response.items() != null) {
+                            usersData.clear();
 
-                        // Convert server UserInfo to local UserInfo model
-                        for (ApiModels.UserInfo serverUser : response.users()) {
-                            UserInfo localUser = new UserInfo(
-                                    serverUser.username(),
-                                    serverUser.mainPrograms(),
-                                    serverUser.subfunctions(),
-                                    serverUser.credits(),
-                                    serverUser.creditsUsed(),
-                                    serverUser.totalRuns());
-                            usersData.add(localUser);
+                            // Convert items to UserInfo using Gson
+                            com.google.gson.Gson gson = new com.google.gson.Gson();
+                            for (Object userObj : response.items()) {
+                                // Deserialize each item as UserInfo
+                                String json = gson.toJson(userObj);
+                                ApiModels.UserInfo serverUser = gson.fromJson(json, ApiModels.UserInfo.class);
+
+                                UserInfo localUser = new UserInfo(
+                                        serverUser.username(),
+                                        serverUser.mainPrograms(),
+                                        serverUser.subfunctions(),
+                                        serverUser.credits(),
+                                        serverUser.creditsUsed(),
+                                        serverUser.totalRuns());
+                                usersData.add(localUser);
+                            }
+
+                            // Update current user's credits in header
+                            updateCurrentUserCredits();
                         }
-
-                        // Update current user's credits in header
-                        updateCurrentUserCredits();
                     });
                 })
                 .exceptionally(throwable -> {
@@ -1129,10 +1137,15 @@ public class DashboardController implements Initializable {
 
     /**
      * Handle real-time program updates from socket
+     * Uses smart update to preserve selections and minimize UI disruption
      */
     public void updateProgramsFromSocket(com.google.gson.JsonArray programsArray) {
-        programsData.clear();
+        // Remember current selection
+        ProgramInfo selectedItem = programsTable.getSelectionModel().getSelectedItem();
+        String selectedName = selectedItem != null ? selectedItem.getProgramName() : null;
 
+        // Build map of new data
+        Map<String, ProgramInfo> newDataMap = new HashMap<>();
         for (int i = 0; i < programsArray.size(); i++) {
             com.google.gson.JsonObject programObj = programsArray.get(i).getAsJsonObject();
 
@@ -1145,16 +1158,72 @@ public class DashboardController implements Initializable {
 
             ProgramInfo localProgram = new ProgramInfo(
                     name, uploadedBy, instructionCount, maxDegree, runs, avgCost);
-            programsData.add(localProgram);
+            newDataMap.put(name, localProgram);
+        }
+
+        // Build map of existing data
+        Map<String, ProgramInfo> existingDataMap = new HashMap<>();
+        for (ProgramInfo program : programsData) {
+            existingDataMap.put(program.getProgramName(), program);
+        }
+
+        // Smart update: only modify what changed
+        // 1. Remove items that no longer exist
+        programsData.removeIf(program -> !newDataMap.containsKey(program.getProgramName()));
+
+        // 2. Update or add items
+        for (Map.Entry<String, ProgramInfo> entry : newDataMap.entrySet()) {
+            String name = entry.getKey();
+            ProgramInfo newProgram = entry.getValue();
+            ProgramInfo existingProgram = existingDataMap.get(name);
+
+            if (existingProgram != null) {
+                // Item exists - check if it needs updating
+                if (!programsEqual(existingProgram, newProgram)) {
+                    // Replace with updated version
+                    int index = programsData.indexOf(existingProgram);
+                    programsData.set(index, newProgram);
+                }
+            } else {
+                // New item - add it
+                programsData.add(newProgram);
+            }
+        }
+
+        // Restore selection if the item still exists
+        if (selectedName != null) {
+            for (ProgramInfo program : programsData) {
+                if (program.getProgramName().equals(selectedName)) {
+                    programsTable.getSelectionModel().select(program);
+                    break;
+                }
+            }
         }
     }
 
     /**
+     * Helper method to check if two ProgramInfo objects are equal
+     */
+    private boolean programsEqual(ProgramInfo p1, ProgramInfo p2) {
+        return p1.getProgramName().equals(p2.getProgramName()) &&
+                p1.getUploadedBy().equals(p2.getUploadedBy()) &&
+                p1.getInstructionCount() == p2.getInstructionCount() &&
+                p1.getMaxLevel() == p2.getMaxLevel() &&
+                p1.getRuns() == p2.getRuns() &&
+                Math.abs(p1.getAvgCost() - p2.getAvgCost()) < 0.001;
+    }
+
+    /**
      * Handle real-time function updates from socket
+     * Uses smart update to preserve selections and minimize UI disruption
      */
     public void updateFunctionsFromSocket(com.google.gson.JsonArray functionsArray) {
-        functionsData.clear();
+        // Remember current selection
+        FunctionInfo selectedItem = functionsTable.getSelectionModel().getSelectedItem();
+        String selectedName = selectedItem != null ? selectedItem.getFunctionName() : null;
 
+        // Build map of new data
+        Map<String, FunctionInfo> newDataMap = new HashMap<>();
         for (int i = 0; i < functionsArray.size(); i++) {
             com.google.gson.JsonObject functionObj = functionsArray.get(i).getAsJsonObject();
 
@@ -1166,16 +1235,71 @@ public class DashboardController implements Initializable {
 
             FunctionInfo localFunction = new FunctionInfo(
                     name, parentProgram, uploadedBy, instructionCount, maxDegree);
-            functionsData.add(localFunction);
+            newDataMap.put(name, localFunction);
+        }
+
+        // Build map of existing data
+        Map<String, FunctionInfo> existingDataMap = new HashMap<>();
+        for (FunctionInfo function : functionsData) {
+            existingDataMap.put(function.getFunctionName(), function);
+        }
+
+        // Smart update: only modify what changed
+        // 1. Remove items that no longer exist
+        functionsData.removeIf(function -> !newDataMap.containsKey(function.getFunctionName()));
+
+        // 2. Update or add items
+        for (Map.Entry<String, FunctionInfo> entry : newDataMap.entrySet()) {
+            String name = entry.getKey();
+            FunctionInfo newFunction = entry.getValue();
+            FunctionInfo existingFunction = existingDataMap.get(name);
+
+            if (existingFunction != null) {
+                // Item exists - check if it needs updating
+                if (!functionsEqual(existingFunction, newFunction)) {
+                    // Replace with updated version
+                    int index = functionsData.indexOf(existingFunction);
+                    functionsData.set(index, newFunction);
+                }
+            } else {
+                // New item - add it
+                functionsData.add(newFunction);
+            }
+        }
+
+        // Restore selection if the item still exists
+        if (selectedName != null) {
+            for (FunctionInfo function : functionsData) {
+                if (function.getFunctionName().equals(selectedName)) {
+                    functionsTable.getSelectionModel().select(function);
+                    break;
+                }
+            }
         }
     }
 
     /**
+     * Helper method to check if two FunctionInfo objects are equal
+     */
+    private boolean functionsEqual(FunctionInfo f1, FunctionInfo f2) {
+        return f1.getFunctionName().equals(f2.getFunctionName()) &&
+                f1.getParentProgram().equals(f2.getParentProgram()) &&
+                f1.getUploadedBy().equals(f2.getUploadedBy()) &&
+                f1.getInstructionCount() == f2.getInstructionCount() &&
+                f1.getMaxLevel() == f2.getMaxLevel();
+    }
+
+    /**
      * Handle real-time user updates from WebSocket
+     * Uses smart update to preserve selections and minimize UI disruption
      */
     public void updateUsersFromWebSocket(com.google.gson.JsonArray usersArray) {
-        usersData.clear();
+        // Remember current selection
+        UserInfo selectedItem = usersTable.getSelectionModel().getSelectedItem();
+        String selectedUsername = selectedItem != null ? selectedItem.getUserName() : null;
 
+        // Build map of new data
+        Map<String, UserInfo> newDataMap = new HashMap<>();
         for (int i = 0; i < usersArray.size(); i++) {
             com.google.gson.JsonObject userObj = usersArray.get(i).getAsJsonObject();
 
@@ -1188,7 +1312,46 @@ public class DashboardController implements Initializable {
 
             UserInfo localUser = new UserInfo(
                     username, mainPrograms, subfunctions, credits, creditsUsed, totalRuns);
-            usersData.add(localUser);
+            newDataMap.put(username, localUser);
+        }
+
+        // Build map of existing data
+        Map<String, UserInfo> existingDataMap = new HashMap<>();
+        for (UserInfo user : usersData) {
+            existingDataMap.put(user.getUserName(), user);
+        }
+
+        // Smart update: only modify what changed
+        // 1. Remove items that no longer exist
+        usersData.removeIf(user -> !newDataMap.containsKey(user.getUserName()));
+
+        // 2. Update or add items
+        for (Map.Entry<String, UserInfo> entry : newDataMap.entrySet()) {
+            String username = entry.getKey();
+            UserInfo newUser = entry.getValue();
+            UserInfo existingUser = existingDataMap.get(username);
+
+            if (existingUser != null) {
+                // Item exists - check if it needs updating
+                if (!usersEqual(existingUser, newUser)) {
+                    // Replace with updated version
+                    int index = usersData.indexOf(existingUser);
+                    usersData.set(index, newUser);
+                }
+            } else {
+                // New item - add it
+                usersData.add(newUser);
+            }
+        }
+
+        // Restore selection if the item still exists
+        if (selectedUsername != null) {
+            for (UserInfo user : usersData) {
+                if (user.getUserName().equals(selectedUsername)) {
+                    usersTable.getSelectionModel().select(user);
+                    break;
+                }
+            }
         }
 
         // Update current user's credits in header
@@ -1197,28 +1360,84 @@ public class DashboardController implements Initializable {
 
     /**
      * Update users from socket message
+     * Uses smart update to preserve selections and minimize UI disruption
      */
     public void updateUsersFromSocket(com.google.gson.JsonArray usersArray) {
-        usersData.clear();
+        // Remember current selection
+        UserInfo selectedItem = usersTable.getSelectionModel().getSelectedItem();
+        String selectedUsername = selectedItem != null ? selectedItem.getUserName() : null;
 
+        // Build map of new data
+        Map<String, UserInfo> newDataMap = new HashMap<>();
         for (int i = 0; i < usersArray.size(); i++) {
             com.google.gson.JsonObject userObj = usersArray.get(i).getAsJsonObject();
 
             String username = userObj.get("username").getAsString();
             int credits = userObj.get("credits").getAsInt();
             int totalRuns = userObj.get("totalRuns").getAsInt();
-            long lastActive = userObj.get("lastActive").getAsLong();
+            // lastActive is available but not used in UserInfo model
             int mainPrograms = userObj.has("mainPrograms") ? userObj.get("mainPrograms").getAsInt() : 0;
             int subfunctions = userObj.has("subfunctions") ? userObj.get("subfunctions").getAsInt() : 0;
             int creditsUsed = userObj.has("creditsUsed") ? userObj.get("creditsUsed").getAsInt() : 0;
 
             UserInfo localUser = new UserInfo(
                     username, mainPrograms, subfunctions, credits, creditsUsed, totalRuns);
-            usersData.add(localUser);
+            newDataMap.put(username, localUser);
+        }
+
+        // Build map of existing data
+        Map<String, UserInfo> existingDataMap = new HashMap<>();
+        for (UserInfo user : usersData) {
+            existingDataMap.put(user.getUserName(), user);
+        }
+
+        // Smart update: only modify what changed
+        // 1. Remove items that no longer exist
+        usersData.removeIf(user -> !newDataMap.containsKey(user.getUserName()));
+
+        // 2. Update or add items
+        for (Map.Entry<String, UserInfo> entry : newDataMap.entrySet()) {
+            String username = entry.getKey();
+            UserInfo newUser = entry.getValue();
+            UserInfo existingUser = existingDataMap.get(username);
+
+            if (existingUser != null) {
+                // Item exists - check if it needs updating
+                if (!usersEqual(existingUser, newUser)) {
+                    // Replace with updated version
+                    int index = usersData.indexOf(existingUser);
+                    usersData.set(index, newUser);
+                }
+            } else {
+                // New item - add it
+                usersData.add(newUser);
+            }
+        }
+
+        // Restore selection if the item still exists
+        if (selectedUsername != null) {
+            for (UserInfo user : usersData) {
+                if (user.getUserName().equals(selectedUsername)) {
+                    usersTable.getSelectionModel().select(user);
+                    break;
+                }
+            }
         }
 
         // Update current user's credits in header
         updateCurrentUserCredits();
+    }
+
+    /**
+     * Helper method to check if two UserInfo objects are equal
+     */
+    private boolean usersEqual(UserInfo u1, UserInfo u2) {
+        return u1.getUserName().equals(u2.getUserName()) &&
+                u1.getMainPrograms() == u2.getMainPrograms() &&
+                u1.getSubfunctions() == u2.getSubfunctions() &&
+                u1.getCredits() == u2.getCredits() &&
+                u1.getCreditsUsed() == u2.getCreditsUsed() &&
+                u1.getRuns() == u2.getRuns();
     }
 
     /**
@@ -1271,14 +1490,39 @@ public class DashboardController implements Initializable {
         }
     }
 
+    /**
+     * Setup callbacks for polling service
+     */
+    private void setupPollingCallbacks() {
+        // Users update callback
+        pollingService.setOnUsersUpdate(usersArray -> {
+            updateUsersFromSocket(usersArray);
+        });
+
+        // Programs update callback
+        pollingService.setOnProgramsUpdate(programsArray -> {
+            updateProgramsFromSocket(programsArray);
+        });
+
+        // Functions update callback
+        pollingService.setOnFunctionsUpdate(functionsArray -> {
+            updateFunctionsFromSocket(functionsArray);
+        });
+
+        // History update callback - history is refreshed by the auto-refresh timer
+        // No need for explicit callback here
+
+        // Chat messages are handled in ChatController
+    }
+
     public void cleanup() {
         if (refreshTimer != null) {
             refreshTimer.cancel();
             refreshTimer = null;
         }
 
-        if (userUpdateClient != null) {
-            userUpdateClient.disconnect();
+        if (pollingService != null) {
+            pollingService.stop();
         }
     }
 }

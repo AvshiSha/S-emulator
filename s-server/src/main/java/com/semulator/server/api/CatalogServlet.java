@@ -32,13 +32,6 @@ public class CatalogServlet extends HttpServlet {
             long sinceVersion = sinceVersionParam != null ? Long.parseLong(sinceVersionParam) : 0;
             long currentVersion = serverState.getCurrentVersion();
 
-            if (sinceVersion > 0 && sinceVersion >= currentVersion) {
-                // No changes since requested version
-                ApiModels.DeltaResponse<?> response = new ApiModels.DeltaResponse<>(currentVersion, false, List.of());
-                ServletUtils.writeJson(resp, response);
-                return;
-            }
-
             if ("/api/programs".equals(servletPath)) {
                 handleGetPrograms(req, resp, sinceVersion, currentVersion);
             } else if ("/api/functions".equals(servletPath)) {

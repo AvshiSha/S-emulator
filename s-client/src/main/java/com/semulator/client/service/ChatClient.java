@@ -18,7 +18,7 @@ import java.net.Socket;
 public class ChatClient {
 
     private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 8080; // Same port as UserUpdateServer
+    private static final int SERVER_PORT = 8081; // Same port as UserUpdateServer (real-time updates)
     private static final Gson gson = new Gson();
 
     private ChatController chatController;

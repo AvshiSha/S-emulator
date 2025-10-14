@@ -179,15 +179,15 @@ public class ApiModels {
         public record ErrorDetail(String code, String message, Map<String, Object> details) {
         }
 
-        // Delta responses
+        // Delta responses (align with server-side ApiModels.DeltaData)
         public record DeltaResponse<T>(
                         long version,
                         boolean full,
                         List<T> items,
-                        DeltaChanges<T> delta) {
+                        DeltaData<T> delta) {
         }
 
-        public record DeltaChanges<T>(
+        public record DeltaData<T>(
                         List<T> added,
                         List<T> updated,
                         List<T> removed) {

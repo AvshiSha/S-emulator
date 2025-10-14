@@ -103,7 +103,8 @@ Server (s-emulator.war):
 - Servlet API: Jakarta Servlet 6.0 (Tomcat 10.1+)
 - Build Tool: Maven 3.x
 - Dependencies: All bundled in WEB-INF/lib
-- Architecture: REST API + WebSocket for real-time updates
+- Architecture: REST API with HTTP polling for real-time updates
+- All communication on port 8080 only
 
 Client (s-client/):
 - Java Version: 17
@@ -112,6 +113,8 @@ Client (s-client/):
 - JSON: Gson 2.10.1
 - Platform: Windows (native libraries included)
 - Batch file: run.bat with classpath auto-configuration
+- Real-time updates: HTTP polling every 2 seconds with delta fetching
+- All communication through localhost:8080
 
 ================================================================================
 WHAT WAS CONFIGURED

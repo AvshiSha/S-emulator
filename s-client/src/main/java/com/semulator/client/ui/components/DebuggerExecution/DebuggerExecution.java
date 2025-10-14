@@ -693,14 +693,21 @@ public class DebuggerExecution {
      */
     private void fetchCurrentCredits() {
         String currentUser = AppContext.getInstance().getCurrentUser();
-        apiClient.get("/users", com.semulator.client.model.ApiModels.UsersResponse.class, null)
+        apiClient.get("/users", com.semulator.client.model.ApiModels.DeltaResponse.class)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
-                        // Find current user's credits
-                        for (com.semulator.client.model.ApiModels.UserInfo user : response.users()) {
-                            if (user.username().equals(currentUser)) {
-                                currentUserCredits = user.credits();
-                                break;
+                        if (response != null && response.items() != null) {
+                            // Convert items to UserInfo using Gson
+                            com.google.gson.Gson gson = new com.google.gson.Gson();
+                            for (Object userObj : response.items()) {
+                                // Deserialize each item as UserInfo
+                                String json = gson.toJson(userObj);
+                                com.semulator.client.model.ApiModels.UserInfo user = gson.fromJson(json,
+                                        com.semulator.client.model.ApiModels.UserInfo.class);
+                                if (user.username().equals(currentUser)) {
+                                    currentUserCredits = user.credits();
+                                    break;
+                                }
                             }
                         }
                     });

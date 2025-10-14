@@ -46,10 +46,39 @@ public class UsersServlet extends HttpServlet {
 
     private void handleGetUsers(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
+            // Check for delta/polling support
+            String sinceVersionParam = req.getParameter("sinceVersion");
+            long sinceVersion = sinceVersionParam != null ? Long.parseLong(sinceVersionParam) : 0;
+            long currentVersion = serverState.getCurrentVersion();
+
+            if (sinceVersion > 0 && sinceVersion >= currentVersion) {
+                // No changes since requested version
+                ApiModels.DeltaResponse<ApiModels.UserInfo> response = new ApiModels.DeltaResponse<>(currentVersion,
+                        false, List.of());
+                ServletUtils.writeJson(resp, response);
+                return;
+            }
+
             List<ApiModels.UserInfo> users = serverState.getAllUsers();
-            long version = serverState.getCurrentVersion();
-            ApiModels.UsersResponse response = new ApiModels.UsersResponse(users, version, true);
-            ServletUtils.writeJson(resp, response);
+
+            if (sinceVersion > 0) {
+                // Delta response - return all users as "added" for simplicity
+                ApiModels.DeltaResponse<ApiModels.UserInfo> response = new ApiModels.DeltaResponse<>(
+                        currentVersion,
+                        false,
+                        new ApiModels.DeltaData<>(users, List.of(), List.of()));
+                ServletUtils.writeJson(resp, response);
+            } else {
+                // Full response (backward compatible with old UsersResponse format)
+                ApiModels.DeltaResponse<ApiModels.UserInfo> response = new ApiModels.DeltaResponse<>(
+                        currentVersion,
+                        true,
+                        users);
+                ServletUtils.writeJson(resp, response);
+            }
+        } catch (NumberFormatException e) {
+            ServletUtils.writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "VALIDATION_ERROR",
+                    "Invalid sinceVersion parameter");
         } catch (Exception e) {
             ServletUtils.writeError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "INTERNAL",
                     "Failed to get users: " + e.getMessage());

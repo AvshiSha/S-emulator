@@ -62,5 +62,6 @@ com\semulator\server\model\ApiModels$DebugResumeRequest.class
 com\semulator\server\api\UploadServlet.class
 com\semulator\server\api\AuthServlet$UsersResponse.class
 com\semulator\server\util\ServletUtils$ErrorResponse$Error.class
+com\semulator\server\api\ChatServlet.class
 com\semulator\server\model\ApiModels$DebugStartRequest.class
 com\semulator\server\model\ApiModels$HistoryChainRequest.class

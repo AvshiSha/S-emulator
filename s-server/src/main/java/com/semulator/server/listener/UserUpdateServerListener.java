@@ -8,19 +8,22 @@ import jakarta.servlet.annotation.WebListener;
 /**
  * Listener to start/stop the user update server (includes chat) with the web
  * application
+ * 
+ * NOTE: Disabled in favor of HTTP polling-based real-time updates
+ * All communication now goes through port 8080 (HTTP REST API)
  */
 @WebListener
 public class UserUpdateServerListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
-        // Starting user update server (includes chat functionality)
-        UserUpdateServer.start();
+        // TCP socket server disabled - using HTTP polling instead
+        // UserUpdateServer.start();
     }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        // Stopping user update server
-        UserUpdateServer.stop();
+        // TCP socket server disabled - using HTTP polling instead
+        // UserUpdateServer.stop();
     }
 }

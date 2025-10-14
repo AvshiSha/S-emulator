@@ -2,7 +2,8 @@ package com.semulator.client.ui;
 
 import com.semulator.client.AppContext;
 import com.semulator.client.model.ApiModels;
-import com.semulator.client.service.ChatClient;
+import com.semulator.client.service.ApiClient;
+import com.semulator.client.service.PollingService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -43,7 +44,8 @@ public class ChatController implements Initializable {
     @FXML
     private Button closeButton;
 
-    private ChatClient chatClient;
+    private ApiClient apiClient;
+    private PollingService pollingService;
     private String currentUser;
     private Stage stage;
 
@@ -52,10 +54,15 @@ public class ChatController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         currentUser = AppContext.getInstance().getCurrentUser();
+        apiClient = AppContext.getInstance().getApiClient();
 
-        // Initialize chat client
-        chatClient = new ChatClient(this);
-        chatClient.connect();
+        // Initialize polling service for chat updates
+        pollingService = new PollingService(apiClient);
+        pollingService.setOnChatMessage(this::onMessageReceived);
+        pollingService.start(currentUser);
+
+        // Load chat history
+        loadChatHistory();
 
         // Set up auto-scrolling
         messagesContainer.heightProperty().addListener((obs, oldVal, newVal) -> {
@@ -76,18 +83,30 @@ public class ChatController implements Initializable {
             return;
         }
 
-        // Send message through chat client
-        chatClient.sendMessage(message);
-
-        // Clear input field
-        messageInput.clear();
+        // Send message through HTTP API
+        ApiModels.ChatMessage chatMessage = new ApiModels.ChatMessage(currentUser, message, System.currentTimeMillis());
+        apiClient.post("/chat/messages", chatMessage, ApiModels.ChatMessage.class)
+                .thenAccept(response -> {
+                    // Message sent successfully
+                    Platform.runLater(() -> {
+                        // Clear input field
+                        messageInput.clear();
+                    });
+                })
+                .exceptionally(error -> {
+                    // Handle error
+                    Platform.runLater(() -> {
+                        System.err.println("Failed to send message: " + error.getMessage());
+                    });
+                    return null;
+                });
     }
 
     @FXML
     private void handleClose() {
-        // Disconnect chat client
-        if (chatClient != null) {
-            chatClient.disconnect();
+        // Stop polling service
+        if (pollingService != null) {
+            pollingService.stop();
         }
 
         // Close the stage
@@ -169,6 +188,26 @@ public class ChatController implements Initializable {
     }
 
     /**
+     * Load chat history from server
+     */
+    private void loadChatHistory() {
+        apiClient.get("/chat/history", ApiModels.ChatHistoryResponse.class)
+                .thenAccept(response -> {
+                    if (response != null && response.messages() != null) {
+                        Platform.runLater(() -> {
+                            for (ApiModels.ChatMessage msg : response.messages()) {
+                                onMessageReceived(msg);
+                            }
+                        });
+                    }
+                })
+                .exceptionally(error -> {
+                    System.err.println("Failed to load chat history: " + error.getMessage());
+                    return null;
+                });
+    }
+
+    /**
      * Set the stage reference for closing
      */
     public void setStage(Stage stage) {
@@ -179,8 +218,8 @@ public class ChatController implements Initializable {
      * Clean up when window is closed
      */
     public void cleanup() {
-        if (chatClient != null) {
-            chatClient.disconnect();
+        if (pollingService != null) {
+            pollingService.stop();
         }
     }
 }

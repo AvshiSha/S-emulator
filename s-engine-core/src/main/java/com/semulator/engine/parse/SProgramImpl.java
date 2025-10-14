@@ -658,16 +658,12 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public ExpansionResult expandToDegree(int degree) {
-        System.out.println("=== EXPANSION DEBUG: Starting expansion to degree " + degree + " ===");
-        System.out.println("Initial program has " + this.instructions.size() + " instructions");
 
         // Start from the current program as generation 0
         List<InstrNode> cur = new ArrayList<>(this.instructions.size());
 
         for (int i = 0; i < this.instructions.size(); i++) {
             cur.add(new InstrNode(this.instructions.get(i), i + 1)); // Row numbers start from 1
-            System.out.println("  [" + (i + 1) + "] " + this.instructions.get(i).getName() + " "
-                    + this.instructions.get(i).getVariable());
         }
 
         // We'll accumulate lineage across steps:
@@ -682,17 +678,14 @@ public class SProgramImpl implements SProgram {
         NameSession names = new NameSession(baseUsedLabelNames, baseUsedVarNames);
 
         for (int step = 0; step < degree; step++) {
-            System.out.println("\n--- EXPANSION STEP " + (step + 1) + " of " + degree + " ---");
+
             // Expand once
             List<InstrNode> next = new ArrayList<>(cur.size() * 2);
             int rowCounter = 1; // Fresh row numbering for this degree
 
             for (InstrNode node : cur) {
                 SInstruction in = node.ins;
-                System.out.println(
-                        "  Processing: " + in.getName() + " " + in.getVariable() + " (Label: " + in.getLabel() + ")");
                 if (isBasic(in)) {
-                    System.out.println("    -> Basic instruction, keeping as-is");
                     // Basic instructions stay as-is, but we need to track them in parent map
                     // for history chain tracing - they "come from" themselves in the previous
                     // degree
@@ -700,24 +693,20 @@ public class SProgramImpl implements SProgram {
                     // For history chain purposes, basic instructions are their own parent
                     // when copied across degrees
                 } else {
-                    System.out.println("    -> Synthetic instruction, expanding...");
                     try {
                         // Expand synthetic instructions
                         List<SInstruction> children = expandOne(in, names);
-                        System.out.println("    -> Expansion produced " + children.size() + " instructions");
                         for (SInstruction ch : children) {
                             parentMap.put(ch, in); // Track parent-child relationship
                             next.add(new InstrNode(ch, rowCounter++)); // Assign fresh row number
                         }
                     } catch (Exception e) {
-                        System.out.println("    -> ERROR during expansion: " + e.getMessage());
                         e.printStackTrace();
                         throw e;
                     }
                 }
             }
             cur = next;
-            System.out.println("After step " + (step + 1) + ": " + cur.size() + " instructions total");
         }
 
         // Build the final flattened snapshot in order
@@ -1004,14 +993,8 @@ public class SProgramImpl implements SProgram {
 
                 return out6;
             case "QUOTE":
-                System.out.println("      [expandOne] Expanding QUOTE instruction");
                 QuoteInstruction quoteInst = (QuoteInstruction) in;
-                System.out.println("      [expandOne] QUOTE function: " + quoteInst.getFunctionName());
-                System.out.println("      [expandOne] QUOTE arguments: " + quoteInst.getFunctionArguments());
-
                 List<SInstruction> quoteResult = expandQuote(quoteInst, names);
-                System.out
-                        .println("      [expandOne] QUOTE expansion produced " + quoteResult.size() + " instructions");
 
                 // Add a NOOP instruction with the original label at the beginning
                 if (!quoteResult.isEmpty() && in.getLabel() != FixedLabel.EMPTY) {
@@ -1032,8 +1015,6 @@ public class SProgramImpl implements SProgram {
                 }
                 return jumpResult;
             default:
-                System.out.println(
-                        "      [expandOne] WARNING: Unknown instruction type '" + in.getName() + "', returning as-is");
                 return List.of(in);
         }
     }

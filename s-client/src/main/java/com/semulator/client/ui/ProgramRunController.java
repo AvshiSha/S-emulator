@@ -955,14 +955,20 @@ public class ProgramRunController implements Initializable {
 
     private void updateCreditsDisplay() {
         // Fetch current user credits from server
-        apiClient.get("/users", ApiModels.UsersResponse.class, null)
+        apiClient.get("/users", ApiModels.DeltaResponse.class)
                 .thenAccept(response -> {
                     Platform.runLater(() -> {
-                        // Find current user's credits
-                        for (ApiModels.UserInfo user : response.users()) {
-                            if (user.username().equals(currentUser)) {
-                                availableCredits.setText(String.valueOf(user.credits()));
-                                break;
+                        if (response != null && response.items() != null) {
+                            // Convert items to UserInfo using Gson
+                            com.google.gson.Gson gson = new com.google.gson.Gson();
+                            for (Object userObj : response.items()) {
+                                // Deserialize each item as UserInfo
+                                String json = gson.toJson(userObj);
+                                ApiModels.UserInfo user = gson.fromJson(json, ApiModels.UserInfo.class);
+                                if (user.username().equals(currentUser)) {
+                                    availableCredits.setText(String.valueOf(user.credits()));
+                                    break;
+                                }
                             }
                         }
                     });

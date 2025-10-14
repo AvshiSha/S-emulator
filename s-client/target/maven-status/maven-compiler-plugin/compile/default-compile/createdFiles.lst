@@ -1,4 +1,3 @@
-com\semulator\client\model\ApiModels$DeltaChanges.class
 com\semulator\client\model\ApiModels$DebugResumeRequest.class
 com\semulator\client\ui\DashboardController$UserInfo.class
 com\semulator\client\model\ApiModels$ErrorResponse.class
@@ -15,6 +14,7 @@ com\semulator\client\ui\temp\TempClasses.class
 com\semulator\client\model\ApiModels$RunCancelResponse.class
 com\semulator\client\ui\components\Header\Header$2.class
 com\semulator\client\model\ApiModels$DebugStateResponse.class
+com\semulator\client\service\PollingService.class
 com\semulator\client\model\ApiModels$TopupResponse.class
 com\semulator\client\ui\components\Header\Header$FileLoadingTask.class
 com\semulator\client\model\ApiModels$RunPrepareRequest.class
@@ -36,6 +36,7 @@ com\semulator\client\model\ApiModels$ProgramsResponse.class
 com\semulator\client\model\ApiModels$UsersResponse.class
 com\semulator\client\ui\components\DebuggerExecution\DebuggerExecution.class
 com\semulator\client\ui\components\InstructionTable\InstructionTable$3.class
+com\semulator\client\model\ApiModels$DeltaData.class
 com\semulator\client\model\ApiModels$ErrorDetail.class
 com\semulator\client\ui\temp\TempClasses$ThemeManager.class
 com\semulator\client\model\ApiModels$DebugStartResponse.class

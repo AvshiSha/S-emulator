@@ -44,6 +44,10 @@ public class ServerState {
     // History tracking
     private final Map<String, List<ApiModels.HistoryEntry>> userHistory = new ConcurrentHashMap<>();
 
+    // Chat management
+    private final List<ApiModels.ChatMessage> chatMessages = Collections.synchronizedList(new ArrayList<>());
+    private static final int MAX_CHAT_HISTORY = 100;
+
     private ServerState() {
         // Initialize with admin user
         users.put("admin", new UserRecord("admin", 1000, 0, System.currentTimeMillis()));
@@ -77,12 +81,7 @@ public class ServerState {
         userHistory.put(username, new ArrayList<>());
         incrementVersion();
 
-        // Broadcast user update to all connected clients
-        try {
-            com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
-        } catch (Exception e) {
-            // Error broadcasting user update
-        }
+        // User updates are now handled via HTTP polling - no need for TCP broadcasting
 
         return user;
     }
@@ -226,13 +225,8 @@ public class ServerState {
 
             incrementVersion();
 
-            // Broadcast program and user updates to all connected clients
-            try {
-                com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
-                com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
-            } catch (Exception e) {
-                // Error broadcasting updates
-            }
+            // Program and user updates are now handled via HTTP polling - no need for TCP
+            // broadcasting
 
             return program;
 
@@ -344,12 +338,7 @@ public class ServerState {
         // broadcast the program update)
         updateProgramStatistics(targetName, creditsSpent);
 
-        // Broadcast user update to all connected clients
-        try {
-            com.semulator.server.realtime.UserUpdateServer.broadcastUserUpdate();
-        } catch (Exception e) {
-            // Error broadcasting user update
-        }
+        // User updates are now handled via HTTP polling - no need for TCP broadcasting
 
         // Broadcast history update to all connected clients
         try {
@@ -396,12 +385,8 @@ public class ServerState {
         double newAvgCost = ((currentAvgCost * currentRuns) + creditsSpent) / (currentRuns + 1);
         programAvgCosts.put(programName, newAvgCost);
 
-        // Broadcast program update to all connected clients
-        try {
-            com.semulator.server.realtime.UserUpdateServer.broadcastProgramUpdate();
-        } catch (Exception e) {
-            // Error broadcasting program update
-        }
+        // Program updates are now handled via HTTP polling - no need for TCP
+        // broadcasting
     }
 
     public List<ApiModels.HistoryEntry> getUserHistory(String username) {
@@ -1069,6 +1054,49 @@ public class ServerState {
                 // Recursively check nested function arguments
                 collectFunctionsFromArguments(call.getArguments(), referencedFunctions);
             }
+        }
+    }
+
+    // ============================================
+    // Chat Management Methods
+    // ============================================
+
+    /**
+     * Add a new chat message
+     */
+    public synchronized void addChatMessage(ApiModels.ChatMessage message) {
+        chatMessages.add(message);
+
+        // Keep only last MAX_CHAT_HISTORY messages
+        if (chatMessages.size() > MAX_CHAT_HISTORY) {
+            chatMessages.remove(0);
+        }
+
+        // Increment version for polling
+        incrementVersion();
+    }
+
+    /**
+     * Get all chat messages since a given timestamp
+     */
+    public List<ApiModels.ChatMessage> getChatMessagesSince(long sinceTimestamp) {
+        synchronized (chatMessages) {
+            List<ApiModels.ChatMessage> result = new ArrayList<>();
+            for (ApiModels.ChatMessage msg : chatMessages) {
+                if (msg.timestamp > sinceTimestamp) {
+                    result.add(msg);
+                }
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Get full chat history
+     */
+    public List<ApiModels.ChatMessage> getChatHistory() {
+        synchronized (chatMessages) {
+            return new ArrayList<>(chatMessages);
         }
     }
 }

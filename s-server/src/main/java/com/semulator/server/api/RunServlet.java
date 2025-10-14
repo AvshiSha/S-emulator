@@ -492,7 +492,7 @@ public class RunServlet extends HttpServlet {
 
                 // Execute the program manually, accumulating cycles in the server
                 session.cycles = 0;
-                session.creditsSpent = session.arch.getCost(); // Track actual credits spent
+                session.creditsSpent = getArchitectureCost(session.arch.toString()); // Track actual credits spent
                 int currentIndex = 0;
 
                 while (currentIndex < instructions.size()) {
