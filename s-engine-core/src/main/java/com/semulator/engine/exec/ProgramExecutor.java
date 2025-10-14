@@ -12,4 +12,3 @@ public interface ProgramExecutor {
 
     int getTotalCycles();
 }
-

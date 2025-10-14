@@ -360,7 +360,18 @@ public class ProgramExecutorImpl implements ProgramExecutor {
         int instructionIndex = 0;
         while (instructionIndex < functionInstructions.size()) {
             com.semulator.engine.model.SInstruction instruction = functionInstructions.get(instructionIndex);
-            com.semulator.engine.model.Label nextLabel = instruction.execute(functionContext);
+
+            // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially (same as main
+            // program execution)
+            com.semulator.engine.model.Label nextLabel;
+            if (instruction instanceof com.semulator.engine.model.QuoteInstruction quoteInstruction) {
+                nextLabel = executeQuoteInstruction(quoteInstruction, functionContext);
+            } else if (instruction instanceof com.semulator.engine.model.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
+                nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction, functionContext);
+            } else {
+                // Execute the instruction normally
+                nextLabel = instruction.execute(functionContext);
+            }
 
             // Handle jumps within the function
             if (nextLabel == com.semulator.engine.model.FixedLabel.EXIT) {

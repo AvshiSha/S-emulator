@@ -168,18 +168,11 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public int calculateMaxDegree() {
-        System.out.println("*** DEBUG: calculateMaxDegree() called for: " + this.getName());
-        System.out
-                .println("*** DEBUG: Has " + instructions.size() + " instructions, " + functions.size() + " functions");
-
         // Clear memoization cache for fresh calculation
         functionDegreeMemo.clear();
 
         // Use the NEW deg_prog() method which properly handles QUOTE/composition
-        int result = deg_prog();
-
-        System.out.println("*** DEBUG: calculateMaxDegree() using NEW METHOD, result: " + result);
-        return result;
+        return deg_prog();
     }
 
     /**
@@ -192,13 +185,10 @@ public class SProgramImpl implements SProgram {
      * 1
      */
     private int calculateMaxDegreeRecursive(List<SInstruction> instructionList, Set<String> visitedFunctions) {
-        System.out.println("  DEBUG calculateMaxDegreeRecursive: Processing " + instructionList.size()
-                + " instructions (OLD METHOD!)");
         int maxDegree = 0;
 
         for (SInstruction instruction : instructionList) {
             String instructionName = instruction.getName();
-            System.out.println("    DEBUG: Instruction: " + instructionName);
             int instructionDegree = 0;
 
             if ("QUOTE".equals(instructionName)) {
@@ -298,10 +288,7 @@ public class SProgramImpl implements SProgram {
      * without the call-site expansion layer.
      */
     public int calculateFunctionTemplateDegree(String functionName) {
-        System.out.println("=== DEBUG: calculateFunctionTemplateDegree called for: " + functionName);
-
         if (!functions.containsKey(functionName)) {
-            System.out.println("=== DEBUG: Function not found: " + functionName);
             return 0;
         }
 
@@ -310,10 +297,7 @@ public class SProgramImpl implements SProgram {
 
         // Calculate function degree using the same semantics as programs
         Set<String> visited = new HashSet<>();
-        int calculatedDegree = deg_func(functionName, visited);
-
-        System.out.println("=== DEBUG: Function '" + functionName + "' degree calculated: " + calculatedDegree);
-        return calculatedDegree;
+        return deg_func(functionName, visited);
     }
 
     /**
@@ -380,36 +364,29 @@ public class SProgramImpl implements SProgram {
      * complexity.
      */
     private int deg_func(String functionName, Set<String> visitedFunctions) {
-        System.out.println("  DEBUG deg_func: Calculating degree for function: " + functionName);
-
         // Check memoization first
         Integer memo = functionDegreeMemo.get(functionName);
         if (memo != null) {
-            System.out.println("  DEBUG deg_func: Using memoized value: " + memo);
             return memo;
         }
 
         if (!functions.containsKey(functionName)) {
             // Missing function: treat as basic, but don't memoize it
             // The function might be defined in XML but not yet loaded
-            System.out.println("  DEBUG deg_func: Function not found, returning 0");
             return 0;
         }
 
         if (!visitedFunctions.add(functionName)) {
             // Cycle detected
-            System.out.println("  DEBUG deg_func: CYCLE DETECTED for " + functionName);
             functionDegreeMemo.put(functionName, UNBOUNDED);
             return UNBOUNDED;
         }
 
         List<SInstruction> functionInstructions = functions.get(functionName);
-        System.out.println("  DEBUG deg_func: Function has " + functionInstructions.size() + " instructions");
         int maxDegree = 0;
 
         for (SInstruction instruction : functionInstructions) {
             int instructionDegree = deg_inst_direct(instruction, visitedFunctions);
-            System.out.println("    DEBUG: Instruction " + instruction.getName() + " has degree: " + instructionDegree);
             maxDegree = Math.max(maxDegree, instructionDegree);
         }
 
@@ -417,7 +394,6 @@ public class SProgramImpl implements SProgram {
 
         // Memoize the result
         functionDegreeMemo.put(functionName, maxDegree);
-        System.out.println("  DEBUG deg_func: Final degree for " + functionName + ": " + maxDegree);
         return maxDegree;
     }
 
@@ -431,18 +407,15 @@ public class SProgramImpl implements SProgram {
      */
     private int deg_inst_direct(SInstruction instruction, Set<String> visitedFunctions) {
         String instructionName = instruction.getName();
-        System.out.println("      DEBUG deg_inst_direct: Processing instruction: " + instructionName);
 
         // Basic instructions have degree 0
         if (BASIC.contains(instructionName)) {
-            System.out.println("      DEBUG deg_inst_direct: Basic instruction, degree 0");
             return 0;
         }
 
         // Handle QUOTE instructions
         if (instruction instanceof QuoteInstruction) {
             QuoteInstruction quote = (QuoteInstruction) instruction;
-            System.out.println("      DEBUG deg_inst_direct: QUOTE instruction, function: " + quote.getFunctionName());
 
             int functionDegree = deg_func(quote.getFunctionName(), visitedFunctions);
             if (functionDegree == UNBOUNDED) {
@@ -462,17 +435,12 @@ public class SProgramImpl implements SProgram {
             if (maxDegree >= UNBOUNDED - 1) {
                 return UNBOUNDED;
             }
-            int result = 1 + maxDegree;
-            System.out.println("      DEBUG deg_inst_direct: QUOTE result = 1 + max(" + functionDegree + ", "
-                    + maxArgumentDegree + ") = " + result);
-            return result;
+            return 1 + maxDegree;
         }
 
         // Handle JUMP_EQUAL_FUNCTION instructions
         if (instruction instanceof JumpEqualFunctionInstruction) {
             JumpEqualFunctionInstruction jef = (JumpEqualFunctionInstruction) instruction;
-            System.out.println(
-                    "      DEBUG deg_inst_direct: JUMP_EQUAL_FUNCTION instruction, function: " + jef.getFunctionName());
 
             int functionDegree = deg_func(jef.getFunctionName(), visitedFunctions);
             if (functionDegree == UNBOUNDED) {
@@ -494,17 +462,12 @@ public class SProgramImpl implements SProgram {
             if (maxDegree >= UNBOUNDED - 2) {
                 return UNBOUNDED;
             }
-            int result = 2 + maxDegree;
-            System.out.println("      DEBUG deg_inst_direct: JUMP_EQUAL_FUNCTION result = 2 + max(" + functionDegree
-                    + ", " + maxArgumentDegree + ") = " + result);
-            return result;
+            return 2 + maxDegree;
         }
 
         // For other synthetic instructions, use their known fixed degrees
         Integer fixedDegree = DEGREE_BY_OPCODE.get(instructionName);
-        int result = (fixedDegree != null) ? fixedDegree : 0;
-        System.out.println("      DEBUG deg_inst_direct: Synthetic instruction, fixed degree: " + result);
-        return result;
+        return (fixedDegree != null) ? fixedDegree : 0;
     }
 
     /**
@@ -691,9 +654,6 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public ExpansionResult expandToDegree(int degree) {
-        System.out.println("@@@ EXPANSION: expandToDegree called for: " + this.getName() + ", degree: " + degree);
-        System.out.println("@@@ EXPANSION: Starting with " + this.instructions.size() + " instructions");
-
         // Start from the current program as generation 0
         List<InstrNode> cur = new ArrayList<>(this.instructions.size());
 
@@ -713,9 +673,6 @@ public class SProgramImpl implements SProgram {
         NameSession names = new NameSession(baseUsedLabelNames, baseUsedVarNames);
 
         for (int step = 0; step < degree; step++) {
-            System.out.println("@@@ EXPANSION: Step " + (step + 1) + " of " + degree);
-            System.out.println("@@@ EXPANSION: Processing " + cur.size() + " instructions");
-
             // Expand once
             List<InstrNode> next = new ArrayList<>(cur.size() * 2);
             int rowCounter = 1; // Fresh row numbering for this degree

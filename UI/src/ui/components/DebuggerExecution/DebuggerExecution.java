@@ -987,7 +987,32 @@ public class DebuggerExecution {
         while (instructionIndex < functionInstructions.size()) {
             semulator.instructions.SInstruction instruction = functionInstructions.get(instructionIndex);
 
-            semulator.label.Label nextLabel = instruction.execute(functionContext);
+            // Handle QUOTE and JUMP_EQUAL_FUNCTION instructions specially (same as main program execution)
+            semulator.label.Label nextLabel;
+            if (instruction instanceof semulator.instructions.QuoteInstruction quoteInstruction) {
+                // Save current execution context temporarily
+                ExecutionContext originalContext = stepExecutionContext;
+                stepExecutionContext = functionContext;
+                
+                // Call the existing method that handles Quote instructions
+                nextLabel = executeQuoteInstruction(quoteInstruction);
+                
+                // Restore original context
+                stepExecutionContext = originalContext;
+            } else if (instruction instanceof semulator.instructions.JumpEqualFunctionInstruction jumpEqualFunctionInstruction) {
+                // Save current execution context temporarily
+                ExecutionContext originalContext = stepExecutionContext;
+                stepExecutionContext = functionContext;
+                
+                // Call the existing method that handles JumpEqualFunction instructions
+                nextLabel = executeJumpEqualFunctionInstruction(jumpEqualFunctionInstruction);
+                
+                // Restore original context
+                stepExecutionContext = originalContext;
+            } else {
+                // Execute the instruction normally
+                nextLabel = instruction.execute(functionContext);
+            }
 
             // Handle jumps within the function
             if (nextLabel == semulator.label.FixedLabel.EXIT) {

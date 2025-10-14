@@ -399,6 +399,9 @@ public class RunServlet extends HttpServlet {
             try {
                 // Get the program or function from server state
                 SProgram program = null;
+                List<SInstruction> instructions = null;
+                boolean isFunction = false;
+
                 if (session.target.getType() == RunTarget.Type.PROGRAM) {
                     program = serverState.getProgram(session.target.getName());
                     if (program == null) {
@@ -406,22 +409,43 @@ public class RunServlet extends HttpServlet {
                         session.error = "Program not found: " + session.target.getName();
                         return;
                     }
+                    // For programs, expand and get all instructions
+                    ExpansionResult expansion = program.expandToDegree(session.degree);
+                    instructions = expansion.instructions();
+
                 } else if (session.target.getType() == RunTarget.Type.FUNCTION) {
+                    // For functions, get the parent program and extract ONLY the function's
+                    // instructions
                     program = serverState.getFunction(session.target.getName());
                     if (program == null) {
                         session.state = "ERROR";
                         session.error = "Function not found: " + session.target.getName();
                         return;
                     }
+
+                    // Extract the function's instructions from the parent program
+                    if (program instanceof com.semulator.engine.parse.SProgramImpl) {
+                        com.semulator.engine.parse.SProgramImpl programImpl = (com.semulator.engine.parse.SProgramImpl) program;
+                        Map<String, List<SInstruction>> functions = programImpl.getFunctions();
+                        instructions = functions.get(session.target.getName());
+
+                        if (instructions == null) {
+                            session.state = "ERROR";
+                            session.error = "Function instructions not found: " + session.target.getName();
+                            return;
+                        }
+                        isFunction = true;
+                    } else {
+                        session.state = "ERROR";
+                        session.error = "Cannot extract function from program";
+                        return;
+                    }
+
                 } else {
                     session.state = "ERROR";
                     session.error = "Invalid target type: " + session.target.getType();
                     return;
                 }
-
-                // Expand program to the requested degree
-                ExpansionResult expansion = program.expandToDegree(session.degree);
-                List<SInstruction> instructions = expansion.instructions();
 
                 // Create execution context with input variables
                 ExecutionContext context = new ExecutionContext() {

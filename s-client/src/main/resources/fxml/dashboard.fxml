@@ -129,7 +129,7 @@
                <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
                   <columns>
                      <TableColumn fx:id="runNumberColumn" text="Run #" prefWidth="50"/>
-                     <TableColumn fx:id="typeColumn" text="Type" prefWidth="70"/>
+                     <TableColumn fx:id="typeColumn" text="Type" prefWidth="80"/>
                      <TableColumn fx:id="nameColumn" text="Program/Function" prefWidth="130"/>
                      <TableColumn fx:id="architectureColumn" text="Architecture" prefWidth="90"/>
                      <TableColumn fx:id="levelColumn" text="Level" prefWidth="50"/>
