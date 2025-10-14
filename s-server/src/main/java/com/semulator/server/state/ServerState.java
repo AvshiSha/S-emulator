@@ -511,21 +511,24 @@ public class ServerState {
     }
 
     public ApiModels.ProgramWithInstructions getFunctionWithInstructions(String functionName, int degree) {
-        System.out
-                .println("*** SERVER: getFunctionWithInstructions called for: " + functionName + ", degree: " + degree);
+        // System.out
+        // .println("*** SERVER: getFunctionWithInstructions called for: " +
+        // functionName + ", degree: " + degree);
 
         SProgram parentProgram = functions.get(functionName);
         if (parentProgram == null) {
-            System.out.println("*** SERVER: Function not found: " + functionName);
+            // System.out.println("*** SERVER: Function not found: " + functionName);
             return null;
         }
 
-        System.out.println("*** SERVER: Function found in parent program, will expand to degree: " + degree);
+        // System.out.println("*** SERVER: Function found in parent program, will expand
+        // to degree: " + degree);
         // Expand the specific function to the requested degree (not the entire
         // program!)
         ExpansionResult expansion = parentProgram.expandFunctionToDegree(functionName, degree);
         List<SInstruction> expandedInstructions = expansion.instructions();
-        System.out.println("*** SERVER: Expansion complete! Got " + expandedInstructions.size() + " instructions");
+        // System.out.println("*** SERVER: Expansion complete! Got " +
+        // expandedInstructions.size() + " instructions");
 
         List<ApiModels.InstructionDTO> instructionDTOs = new ArrayList<>();
         int rowNumber = 1;
@@ -566,7 +569,8 @@ public class ServerState {
         }
 
         int maxDegree = parentProgram.calculateFunctionTemplateDegree(functionName);
-        System.out.println("*** SERVER: Function maxDegree calculated: " + maxDegree);
+        // System.out.println("*** SERVER: Function maxDegree calculated: " +
+        // maxDegree);
 
         return new ApiModels.ProgramWithInstructions(
                 functionName,

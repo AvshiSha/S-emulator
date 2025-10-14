@@ -98,8 +98,6 @@ public class UserUpdateServer {
             update.addProperty("timestamp", System.currentTimeMillis());
 
             String message = gson.toJson(update) + "\n";
-            System.out
-                    .println("Message to broadcast: " + message.substring(0, Math.min(100, message.length())) + "...");
 
             for (ClientConnection client : clients) {
                 client.send(message);
@@ -129,8 +127,6 @@ public class UserUpdateServer {
             update.addProperty("timestamp", System.currentTimeMillis());
 
             String message = gson.toJson(update) + "\n";
-            System.out
-                    .println("Message to broadcast: " + message.substring(0, Math.min(100, message.length())) + "...");
 
             for (ClientConnection client : clients) {
                 client.send(message);
@@ -159,8 +155,6 @@ public class UserUpdateServer {
             update.addProperty("timestamp", System.currentTimeMillis());
 
             String message = gson.toJson(update) + "\n";
-            System.out
-                    .println("Message to broadcast: " + message.substring(0, Math.min(100, message.length())) + "...");
 
             for (ClientConnection client : clients) {
                 client.send(message);

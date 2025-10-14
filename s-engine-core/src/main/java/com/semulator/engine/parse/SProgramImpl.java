@@ -679,9 +679,9 @@ public class SProgramImpl implements SProgram {
 
             for (InstrNode node : cur) {
                 SInstruction in = node.ins;
-                System.out.println("  @@@ Expanding instruction: " + in.getName());
+                // System.out.println(" @@@ Expanding instruction: " + in.getName());
                 if (isBasic(in)) {
-                    System.out.println("    -> Basic instruction, keeping as-is");
+                    // System.out.println(" -> Basic instruction, keeping as-is");
                     // Basic instructions stay as-is, but we need to track them in parent map
                     // for history chain tracing - they "come from" themselves in the previous
                     // degree
@@ -689,10 +689,11 @@ public class SProgramImpl implements SProgram {
                     // For history chain purposes, basic instructions are their own parent
                     // when copied across degrees
                 } else {
-                    System.out.println("    -> Synthetic instruction, will call expandOne()");
+                    // System.out.println(" -> Synthetic instruction, will call expandOne()");
                     // Expand synthetic instructions
                     List<SInstruction> children = expandOne(in, names);
-                    System.out.println("    -> expandOne() returned " + children.size() + " children");
+                    // System.out.println(" -> expandOne() returned " + children.size() + "
+                    // children");
                     for (SInstruction ch : children) {
                         parentMap.put(ch, in); // Track parent-child relationship
                         next.add(new InstrNode(ch, rowCounter++)); // Assign fresh row number
@@ -700,8 +701,9 @@ public class SProgramImpl implements SProgram {
                 }
             }
             cur = next;
-            System.out
-                    .println("@@@ EXPANSION: After step " + (step + 1) + ", now have " + cur.size() + " instructions");
+            // System.out
+            // .println("@@@ EXPANSION: After step " + (step + 1) + ", now have " +
+            // cur.size() + " instructions");
         }
 
         // Build the final flattened snapshot in order
@@ -714,8 +716,9 @@ public class SProgramImpl implements SProgram {
             rowOf.put(ins, i); // Store original position for lineage
         }
 
-        System.out.println(
-                "@@@ EXPANSION: Expansion complete! Final result has " + finalProgram.size() + " instructions");
+        // System.out.println(
+        // "@@@ EXPANSION: Expansion complete! Final result has " + finalProgram.size()
+        // + " instructions");
         return new ExpansionResult(finalProgram, parentMap, lineNo, rowOf);
     }
 
