@@ -7,14 +7,15 @@ import com.semulator.server.state.ServerState;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Simple TCP socket server for real-time updates
- * Notifies all connected clients when users, programs, or functions change
+ * Simple TCP socket server for real-time updates and chat
+ * Notifies all connected clients when users, programs, functions change
+ * and handles real-time chat messaging
  */
 public class UserUpdateServer {
 
@@ -25,6 +26,10 @@ public class UserUpdateServer {
     private static ServerSocket serverSocket;
     private static ExecutorService executorService = Executors.newCachedThreadPool();
     private static boolean running = false;
+
+    // Chat history - store last 50 messages
+    private static final int MAX_CHAT_HISTORY = 50;
+    private static final List<JsonObject> chatHistory = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * Start the user update server
@@ -166,6 +171,85 @@ public class UserUpdateServer {
     }
 
     /**
+     * Broadcast chat message to all connected clients
+     */
+    public static void broadcastChatMessage(String username, String message, long timestamp) {
+        if (clients.isEmpty()) {
+            return;
+        }
+
+        try {
+            JsonObject chatMsg = new JsonObject();
+            chatMsg.addProperty("type", "CHAT_MESSAGE");
+            chatMsg.addProperty("username", username);
+            chatMsg.addProperty("message", message);
+            chatMsg.addProperty("timestamp", timestamp);
+
+            String msgJson = gson.toJson(chatMsg) + "\n";
+
+            // Add to history
+            synchronized (chatHistory) {
+                chatHistory.add(chatMsg);
+                if (chatHistory.size() > MAX_CHAT_HISTORY) {
+                    chatHistory.remove(0);
+                }
+            }
+
+            // Broadcast to all clients
+            for (ClientConnection client : clients) {
+                client.send(msgJson);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error broadcasting chat message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Broadcast system message to all connected clients
+     */
+    public static void broadcastSystemMessage(String message) {
+        if (clients.isEmpty()) {
+            return;
+        }
+
+        try {
+            JsonObject sysMsg = new JsonObject();
+            sysMsg.addProperty("type", "SYSTEM_MESSAGE");
+            sysMsg.addProperty("message", message);
+            sysMsg.addProperty("timestamp", System.currentTimeMillis());
+
+            String msgJson = gson.toJson(sysMsg) + "\n";
+
+            for (ClientConnection client : clients) {
+                client.send(msgJson);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error broadcasting system message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Send chat history to a specific client
+     */
+    private static void sendChatHistory(ClientConnection client) {
+        try {
+            synchronized (chatHistory) {
+                if (!chatHistory.isEmpty()) {
+                    JsonObject historyMsg = new JsonObject();
+                    historyMsg.addProperty("type", "CHAT_HISTORY");
+                    historyMsg.add("messages", gson.toJsonTree(chatHistory));
+
+                    client.send(gson.toJson(historyMsg) + "\n");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error sending chat history: " + e.getMessage());
+        }
+    }
+
+    /**
      * Client connection handler
      */
     private static class ClientConnection implements Runnable {
@@ -173,6 +257,7 @@ public class UserUpdateServer {
         private PrintWriter out;
         private BufferedReader in;
         private boolean connected = true;
+        private String username;
 
         public ClientConnection(Socket socket) {
             this.socket = socket;
@@ -190,14 +275,75 @@ public class UserUpdateServer {
                 // Keep connection alive and listen for messages
                 String line;
                 while (connected && (line = in.readLine()) != null) {
-                    // Handle client messages if needed
-                    // Received from client
+                    handleMessage(line);
                 }
             } catch (IOException e) {
                 // Client connection error
             } finally {
                 close();
             }
+        }
+
+        /**
+         * Handle incoming message from client
+         */
+        private void handleMessage(String message) {
+            try {
+                JsonObject jsonMessage = gson.fromJson(message, JsonObject.class);
+                String type = jsonMessage.get("type").getAsString();
+
+                switch (type) {
+                    case "CONNECT":
+                        handleConnect(jsonMessage);
+                        break;
+                    case "CHAT_MESSAGE":
+                        handleChatMessage(jsonMessage);
+                        break;
+                    case "DISCONNECT":
+                        handleDisconnect(jsonMessage);
+                        break;
+                    default:
+                        // Unknown message type
+                }
+            } catch (Exception e) {
+                System.err.println("Error handling message: " + e.getMessage());
+            }
+        }
+
+        /**
+         * Handle client connect for chat
+         */
+        private void handleConnect(JsonObject message) {
+            username = message.get("username").getAsString();
+
+            // Send chat history to the new client
+            sendChatHistory(this);
+
+            // Broadcast system message
+            broadcastSystemMessage(username + " joined the chat");
+        }
+
+        /**
+         * Handle chat message from client
+         */
+        private void handleChatMessage(JsonObject message) {
+            String username = message.get("username").getAsString();
+            String text = message.get("message").getAsString();
+            long timestamp = message.get("timestamp").getAsLong();
+
+            // Broadcast to all clients
+            broadcastChatMessage(username, text, timestamp);
+        }
+
+        /**
+         * Handle client disconnect from chat
+         */
+        private void handleDisconnect(JsonObject message) {
+            String username = message.get("username").getAsString();
+            // System.out.println("User disconnected from chat: " + username);
+
+            // Broadcast system message
+            broadcastSystemMessage(username + " left the chat");
         }
 
         private void sendInitialData() {
@@ -225,6 +371,12 @@ public class UserUpdateServer {
         public void close() {
             connected = false;
             clients.remove(this);
+
+            if (username != null) {
+                // System.out.println("Client disconnected: " + username + ". Total clients: " +
+                // clients.size());
+            }
+
             try {
                 if (in != null)
                     in.close();

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.semulator.client.ui.ChatController"
+      style="-fx-background-color: #f5f5f5;"
+      prefWidth="500" prefHeight="600" spacing="10" alignment="TOP_CENTER">
+   
+   <padding>
+      <Insets top="15" right="15" bottom="15" left="15"/>
+   </padding>
+   
+   <children>
+      <!-- Title -->
+      <Label text="Chat" 
+             style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #333;">
+         <VBox.margin><Insets bottom="10.0"/></VBox.margin>
+      </Label>
+      
+      <!-- Messages Area -->
+      <ScrollPane fx:id="messagesScrollPane" 
+                  fitToWidth="true" 
+                  VBox.vgrow="ALWAYS"
+                  style="-fx-background-color: white; -fx-border-color: #ccc; -fx-border-width: 1;">
+         <content>
+            <VBox fx:id="messagesContainer" 
+                  spacing="8" 
+                  style="-fx-background-color: white; -fx-padding: 10;">
+            </VBox>
+         </content>
+      </ScrollPane>
+      
+      <!-- Input Area -->
+      <HBox spacing="10" alignment="CENTER">
+         <children>
+            <TextField fx:id="messageInput" 
+                       promptText="Type your message..." 
+                       HBox.hgrow="ALWAYS"
+                       style="-fx-font-size: 14px; -fx-padding: 10;"/>
+            
+            <Button fx:id="sendButton" 
+                    text="Send" 
+                    onAction="#handleSendMessage"
+                    defaultButton="true"
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30; -fx-font-size: 14px;"/>
+         </children>
+      </HBox>
+      
+      <!-- Close Button -->
+      <Button fx:id="closeButton" 
+              text="Close" 
+              onAction="#handleClose"
+              style="-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 30;">
+         <VBox.margin><Insets top="5.0"/></VBox.margin>
+      </Button>
+   </children>
+</VBox>
+

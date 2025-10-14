@@ -48,6 +48,8 @@ public class DashboardController implements Initializable {
     private Button chargeCreditsButton;
     @FXML
     private TextField creditsInput;
+    @FXML
+    private Button chatButton;
 
     // Available Users Table (Top-Left)
     @FXML
@@ -187,6 +189,9 @@ public class DashboardController implements Initializable {
 
         // Set up charge credits button
         chargeCreditsButton.setOnAction(e -> handleChargeCredits());
+
+        // Set up chat button
+        chatButton.setOnAction(e -> handleChatButton());
     }
 
     private void initializeUsersTable() {
@@ -439,6 +444,38 @@ public class DashboardController implements Initializable {
 
         } catch (NumberFormatException e) {
             showErrorAlert("Invalid Amount", "Please enter a valid number.");
+        }
+    }
+
+    /**
+     * Handle chat button click - Open chat modal
+     */
+    private void handleChatButton() {
+        try {
+            // Load chat FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/chat.fxml"));
+            Parent chatRoot = loader.load();
+
+            // Get the controller and set the stage reference
+            ChatController chatController = loader.getController();
+
+            // Create a new stage (modal window)
+            Stage chatStage = new Stage();
+            chatStage.setTitle("Chat - " + currentUser);
+            chatStage.setScene(new Scene(chatRoot));
+            chatStage.setResizable(false);
+
+            // Set the stage reference in the controller
+            chatController.setStage(chatStage);
+
+            // Clean up when window is closed
+            chatStage.setOnCloseRequest(e -> chatController.cleanup());
+
+            // Show the chat window
+            chatStage.show();
+
+        } catch (IOException e) {
+            showErrorAlert("Error", "Failed to open chat window: " + e.getMessage());
         }
     }
 

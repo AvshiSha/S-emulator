@@ -471,4 +471,25 @@ public class ApiModels {
             this.degree = degree;
         }
     }
+
+    // Chat
+    public static class ChatMessage {
+        public String username;
+        public String message;
+        public long timestamp;
+
+        public ChatMessage(String username, String message, long timestamp) {
+            this.username = username;
+            this.message = message;
+            this.timestamp = timestamp;
+        }
+    }
+
+    public static class ChatHistoryResponse {
+        public List<ChatMessage> messages;
+
+        public ChatHistoryResponse(List<ChatMessage> messages) {
+            this.messages = messages;
+        }
+    }
 }

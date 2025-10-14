@@ -6,14 +6,15 @@ import jakarta.servlet.ServletContextListener;
 import jakarta.servlet.annotation.WebListener;
 
 /**
- * Listener to start/stop the user update server with the web application
+ * Listener to start/stop the user update server (includes chat) with the web
+ * application
  */
 @WebListener
 public class UserUpdateServerListener implements ServletContextListener {
 
     @Override
     public void contextInitialized(ServletContextEvent sce) {
-        // Starting user update server
+        // Starting user update server (includes chat functionality)
         UserUpdateServer.start();
     }
 

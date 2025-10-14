@@ -257,4 +257,11 @@ public class ApiModels {
 
         public record RunCancelResponse(boolean success, String message) {
         }
+
+        // Chat
+        public record ChatMessage(String username, String message, long timestamp) {
+        }
+
+        public record ChatHistoryResponse(List<ChatMessage> messages) {
+        }
 }
