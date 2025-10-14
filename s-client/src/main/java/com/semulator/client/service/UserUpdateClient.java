@@ -16,7 +16,7 @@ import java.net.Socket;
 public class UserUpdateClient {
 
     private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 8081;
+    private static final int SERVER_PORT = 8080;
     private static final Gson gson = new Gson();
 
     private DashboardController dashboardController;

@@ -289,18 +289,30 @@ public class RunServlet extends HttpServlet {
         try {
             // Get the program or function
             SProgram program = null;
+            ExpansionResult expansion = null;
+
             if (target.getType() == RunTarget.Type.PROGRAM) {
                 program = serverState.getProgram(target.getName());
+                if (program == null) {
+                    return counts; // Return zeros if program not found
+                }
+                // Expand the entire program to the requested degree
+                expansion = program.expandToDegree(degree);
+
             } else if (target.getType() == RunTarget.Type.FUNCTION) {
                 program = serverState.getFunction(target.getName());
+                if (program == null) {
+                    return counts; // Return zeros if function not found
+                }
+                // Expand ONLY the specific function to the requested degree (not the entire
+                // parent program!)
+                expansion = program.expandFunctionToDegree(target.getName(), degree);
             }
 
-            if (program == null) {
-                return counts; // Return zeros if program not found
+            if (expansion == null) {
+                return counts;
             }
 
-            // Expand the program to the requested degree
-            ExpansionResult expansion = program.expandToDegree(degree);
             List<SInstruction> instructions = expansion.instructions();
 
             // Count commands by architecture - same logic as client
