@@ -177,6 +177,18 @@ public class ServerState {
                 program = namedProgram;
             }
 
+            // ===== VALIDATION: Check program name uniqueness =====
+            if (programs.containsKey(program.getName())) {
+                throw new Exception("VALIDATION_ERROR: Program with name '" + program.getName() +
+                        "' already exists in the catalog. Please choose a unique name.");
+            }
+
+            // ===== VALIDATION: Check function conflicts and references =====
+            String functionValidation = validateProgramFunctions(program);
+            if (functionValidation != null) {
+                throw new Exception(functionValidation);
+            }
+
             // Store the program
             programs.put(program.getName(), program);
 
@@ -949,6 +961,114 @@ public class ServerState {
 
         public Map<String, Long> getVariableMap() {
             return new HashMap<>(variables);
+        }
+    }
+
+    /**
+     * Validates that a program's functions don't conflict with existing catalog
+     * and that all referenced functions exist.
+     * 
+     * @param program The program to validate
+     * @return Error message if validation fails, null if valid
+     */
+    private String validateProgramFunctions(SProgram program) {
+        if (!(program instanceof SProgramImpl)) {
+            return null; // Can't validate non-SProgramImpl
+        }
+
+        SProgramImpl impl = (SProgramImpl) program;
+
+        // Get functions defined in this program
+        Map<String, List<SInstruction>> programFunctions = impl.getFunctions();
+        Set<String> definedFunctions = programFunctions.keySet();
+
+        // 1. Check if any defined functions already exist in the catalog
+        for (String funcName : definedFunctions) {
+            if (functions.containsKey(funcName)) {
+                SProgram existingOwner = functions.get(funcName);
+                return String.format(
+                        "VALIDATION_ERROR: Function '%s' is already defined in program '%s'. " +
+                                "Cannot redefine existing functions.",
+                        funcName, existingOwner.getName());
+            }
+        }
+
+        // 2. Collect all function names referenced in QUOTE instructions
+        Set<String> referencedFunctions = collectReferencedFunctions(impl);
+
+        // 3. Check if all referenced functions exist (either in catalog or defined
+        // locally)
+        for (String funcName : referencedFunctions) {
+            boolean existsInCatalog = functions.containsKey(funcName);
+            boolean definedLocally = definedFunctions.contains(funcName);
+
+            if (!existsInCatalog && !definedLocally) {
+                return String.format(
+                        "VALIDATION_ERROR: Function '%s' is used in the program but not defined. " +
+                                "Please ensure all referenced functions exist in the catalog or are defined in this file.",
+                        funcName);
+            }
+        }
+
+        return null; // All validations passed
+    }
+
+    /**
+     * Collects all function names referenced in QUOTE instructions throughout the
+     * program
+     */
+    private Set<String> collectReferencedFunctions(SProgramImpl program) {
+        Set<String> referencedFunctions = new HashSet<>();
+
+        // Check main program instructions
+        for (SInstruction instruction : program.getInstructions()) {
+            collectFunctionsFromInstruction(instruction, referencedFunctions);
+        }
+
+        // Check function definitions (functions can reference other functions)
+        for (List<SInstruction> functionBody : program.getFunctions().values()) {
+            for (SInstruction instruction : functionBody) {
+                collectFunctionsFromInstruction(instruction, referencedFunctions);
+            }
+        }
+
+        return referencedFunctions;
+    }
+
+    /**
+     * Extracts function names from a single instruction (handles QUOTE and
+     * JUMP_EQUAL_FUNCTION)
+     */
+    private void collectFunctionsFromInstruction(SInstruction instruction, Set<String> referencedFunctions) {
+        if (instruction instanceof com.semulator.engine.model.QuoteInstruction) {
+            com.semulator.engine.model.QuoteInstruction quote = (com.semulator.engine.model.QuoteInstruction) instruction;
+            referencedFunctions.add(quote.getFunctionName());
+            // Also check nested function calls in arguments
+            collectFunctionsFromArguments(quote.getFunctionArguments(), referencedFunctions);
+        } else if (instruction instanceof com.semulator.engine.model.JumpEqualFunctionInstruction) {
+            com.semulator.engine.model.JumpEqualFunctionInstruction jef = (com.semulator.engine.model.JumpEqualFunctionInstruction) instruction;
+            referencedFunctions.add(jef.getFunctionName());
+            // Also check nested function calls in arguments
+            collectFunctionsFromArguments(jef.getFunctionArguments(), referencedFunctions);
+        }
+    }
+
+    /**
+     * Recursively collects function names from function arguments (handles nested
+     * calls)
+     */
+    private void collectFunctionsFromArguments(List<com.semulator.engine.model.FunctionArgument> arguments,
+            Set<String> referencedFunctions) {
+        if (arguments == null)
+            return;
+
+        for (com.semulator.engine.model.FunctionArgument arg : arguments) {
+            if (arg.isFunctionCall()) {
+                com.semulator.engine.model.FunctionCall call = arg.asFunctionCall();
+                referencedFunctions.add(call.getFunctionName());
+                // Recursively check nested function arguments
+                collectFunctionsFromArguments(call.getArguments(), referencedFunctions);
+            }
         }
     }
 }

@@ -159,8 +159,12 @@ public class SProgramImpl implements SProgram {
             Document doc = builder.parse(new java.io.ByteArrayInputStream(xmlContent.getBytes("UTF-8")));
             doc.getDocumentElement().normalize();
 
-            boolean isValid = validateXmlFile(doc);
-            return isValid ? "Valid" : "Invalid XML structure";
+            String validationError = validateXmlFileDetailed(doc);
+            if (validationError != null) {
+                return validationError;
+            }
+
+            return "Valid";
         } catch (Exception e) {
             return "XML parsing error: " + e.getMessage();
         }
@@ -654,14 +658,19 @@ public class SProgramImpl implements SProgram {
 
     @Override
     public ExpansionResult expandToDegree(int degree) {
+        System.out.println("=== EXPANSION DEBUG: Starting expansion to degree " + degree + " ===");
+        System.out.println("Initial program has " + this.instructions.size() + " instructions");
+
         // Start from the current program as generation 0
         List<InstrNode> cur = new ArrayList<>(this.instructions.size());
 
         for (int i = 0; i < this.instructions.size(); i++) {
             cur.add(new InstrNode(this.instructions.get(i), i + 1)); // Row numbers start from 1
+            System.out.println("  [" + (i + 1) + "] " + this.instructions.get(i).getName() + " "
+                    + this.instructions.get(i).getVariable());
         }
 
-        // We’ll accumulate lineage across steps:
+        // We'll accumulate lineage across steps:
         // parentMap links a newly created instruction to the instruction it
         // replaced/expanded from.
         Map<SInstruction, SInstruction> parentMap = new IdentityHashMap<>();
@@ -673,15 +682,17 @@ public class SProgramImpl implements SProgram {
         NameSession names = new NameSession(baseUsedLabelNames, baseUsedVarNames);
 
         for (int step = 0; step < degree; step++) {
+            System.out.println("\n--- EXPANSION STEP " + (step + 1) + " of " + degree + " ---");
             // Expand once
             List<InstrNode> next = new ArrayList<>(cur.size() * 2);
             int rowCounter = 1; // Fresh row numbering for this degree
 
             for (InstrNode node : cur) {
                 SInstruction in = node.ins;
-                // System.out.println(" @@@ Expanding instruction: " + in.getName());
+                System.out.println(
+                        "  Processing: " + in.getName() + " " + in.getVariable() + " (Label: " + in.getLabel() + ")");
                 if (isBasic(in)) {
-                    // System.out.println(" -> Basic instruction, keeping as-is");
+                    System.out.println("    -> Basic instruction, keeping as-is");
                     // Basic instructions stay as-is, but we need to track them in parent map
                     // for history chain tracing - they "come from" themselves in the previous
                     // degree
@@ -689,21 +700,24 @@ public class SProgramImpl implements SProgram {
                     // For history chain purposes, basic instructions are their own parent
                     // when copied across degrees
                 } else {
-                    // System.out.println(" -> Synthetic instruction, will call expandOne()");
-                    // Expand synthetic instructions
-                    List<SInstruction> children = expandOne(in, names);
-                    // System.out.println(" -> expandOne() returned " + children.size() + "
-                    // children");
-                    for (SInstruction ch : children) {
-                        parentMap.put(ch, in); // Track parent-child relationship
-                        next.add(new InstrNode(ch, rowCounter++)); // Assign fresh row number
+                    System.out.println("    -> Synthetic instruction, expanding...");
+                    try {
+                        // Expand synthetic instructions
+                        List<SInstruction> children = expandOne(in, names);
+                        System.out.println("    -> Expansion produced " + children.size() + " instructions");
+                        for (SInstruction ch : children) {
+                            parentMap.put(ch, in); // Track parent-child relationship
+                            next.add(new InstrNode(ch, rowCounter++)); // Assign fresh row number
+                        }
+                    } catch (Exception e) {
+                        System.out.println("    -> ERROR during expansion: " + e.getMessage());
+                        e.printStackTrace();
+                        throw e;
                     }
                 }
             }
             cur = next;
-            // System.out
-            // .println("@@@ EXPANSION: After step " + (step + 1) + ", now have " +
-            // cur.size() + " instructions");
+            System.out.println("After step " + (step + 1) + ": " + cur.size() + " instructions total");
         }
 
         // Build the final flattened snapshot in order
@@ -838,8 +852,6 @@ public class SProgramImpl implements SProgram {
 
     // Expand one instruction by your exact rules (ZERO_VARIABLE, ASSIGNMENT, etc.)
     private List<SInstruction> expandOne(SInstruction in, NameSession names) {
-        // Replace the switch below with your actual expansion code
-
         switch (in.getName()) {
             case "ZERO":
                 var L8 = names.freshLabel();
@@ -992,7 +1004,15 @@ public class SProgramImpl implements SProgram {
 
                 return out6;
             case "QUOTE":
-                List<SInstruction> quoteResult = expandQuote((QuoteInstruction) in, names);
+                System.out.println("      [expandOne] Expanding QUOTE instruction");
+                QuoteInstruction quoteInst = (QuoteInstruction) in;
+                System.out.println("      [expandOne] QUOTE function: " + quoteInst.getFunctionName());
+                System.out.println("      [expandOne] QUOTE arguments: " + quoteInst.getFunctionArguments());
+
+                List<SInstruction> quoteResult = expandQuote(quoteInst, names);
+                System.out
+                        .println("      [expandOne] QUOTE expansion produced " + quoteResult.size() + " instructions");
+
                 // Add a NOOP instruction with the original label at the beginning
                 if (!quoteResult.isEmpty() && in.getLabel() != FixedLabel.EMPTY) {
                     List<SInstruction> resultWithLabel = new ArrayList<>();
@@ -1012,6 +1032,8 @@ public class SProgramImpl implements SProgram {
                 }
                 return jumpResult;
             default:
+                System.out.println(
+                        "      [expandOne] WARNING: Unknown instruction type '" + in.getName() + "', returning as-is");
                 return List.of(in);
         }
     }
@@ -1856,45 +1878,57 @@ public class SProgramImpl implements SProgram {
         });
     }
 
-    private boolean validateXmlFile(Document doc) {
+    /**
+     * Detailed validation that returns specific error messages
+     */
+    private String validateXmlFileDetailed(Document doc) {
         Element root = doc.getDocumentElement();
         if (root == null) {
-            // Empty XML document
-            return false;
+            return "Empty XML document - no root element found";
         }
 
         // checking if the name of the program is "S-program" mandatory
         if (!"S-Program".equals(root.getTagName())) {
-            // Root element must be <S-Program>
-            return false;
+            return "Root element must be <S-Program>, found: <" + root.getTagName() + ">";
         }
 
         // avoids a NullPointerException when you try to call .trim() on null
         // and always gives you a trimmed string (leading and trailing spaces removed).
         String progName = trimOrNull(root.getAttribute("name"));
         if (progName == null || progName.isEmpty()) {
-            // Attribute 'name' on <S-program> is mandatory and must not be empty
-            return false;
+            return "Attribute 'name' on <S-Program> is mandatory and must not be empty";
         }
 
         Element sInstructions = getSingleChild(root, "S-Instructions");
         if (sInstructions == null) {
-            // Missing mandatory <S-instructions> element under <S-program>
-            return false;
+            return "Missing mandatory <S-Instructions> element under <S-Program>";
         }
 
         // Validate each <S-Instruction> in <S-instructions>
-        // Collect all <S-Instruction> children
         List<Element> all = childElements(sInstructions, "S-Instruction");
+
         // Validate each one
-        boolean inst_valid;
         for (int i = 0; i < all.size(); i++) {
-            if (!validateInstructionShallow(all.get(i), i)) {
-                return false;
+            String error = validateInstructionShallowDetailed(all.get(i), i);
+            if (error != null) {
+                return "Instruction #" + (i + 1) + ": " + error;
             }
         }
 
-        return validateLabelReferences(sInstructions);
+        String labelError = validateLabelReferencesDetailed(sInstructions);
+        if (labelError != null) {
+            return labelError;
+        }
+
+        return null; // Valid
+    }
+
+    /**
+     * Old method kept for backward compatibility
+     */
+    private boolean validateXmlFile(Document doc) {
+        String error = validateXmlFileDetailed(doc);
+        return error == null;
     }
 
     private static String trimOrNull(String s) {
@@ -1934,56 +1968,198 @@ public class SProgramImpl implements SProgram {
         return elems;
     }
 
-    private boolean validateInstructionShallow(Element instEl, int index) {
-        boolean ok = true;
-        String where = "S-Instruction[" + (index + 1) + "]: ";
-
+    /**
+     * Detailed version that returns specific error message
+     */
+    private String validateInstructionShallowDetailed(Element instEl, int index) {
         // (1) Ensure this element does not contain nested S-Instruction elements
         List<Element> nested = childElements(instEl, "S-Instruction");
         if (!nested.isEmpty()) {
-            // Must define exactly one instruction
-            ok = false;
+            return "Contains nested <S-Instruction> elements - only one instruction per element allowed";
         }
 
         // (2) type attribute: mandatory, case-sensitive
         String type = instEl.hasAttribute("type") ? instEl.getAttribute("type").trim() : null;
         if (type == null || type.isEmpty()) {
-            // Missing mandatory attribute 'type'
-            ok = false;
+            return "Missing mandatory attribute 'type'";
         } else if (!type.equals("basic") && !type.equals("synthetic")) {
-            // Invalid type
-            ok = false;
+            return "Invalid type='" + type + "' (must be 'basic' or 'synthetic')";
         }
 
         // (3) name attribute: mandatory.
         String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : null;
         if (instrName == null || instrName.isEmpty()) {
-            // Missing mandatory attribute 'name'
-            ok = false;
+            return "Missing mandatory attribute 'name'";
         } else if (!ALLOWED_NAMES.contains(instrName)) {
-            // Unknown instruction name
-            ok = false;
+            return "Unknown instruction name='" + instrName + "' (allowed: " + ALLOWED_NAMES + ")";
         }
 
-        // (4) Optional: cross-check type matches classification (helps catch
-        // mismatches)
-        if (ok && type != null && instrName != null && !type.isEmpty() && !instrName.isEmpty()) {
+        // (4) Optional: cross-check type matches classification
+        if (type != null && instrName != null && !type.isEmpty() && !instrName.isEmpty()) {
             if (type.equals("basic") && !BASIC.contains(instrName)) {
-                // Instruction is synthetic but type='basic' given
-                ok = false;
+                return "Instruction '" + instrName + "' is synthetic but type='basic' was specified";
             } else if (type.equals("synthetic") && !SYNTHETIC.contains(instrName)) {
-                // Instruction is basic but type='synthetic' given
-                ok = false;
+                return "Instruction '" + instrName + "' is basic but type='synthetic' was specified";
             }
         }
 
-        ok = validateVariableForInstruction(instEl, index) && ok;
-        ok = validateLabelForInstruction(instEl, index) && ok;
+        String varError = validateVariableForInstructionDetailed(instEl, index);
+        if (varError != null)
+            return varError;
 
-        return ok;
+        String labelError = validateLabelForInstructionDetailed(instEl, index);
+        if (labelError != null)
+            return labelError;
+
+        return null;
+    }
+
+    /**
+     * Old method kept for backward compatibility
+     */
+    private boolean validateInstructionShallow(Element instEl, int index) {
+        String error = validateInstructionShallowDetailed(instEl, index);
+        return error == null;
+    }
+
+    /**
+     * Detailed version for variable validation
+     */
+    private String validateVariableForInstructionDetailed(Element instEl, int index) {
+        List<Element> vars = childElements(instEl, "S-Variable");
+        if (vars.isEmpty()) {
+            return "Missing mandatory <S-Variable> element";
+        }
+        if (vars.size() > 1) {
+            return "Multiple <S-Variable> elements found (only one allowed)";
+        }
+
+        Element varEl = vars.get(0);
+        String raw = varEl.getTextContent();
+        String val = (raw == null) ? "" : raw.trim();
+
+        if (val.isEmpty()) {
+            return null; // Empty is allowed
+        }
+        if (val.chars().anyMatch(Character::isWhitespace)) {
+            return "<S-Variable> must not contain spaces, found: '" + val + "'";
+        }
+        if (!(val.equals("y") || val.matches("^[xz][0-9]+$"))) {
+            return "<S-Variable> must be 'y' or match ^[xz][0-9]+$, found: '" + val + "'";
+        }
+
+        return null;
+    }
+
+    /**
+     * Detailed version for label validation
+     */
+    private String validateLabelForInstructionDetailed(Element instEl, int index) {
+        List<Element> labels = childElements(instEl, "S-Label");
+        if (labels.isEmpty()) {
+            return null; // Label is optional
+        }
+        if (labels.size() > 1) {
+            return "Multiple <S-Label> elements found (only one allowed)";
+        }
+
+        Element labelEl = labels.get(0);
+        String raw = labelEl.getTextContent();
+        String val = (raw == null) ? "" : raw.trim();
+
+        if (val.isEmpty()) {
+            return "<S-Label> must not be empty when present";
+        }
+        if (val.chars().anyMatch(Character::isWhitespace)) {
+            return "<S-Label> must not contain spaces, found: '" + val + "'";
+        }
+        if (!val.matches("^L[0-9]+$")) {
+            return "<S-Label> must match ^L[0-9]+$, found: '" + val + "'";
+        }
+
+        return null;
+    }
+
+    /**
+     * Detailed version for label reference validation
+     */
+    private String validateLabelReferencesDetailed(Element sInstructions) {
+        // Collect declared labels (from <S-Label> on lines)
+        Set<String> declared = new HashSet<>();
+        List<Element> all = childElements(sInstructions, "S-Instruction");
+        for (Element instEl : all) {
+            List<Element> lbls = childElements(instEl, "S-Label");
+            if (!lbls.isEmpty()) {
+                String raw = lbls.get(0).getTextContent();
+                String val = (raw == null) ? "" : raw.trim();
+                if (!val.isEmpty()) {
+                    declared.add(val);
+                }
+            }
+        }
+
+        // Collect and check referenced labels from arguments
+        for (int i = 0; i < all.size(); i++) {
+            Element instEl = all.get(i);
+            String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : "";
+
+            // Find the (optional) <S-Instruction-Arguments> block
+            Element argsBlock = getSingleChild(instEl, "S-Instruction-Arguments");
+            if (argsBlock == null)
+                continue;
+
+            List<Element> args = childElements(argsBlock, "S-Instruction-Argument");
+            for (Element arg : args) {
+                String n = arg.getAttribute("name");
+                String v = arg.getAttribute("value");
+                if (n == null)
+                    n = "";
+                if (v == null)
+                    v = "";
+                n = n.trim();
+                v = v.trim();
+
+                if (!LABEL_TARGET_ARGS.contains(n)) {
+                    continue; // not a label target argument
+                }
+                if (v.isEmpty()) {
+                    return "Instruction #" + (i + 1) + ": Label argument '" + n + "' is empty";
+                }
+
+                if ("EXIT".equals(v)) {
+                    continue; // EXIT is always allowed
+                }
+
+                if (!v.matches("^L[0-9]+$")) {
+                    return "Instruction #" + (i + 1) + ": Label '" + v + "' must match ^L[0-9]+$ or be 'EXIT'";
+                }
+
+                if (!declared.contains(v)) {
+                    return "Instruction #" + (i + 1) + ": Label '" + v + "' referenced but not declared in program";
+                }
+            }
+        }
+
+        return null; // Valid
     }
 
     private boolean validateVariableForInstruction(Element instEl, int index) {
+        String error = validateVariableForInstructionDetailed(instEl, index);
+        return error == null;
+    }
+
+    private boolean validateLabelForInstruction(Element instEl, int index) {
+        String error = validateLabelForInstructionDetailed(instEl, index);
+        return error == null;
+    }
+
+    private boolean validateLabelReferences(Element sInstructions) {
+        String error = validateLabelReferencesDetailed(sInstructions);
+        return error == null;
+    }
+
+    // Old version kept for compatibility
+    private boolean _oldValidateVariableForInstruction(Element instEl, int index) {
         boolean ok = true;
         String where = "S-Instruction[" + (index + 1) + "]: ";
 
@@ -2013,39 +2189,6 @@ public class SProgramImpl implements SProgram {
             ok = false;
         }
 
-        return ok;
-    }
-
-    private boolean validateLabelForInstruction(Element instEl, int index) {
-        boolean ok = true;
-        String where = "S-Instruction[" + (index + 1) + "]: ";
-
-        List<Element> labels = childElements(instEl, "S-Label");
-        if (labels.isEmpty()) {
-            return true; // אופציונלי
-        }
-        if (labels.size() > 1) {
-            // Multiple <S-Label> elements found
-            ok = false;
-        }
-
-        Element labelEl = labels.get(0);
-        String raw = labelEl.getTextContent();
-        String val = (raw == null) ? "" : raw.trim();
-
-        if (val.isEmpty()) {
-            // <S-Label> must not be empty when present
-            ok = false;
-        } else {
-            if (val.chars().anyMatch(Character::isWhitespace)) {
-                // <S-Label> must not contain spaces
-                ok = false;
-            }
-            if (!val.matches("^L[0-9]+$")) {
-                // <S-Label> must match ^L[0-9]+$
-                ok = false;
-            }
-        }
         return ok;
     }
 
@@ -2104,81 +2247,6 @@ public class SProgramImpl implements SProgram {
             return FixedLabel.EXIT;
         // מצפה ל־L\d+
         return pool.computeIfAbsent(name, n -> new LabelImpl(Integer.parseInt(n.substring(1)), 0));
-    }
-
-    private boolean validateLabelReferences(Element sInstructions) {
-        // Collect declared labels (from <S-Label> on lines)
-        Set<String> declared = new HashSet<>();
-        List<Element> all = childElements(sInstructions, "S-Instruction");
-        for (Element instEl : all) {
-            List<Element> lbls = childElements(instEl, "S-Label");
-            if (!lbls.isEmpty()) {
-                String raw = lbls.get(0).getTextContent();
-                String val = (raw == null) ? "" : raw.trim();
-                if (!val.isEmpty()) {
-                    declared.add(val);
-                }
-            }
-        }
-
-        boolean ok = true;
-
-        // Collect and check referenced labels from arguments
-        for (int i = 0; i < all.size(); i++) {
-            Element instEl = all.get(i);
-            String where = "S-Instruction[" + (i + 1) + "]: ";
-
-            String instrName = instEl.hasAttribute("name") ? instEl.getAttribute("name").trim() : "";
-
-            // Find the (optional) <S-Instruction-Arguments> block
-            Element argsBlock = getSingleChild(instEl, "S-Instruction-Arguments");
-            if (argsBlock == null)
-                continue; // nothing to check
-
-            List<Element> args = childElements(argsBlock, "S-Instruction-Argument");
-            for (Element arg : args) {
-                String n = arg.getAttribute("name");
-                String v = arg.getAttribute("value");
-                if (n == null)
-                    n = "";
-                if (v == null)
-                    v = "";
-                n = n.trim();
-                v = v.trim();
-
-                if (!LABEL_TARGET_ARGS.contains(n)) {
-                    continue; // not a label target argument
-                }
-                if (v.isEmpty()) {
-                    // Already covered by other checks usually; still helpful to surface
-                    // Label argument invalid
-                    ok = false;
-                    continue;
-                }
-
-                if ("EXIT".equals(v)) {
-                    // EXIT is a virtual sink, not a real line label.
-                    continue;
-                }
-
-                // Ensure it is syntactically an L# label (you already enforce this on
-                // <S-Label>).
-                if (!v.matches("^L[0-9]+$")) {
-                    // Label argument must match ^L[0-9]+$
-                    ok = false;
-                    continue;
-                }
-
-                // Cross-reference: does this referenced label appear anywhere as a declared
-                // line label?
-                if (!declared.contains(v)) {
-                    // References label via argument but label not found
-                    ok = false;
-                }
-            }
-        }
-
-        return ok;
     }
 
     private void reseedNameRegistryFromProgram() {
